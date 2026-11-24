@@ -450,7 +450,7 @@ mod tests {
         MatchState {
             settings: MatchSettings {
                 mode,
-                map: MapId::Dockyard,
+                map: MapId::DOCKYARD,
                 ranked: false,
             },
             ..default()

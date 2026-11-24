@@ -4559,10 +4559,28 @@ version = "0.4.0"
 dependencies = [
  "arboard",
  "bevy",
+ "ink-map",
  "serde",
  "serde_json",
  "tailcat",
  "tokio",
+]
+
+[[package]]
+name = "ink-map"
+version = "0.1.0"
+dependencies = [
+ "bevy_math",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ink-map-editor"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ink-map",
 ]
 
 [[package]]

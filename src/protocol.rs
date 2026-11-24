@@ -168,25 +168,86 @@ impl GameMode {
     }
 }
 
-/// The five fields.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub enum MapId {
-    #[default]
-    SplatPark,
-    Dockyard,
-    RingRoad,
-    ThreeLanes,
-    PineHollow,
+/// Which map: the map file's name without `.json`, at most 31 bytes. The
+/// built-in maps keep the names they had when this was an enum, so their ids
+/// look the same on the wire as before. Small and `Copy` so it can ride in
+/// `MatchSettings`.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MapId {
+    len: u8,
+    bytes: [u8; 31],
 }
 
 impl MapId {
-    pub const ALL: [MapId; 5] = [
-        MapId::SplatPark,
-        MapId::Dockyard,
-        MapId::RingRoad,
-        MapId::ThreeLanes,
-        MapId::PineHollow,
+    pub const SPLAT_PARK: MapId = MapId::new("SplatPark");
+    pub const DOCKYARD: MapId = MapId::new("Dockyard");
+    pub const RING_ROAD: MapId = MapId::new("RingRoad");
+    pub const THREE_LANES: MapId = MapId::new("ThreeLanes");
+    pub const PINE_HOLLOW: MapId = MapId::new("PineHollow");
+
+    /// The maps that come with the game.
+    pub const BUILT_IN: [MapId; 5] = [
+        MapId::SPLAT_PARK,
+        MapId::DOCKYARD,
+        MapId::RING_ROAD,
+        MapId::THREE_LANES,
+        MapId::PINE_HOLLOW,
     ];
+
+    /// An id from a name (cut to 31 bytes, on a character boundary).
+    pub const fn new(name: &str) -> Self {
+        let src = name.as_bytes();
+        let mut len = if src.len() < 31 { src.len() } else { 31 };
+        // Don't split a character.
+        while len > 0 && len < src.len() && (src[len] & 0xC0) == 0x80 {
+            len -= 1;
+        }
+        let mut bytes = [0u8; 31];
+        let mut i = 0;
+        while i < len {
+            bytes[i] = src[i];
+            i += 1;
+        }
+        Self {
+            len: len as u8,
+            bytes,
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.bytes[..self.len as usize]).unwrap_or("")
+    }
+}
+
+impl Default for MapId {
+    fn default() -> Self {
+        MapId::SPLAT_PARK
+    }
+}
+
+impl std::fmt::Debug for MapId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl std::fmt::Display for MapId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl Serialize for MapId {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for MapId {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let name = std::borrow::Cow::<'de, str>::deserialize(d)?;
+        Ok(MapId::new(&name))
+    }
 }
 
 /// What the host picked: mode, map, and whether it counts for ranked.

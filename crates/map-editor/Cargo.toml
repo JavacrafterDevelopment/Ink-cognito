@@ -1,0 +1,14 @@
+[package]
+name = "ink-map-editor"
+version = "0.1.0"
+edition = "2024"
+description = "The Ink-cognito map editor: a separate program for building map files the game plays."
+publish = false
+
+[[bin]]
+name = "ink-map-editor"
+path = "src/main.rs"
+
+[dependencies]
+bevy = "0.20"
+ink-map = { path = "../ink-map" }

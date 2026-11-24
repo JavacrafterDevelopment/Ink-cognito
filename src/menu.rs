@@ -2,7 +2,7 @@ use crate::{
     AppState, Overlay,
     game_mode::MatchSetup,
     hub::{self, HubPlay},
-    maps::{self, CurrentMap},
+    maps::{CurrentMap, MapLibrary},
     net::{NetRole, NetworkState, Transport},
     portside::{Portside, Session, Status},
     protocol::{GameMode, MapId, MatchSettings},
@@ -625,6 +625,7 @@ fn spawn_main_menu(
     mut overlay: ResMut<Overlay>,
     assets: Res<AssetServer>,
     kit_fonts: Res<UiKit>,
+    library: Res<MapLibrary>,
 ) {
     menu.screen = MenuScreen::Home;
     *overlay = Overlay::default();
@@ -1039,7 +1040,7 @@ fn spawn_main_menu(
             });
         });
 
-    spawn_play_screen(&mut commands, &assets, &kit_fonts);
+    spawn_play_screen(&mut commands, &assets, &kit_fonts, &library);
 }
 
 /// A tile's box: a thin border and square-ish corners.
@@ -1463,7 +1464,12 @@ fn fit_cover_images(
 }
 
 /// The play screen: mode cards and the map picker over a live view of the map.
-fn spawn_play_screen(commands: &mut Commands, assets: &AssetServer, fonts: &UiKit) {
+fn spawn_play_screen(
+    commands: &mut Commands,
+    assets: &AssetServer,
+    fonts: &UiKit,
+    library: &MapLibrary,
+) {
     let k = |p: &str| kit(assets, p);
 
     // The picked map's name over the 3D preview.
@@ -1631,16 +1637,20 @@ fn spawn_play_screen(commands: &mut Commands, assets: &AssetServer, fonts: &UiKi
             panel
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
+                    flex_wrap: FlexWrap::Wrap,
                     column_gap: Val::Px(10.0),
+                    row_gap: Val::Px(8.0),
                     ..default()
                 })
                 .with_children(|row| {
-                    for id in MapId::ALL {
-                        let m = maps::meta(id);
+                    // The built-in maps, then any custom maps (they wrap onto more rows).
+                    for id in library.ids() {
+                        let m = library.meta(id);
                         row.spawn((
                             Node {
                                 flex_grow: 1.0,
                                 flex_basis: Val::Px(0.0),
+                                min_width: Val::Px(150.0),
                                 height: Val::Px(52.0),
                                 padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
                                 flex_direction: FlexDirection::Column,
@@ -1732,6 +1742,7 @@ fn show_menu_screens(menu: Res<MenuState>, mut q: Query<(&ShowOn, &mut Node)>) {
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn update_play_screen(
     assets: Res<AssetServer>,
+    library: Res<MapLibrary>,
     setup: Res<MatchSetup>,
     rank: Res<Rank>,
     mut cards: Query<(&ModeCard, &mut ImageNode), Without<MapTile>>,
@@ -1786,7 +1797,7 @@ fn update_play_screen(
             TEXT_PRIMARY
         };
     }
-    let m = maps::meta(setup.0.map);
+    let m = library.meta(setup.0.map);
     for (part, mut text) in &mut info {
         text.0 = match part {
             MapInfoText::Name => m.name.to_uppercase(),
@@ -1795,7 +1806,7 @@ fn update_play_screen(
                 m.style.to_uppercase(),
                 m.size.to_uppercase()
             ),
-            MapInfoText::Blurb => m.blurb.to_string(),
+            MapInfoText::Blurb => m.blurb.clone(),
         };
     }
     if let Ok(mut text) = summary.single_mut() {
