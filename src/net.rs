@@ -1,5 +1,5 @@
 use crate::protocol::{
-    ClientDatagram, ClientMessage, GAME_PORT, PING_EVERY, PlayerId, PlayerSnapshot,
+    ClientDatagram, ClientMessage, GAME_PORT, PING_EVERY, PlayerId, PlayerSnapshot, PlayerState,
     SILENCE_TIMEOUT, ServerDatagram, ServerMessage, encode_server_datagrams, player_color,
     read_frame, spawn_position, write_frame,
 };
@@ -50,7 +50,11 @@ pub enum NetRole {
 /// Commands sent from the Bevy game loop to the background networking tasks.
 #[derive(Debug)]
 enum OutboundCommand {
-    UpdateLocalTransform { position: [f32; 3], yaw: f32 },
+    UpdateLocalTransform {
+        position: [f32; 3],
+        yaw: f32,
+        state: PlayerState,
+    },
 }
 
 /// Events produced by the background Tailcat networking tasks for Bevy to process.
@@ -234,12 +238,14 @@ impl NetworkState {
         });
     }
 
-    /// Sends the local player's position and facing yaw to the network layer.
-    pub fn send_local_transform(&self, position: [f32; 3], yaw: f32) {
+    /// Sends the local player's position, facing yaw and state to the network layer.
+    pub fn send_local_transform(&self, position: [f32; 3], yaw: f32, state: PlayerState) {
         if let Some(session) = &self.session {
-            let _ = session
-                .tx_out
-                .send(OutboundCommand::UpdateLocalTransform { position, yaw });
+            let _ = session.tx_out.send(OutboundCommand::UpdateLocalTransform {
+                position,
+                yaw,
+                state,
+            });
         }
     }
 
@@ -324,6 +330,7 @@ async fn run_host_session(
         position: spawn_position(0),
         yaw: 0.0,
         color: player_color(0),
+        state: PlayerState::default(),
     };
 
     let shared = Arc::new(AsyncMutex::new(HostSharedState {
@@ -386,8 +393,8 @@ async fn run_host_session(
                 return;
             }
             cmd = rx_out.recv() => match cmd {
-                Some(OutboundCommand::UpdateLocalTransform { position, yaw }) => {
-                    set_host_transform(&shared, position, yaw).await;
+                Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
+                    set_host_transform(&shared, position, yaw, state).await;
                 }
                 None => {
                     host_goodbye(&shared, &shutdown, udp_task).await;
@@ -422,8 +429,8 @@ async fn run_host_session(
             }
             cmd = rx_out.recv() => {
                 match cmd {
-                    Some(OutboundCommand::UpdateLocalTransform { position, yaw }) => {
-                        set_host_transform(&shared, position, yaw).await;
+                    Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
+                        set_host_transform(&shared, position, yaw, state).await;
                     }
                     None => break,
                 }
@@ -467,11 +474,13 @@ async fn set_host_transform(
     shared: &Arc<AsyncMutex<HostSharedState>>,
     position: [f32; 3],
     yaw: f32,
+    state: PlayerState,
 ) {
     let mut guard = shared.lock().await;
     if let Some(host) = guard.players.get_mut(&0) {
         host.position = position;
         host.yaw = yaw;
+        host.state = state;
     }
 }
 
@@ -522,6 +531,7 @@ async fn run_udp_host(
                             position: spawn_position(id),
                             yaw: 0.0,
                             color: player_color(id),
+                            state: PlayerState::default(),
                         };
                         let (client_tx, mut client_rx) = mpsc::unbounded_channel::<ServerMessage>();
                         let welcome = {
@@ -550,7 +560,7 @@ async fn run_udp_host(
                             }
                         });
                     }
-                    ClientDatagram::Msg(ClientMessage::UpdateTransform { position, yaw }) => {
+                    ClientDatagram::Msg(ClientMessage::UpdateTransform { position, yaw, state }) => {
                         let Some(peer) = peers.get(&from) else {
                             // A player we dropped (or never met): ask it to join again.
                             if let Ok(bye) = serde_json::to_vec(&ServerDatagram::Bye) {
@@ -563,6 +573,7 @@ async fn run_udp_host(
                             if let Some(player) = guard.players.get_mut(&peer.id) {
                                 player.position = position;
                                 player.yaw = yaw;
+                                player.state = state;
                             }
                             guard.snapshot_list()
                         };
@@ -617,6 +628,7 @@ async fn handle_host_client(
         position: spawn_position(player_id),
         yaw: 0.0,
         color: player_color(player_id),
+        state: PlayerState::default(),
     };
 
     let (client_tx, mut client_rx) = mpsc::unbounded_channel::<ServerMessage>();
@@ -665,12 +677,13 @@ async fn handle_host_client(
             frame = frames.recv() => {
                 last_heard = Instant::now();
                 match frame {
-                    Some(ClientMessage::UpdateTransform { position, yaw }) => {
+                    Some(ClientMessage::UpdateTransform { position, yaw, state }) => {
                         let players = {
                             let mut guard = shared.lock().await;
                             if let Some(player) = guard.players.get_mut(&player_id) {
                                 player.position = position;
                                 player.yaw = yaw;
+                                player.state = state;
                             }
                             guard.snapshot_list()
                         };
@@ -794,7 +807,7 @@ async fn run_client_session(
         }
     }
 
-    let mut latest_transform: Option<([f32; 3], f32)> = None;
+    let mut latest_transform: Option<([f32; 3], f32, PlayerState)> = None;
     let mut send_tick = tokio::time::interval(Duration::from_millis(33));
     send_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut ping_tick = tokio::time::interval(PING_EVERY);
@@ -806,15 +819,15 @@ async fn run_client_session(
             _ = shutdown.notified() => break None,
             cmd = rx_out.recv() => {
                 match cmd {
-                    Some(OutboundCommand::UpdateLocalTransform { position, yaw }) => {
-                        latest_transform = Some((position, yaw));
+                    Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
+                        latest_transform = Some((position, yaw, state));
                     }
                     None => break None,
                 }
             }
             _ = send_tick.tick() => {
-                if let Some((position, yaw)) = latest_transform.take()
-                    && write_frame(&mut writer, &ClientMessage::UpdateTransform { position, yaw })
+                if let Some((position, yaw, state)) = latest_transform.take()
+                    && write_frame(&mut writer, &ClientMessage::UpdateTransform { position, yaw, state })
                         .await
                         .is_err()
                 {
@@ -938,7 +951,7 @@ async fn run_udp_client_session(
         players: welcome_players,
     });
 
-    let mut latest_transform: Option<([f32; 3], f32)> = None;
+    let mut latest_transform: Option<([f32; 3], f32, PlayerState)> = None;
     let mut send_tick = tokio::time::interval(Duration::from_millis(33));
     send_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut keepalive = tokio::time::interval(Duration::from_secs(2));
@@ -948,14 +961,14 @@ async fn run_udp_client_session(
         tokio::select! {
             _ = shutdown.notified() => break None,
             cmd = rx_out.recv() => match cmd {
-                Some(OutboundCommand::UpdateLocalTransform { position, yaw }) => {
-                    latest_transform = Some((position, yaw));
+                Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
+                    latest_transform = Some((position, yaw, state));
                 }
                 None => break None,
             },
             _ = send_tick.tick() => {
-                if let Some((position, yaw)) = latest_transform.take() {
-                    let msg = ClientDatagram::Msg(ClientMessage::UpdateTransform { position, yaw });
+                if let Some((position, yaw, state)) = latest_transform.take() {
+                    let msg = ClientDatagram::Msg(ClientMessage::UpdateTransform { position, yaw, state });
                     let _ = sock.send(&send(&msg)).await;
                 }
             }
@@ -1044,8 +1057,8 @@ mod tests {
         assert_eq!(client_id, 1);
 
         // Move both players and verify transforms sync in both directions.
-        host.send_local_transform([4.0, 1.0, -2.5], 1.25);
-        client.send_local_transform([-3.0, 1.0, 5.5], -0.75);
+        host.send_local_transform([4.0, 1.0, -2.5], 1.25, PlayerState::default());
+        client.send_local_transform([-3.0, 1.0, 5.5], -0.75, PlayerState::default());
 
         let mut host_saw_client = false;
         let mut client_saw_host = false;
@@ -1298,8 +1311,8 @@ mod tests {
             clients.push(client);
         }
 
-        host.send_local_transform([4.0, 1.0, -2.5], 1.25);
-        clients[0].send_local_transform([-3.0, 1.0, 5.5], -0.75);
+        host.send_local_transform([4.0, 1.0, -2.5], 1.25, PlayerState::default());
+        clients[0].send_local_transform([-3.0, 1.0, 5.5], -0.75, PlayerState::default());
 
         let mut host_saw_client = false;
         let mut other_saw_client = false;

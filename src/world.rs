@@ -1,34 +1,34 @@
 use crate::{
-    AppState,
+    AppState, Overlay,
+    arena::{Colliders, FIELD_HALF, setup_arena},
+    combat::{Combat, LocalState},
     net::{NetEvent, NetworkState},
-    protocol::{PlayerId, PlayerSnapshot, player_color, spawn_position},
+    player_model::{PlayerPose, spawn_player_model},
+    protocol::{PlayerId, PlayerSnapshot, PlayerState, Team, spawn_position},
 };
 use bevy::{
-    asset::RenderAssetUsages,
+    camera::{PerspectiveProjection, Projection},
     input::mouse::MouseMotion,
     picking::hover::HoverMap,
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 use std::collections::{HashMap, HashSet};
 
-pub const BASEPLATE_SIZE: f32 = 60.0;
-const BASEPLATE_HALF: f32 = BASEPLATE_SIZE * 0.5;
-const PLAYER_RADIUS: f32 = 0.42;
-const PLAYER_CYLINDER_LENGTH: f32 = 0.96;
-/// Center Y of the player capsule when standing on the y = 0.0 baseplate.
-const PLAYER_GROUND_Y: f32 = PLAYER_RADIUS + PLAYER_CYLINDER_LENGTH * 0.5;
+pub const PLAYER_RADIUS: f32 = 0.38;
+/// Center Y of the player's body when standing on the ground (the model is 1.8 m tall).
+pub const PLAYER_GROUND_Y: f32 = 0.9;
+/// Eye height above the body's center.
+pub const EYE_OFFSET: f32 = 0.72;
 
-const WALK_SPEED: f32 = 7.0;
-const SPRINT_SPEED: f32 = 12.0;
-const JUMP_SPEED: f32 = 7.8;
+const WALK_SPEED: f32 = 6.5;
+const SPRINT_SPEED: f32 = 10.0;
+const JUMP_SPEED: f32 = 7.2;
 const GRAVITY: f32 = 22.0;
-/// Eye height above the capsule's center (the visor sits about here).
-const EYE_OFFSET: f32 = 0.42;
 const MOUSE_SENSITIVITY: f32 = 0.0022;
-const KEY_TURN_SPEED: f32 = 2.2;
 const MAX_PITCH: f32 = 1.5;
+/// Vertical field of view, radians.
+pub const BASE_FOV: f32 = 1.13;
 
 pub struct WorldPlugin;
 
@@ -37,10 +37,10 @@ impl Plugin for WorldPlugin {
         app.insert_resource(ClearColor(Color::srgb(0.55, 0.76, 0.96)))
             .insert_resource(GlobalAmbientLight {
                 color: Color::srgb(0.88, 0.93, 1.0),
-                brightness: 340.0,
+                brightness: 380.0,
                 ..default()
             })
-            .add_systems(Startup, setup_world)
+            .add_systems(Startup, (setup_world, setup_arena))
             .add_systems(Update, poll_network_events)
             .add_systems(
                 Update,
@@ -50,20 +50,33 @@ impl Plugin for WorldPlugin {
                 OnEnter(AppState::InGame),
                 (spawn_in_game_players, grab_cursor),
             )
-            .add_systems(OnExit(AppState::InGame), release_cursor)
+            .add_systems(OnExit(AppState::InGame), (release_cursor, reset_camera_fov))
             .add_systems(
                 Update,
                 (
-                    toggle_cursor_grab,
+                    keep_cursor_in_sync,
                     move_local_player,
                     update_game_camera,
                     sync_remote_players,
                     interpolate_remote_players,
                 )
                     .chain()
+                    .in_set(WorldSystems::Move)
+                    .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(
+                Update,
+                send_local_state
+                    .after(WorldSystems::Move)
+                    .after(crate::combat::CombatSystems)
                     .run_if(in_state(AppState::InGame)),
             );
     }
+}
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum WorldSystems {
+    Move,
 }
 
 #[derive(Component)]
@@ -83,6 +96,8 @@ pub struct LocalPlayer {
     pub velocity_y: f32,
     pub grounded: bool,
     pub yaw: f32,
+    /// Horizontal speed this frame (for footsteps).
+    pub speed: f32,
 }
 
 #[derive(Component)]
@@ -90,280 +105,159 @@ pub struct RemotePlayer {
     pub id: PlayerId,
     pub target_pos: Vec3,
     pub target_yaw: f32,
+    pub state: PlayerState,
+    /// The shots / deaths counters already acted on.
+    pub seen_shots: u32,
+    pub seen_deaths: u32,
+    /// Their character model (child entity).
+    pub model: Entity,
+    /// Smoothed horizontal speed, for the walk animation.
+    pub speed: f32,
+    pub last_pos: Vec3,
 }
 
-fn setup_world(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-) {
+impl RemotePlayer {
+    pub fn alive(&self) -> bool {
+        self.state.health > 0.0
+    }
+}
+
+fn setup_world(mut commands: Commands) {
     // Sunlight with soft shadows.
     commands.spawn((
         DirectionalLight {
             color: Color::srgb(1.0, 0.97, 0.90),
-            illuminance: 16_000.0,
+            illuminance: 14_000.0,
             shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(24.0, 38.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    // Main 3D camera (orbits baseplate on menu, follows local player in game).
+    // Main 3D camera (orbits the field on the menu, first person in game).
     commands.spawn((
         Camera3d::default(),
+        Projection::Perspective(PerspectiveProjection {
+            fov: BASE_FOV,
+            near: 0.05,
+            ..default()
+        }),
         Transform::from_xyz(0.0, 14.0, 24.0).looking_at(Vec3::ZERO, Vec3::Y),
         MainCamera,
         CameraRig::default(),
     ));
-
-    // Procedural grid baseplate texture.
-    let grid_texture = images.add(build_baseplate_texture());
-
-    // 3D baseplate slab whose top surface sits cleanly at y = 0.0.
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(BASEPLATE_SIZE, 1.0, BASEPLATE_SIZE))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color_texture: Some(grid_texture),
-            perceptual_roughness: 0.82,
-            metallic: 0.04,
-            ..default()
-        })),
-        Transform::from_xyz(0.0, -0.5, 0.0),
-    ));
-
-    // Subtle raised border trims around the perimeter of the baseplate.
-    let border_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.24, 0.29, 0.36),
-        perceptual_roughness: 0.65,
-        metallic: 0.15,
-        ..default()
-    });
-    let trim_thickness = 0.6;
-    let trim_height = 0.22;
-    let edge_offset = BASEPLATE_HALF + trim_thickness * 0.5;
-
-    let ns_mesh = meshes.add(Cuboid::new(
-        BASEPLATE_SIZE + trim_thickness * 2.0,
-        trim_height,
-        trim_thickness,
-    ));
-    let ew_mesh = meshes.add(Cuboid::new(trim_thickness, trim_height, BASEPLATE_SIZE));
-
-    for z in [-edge_offset, edge_offset] {
-        commands.spawn((
-            Mesh3d(ns_mesh.clone()),
-            MeshMaterial3d(border_mat.clone()),
-            Transform::from_xyz(0.0, trim_height * 0.5 - 0.05, z),
-        ));
-    }
-    for x in [-edge_offset, edge_offset] {
-        commands.spawn((
-            Mesh3d(ew_mesh.clone()),
-            MeshMaterial3d(border_mat.clone()),
-            Transform::from_xyz(x, trim_height * 0.5 - 0.05, 0.0),
-        ));
-    }
-
-    // Four low corner markers for spatial orientation.
-    let pillar_mesh = meshes.add(Cylinder::new(0.45, 1.6));
-    let pillar_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.32, 0.38, 0.48),
-        perceptual_roughness: 0.5,
-        metallic: 0.2,
-        ..default()
-    });
-    let corner = BASEPLATE_HALF - 1.2;
-    for (x, z) in [
-        (-corner, -corner),
-        (corner, -corner),
-        (-corner, corner),
-        (corner, corner),
-    ] {
-        commands.spawn((
-            Mesh3d(pillar_mesh.clone()),
-            MeshMaterial3d(pillar_mat.clone()),
-            Transform::from_xyz(x, 0.8, z),
-        ));
-    }
-
-    // Center spawn pad disk.
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(2.2, 0.06))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(0.28, 0.52, 0.78),
-            perceptual_roughness: 0.45,
-            metallic: 0.1,
-            ..default()
-        })),
-        Transform::from_xyz(0.0, 0.03, 0.0),
-    ));
-}
-
-fn build_baseplate_texture() -> Image {
-    const TEX_SIZE: usize = 512;
-    const TILES: usize = 30; // 2m x 2m tiles across the 60m baseplate
-    let mut data = vec![0u8; TEX_SIZE * TEX_SIZE * 4];
-
-    for y in 0..TEX_SIZE {
-        for x in 0..TEX_SIZE {
-            let tx = (x * TILES) / TEX_SIZE;
-            let ty = (y * TILES) / TEX_SIZE;
-            let fx = (x * TILES) % TEX_SIZE;
-            let fy = (y * TILES) % TEX_SIZE;
-
-            let is_line = fx < 16 || fy < 16;
-            let is_even = (tx + ty) % 2 == 0;
-
-            let (r, g, b) = if is_line {
-                (108u8, 120u8, 134u8)
-            } else if is_even {
-                (156u8, 168u8, 180u8)
-            } else {
-                (142u8, 154u8, 167u8)
-            };
-
-            let idx = (y * TEX_SIZE + x) * 4;
-            data[idx] = r;
-            data[idx + 1] = g;
-            data[idx + 2] = b;
-            data[idx + 3] = 255;
-        }
-    }
-
-    Image::new(
-        Extent3d {
-            width: TEX_SIZE as u32,
-            height: TEX_SIZE as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD,
-    )
 }
 
 fn animate_menu_camera(time: Res<Time>, mut camera_q: Query<&mut Transform, With<MainCamera>>) {
     let Ok(mut transform) = camera_q.single_mut() else {
         return;
     };
-    let angle = time.elapsed_secs() * 0.14;
-    let radius = 26.0;
-    let pos = Vec3::new(angle.cos() * radius, 13.5, angle.sin() * radius);
+    let angle = time.elapsed_secs() * 0.08;
+    let radius = 30.0;
+    let pos = Vec3::new(angle.cos() * radius, 12.0, angle.sin() * radius);
     *transform = Transform::from_translation(pos).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y);
 }
 
-fn spawn_player_mesh(
+fn reset_camera_fov(mut camera_q: Query<&mut Projection, With<MainCamera>>) {
+    if let Ok(mut projection) = camera_q.single_mut()
+        && let Projection::Perspective(p) = projection.as_mut()
+    {
+        p.fov = BASE_FOV;
+    }
+}
+
+/// Faces a fresh spawn toward the middle of the field.
+pub fn spawn_yaw(id: PlayerId) -> f32 {
+    match Team::of(id) {
+        Team::Blue => 0.0,
+        Team::Orange => std::f32::consts::PI,
+    }
+}
+
+pub fn spawn_point(id: PlayerId) -> Vec3 {
+    let p = spawn_position(id);
+    Vec3::new(p[0], PLAYER_GROUND_Y, p[2])
+}
+
+fn spawn_remote(
     commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    color: [f32; 3],
-    pos: Vec3,
-    yaw: f32,
+    asset_server: &AssetServer,
+    snapshot: &PlayerSnapshot,
 ) -> Entity {
-    let body_mesh = meshes.add(Capsule3d::new(PLAYER_RADIUS, PLAYER_CYLINDER_LENGTH));
-    let body_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(color[0], color[1], color[2]),
-        perceptual_roughness: 0.45,
-        metallic: 0.05,
-        ..default()
-    });
-
-    let visor_mesh = meshes.add(Cuboid::new(0.54, 0.22, 0.18));
-    let visor_mat = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.09, 0.11, 0.15),
-        perceptual_roughness: 0.18,
-        metallic: 0.35,
-        ..default()
-    });
-
-    commands
+    let pos = Vec3::from_array(snapshot.position);
+    let root = commands
         .spawn((
-            Mesh3d(body_mesh),
-            MeshMaterial3d(body_mat),
-            Transform::from_translation(pos).with_rotation(Quat::from_rotation_y(yaw)),
+            Transform::from_translation(pos).with_rotation(Quat::from_rotation_y(snapshot.yaw)),
+            Visibility::default(),
             DespawnOnExit(AppState::InGame),
         ))
-        .with_children(|parent| {
-            // Front-facing visor so players can clearly see which direction everyone is looking.
-            parent.spawn((
-                Mesh3d(visor_mesh),
-                MeshMaterial3d(visor_mat),
-                Transform::from_xyz(0.0, 0.38, -0.34),
-            ));
-        })
-        .id()
+        .id();
+    let model = spawn_player_model(commands, asset_server, Team::of(snapshot.id));
+    commands.entity(model).insert((
+        Transform::from_xyz(0.0, -PLAYER_GROUND_Y, 0.0)
+            .with_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
+        PlayerPose {
+            pitch: snapshot.state.pitch,
+            speed: 0.0,
+            loadout: snapshot.state.loadout,
+        },
+    ));
+    commands.entity(root).add_child(model);
+    commands.entity(root).insert(RemotePlayer {
+        id: snapshot.id,
+        target_pos: pos,
+        target_yaw: snapshot.yaw,
+        state: snapshot.state,
+        seen_shots: snapshot.state.shots,
+        seen_deaths: snapshot.state.deaths,
+        model,
+        speed: 0.0,
+        last_pos: pos,
+    });
+    root
 }
 
 fn spawn_in_game_players(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
     net: Res<NetworkState>,
     mut camera_q: Query<&mut CameraRig, With<MainCamera>>,
+    mut local_state: ResMut<LocalState>,
+    mut combat: ResMut<Combat>,
+    loadout: Res<crate::loadout::Loadout>,
 ) {
     let local_id = net.local_player_id.unwrap_or(0);
-    let local_snapshot = net
-        .players
-        .get(&local_id)
-        .copied()
-        .unwrap_or(PlayerSnapshot {
-            id: local_id,
-            position: spawn_position(local_id),
-            yaw: 0.0,
-            color: player_color(local_id),
-        });
+    let spawn_pos = spawn_point(local_id);
+    let yaw = spawn_yaw(local_id);
 
-    let spawn_pos = Vec3::new(
-        local_snapshot.position[0],
-        PLAYER_GROUND_Y,
-        local_snapshot.position[2],
-    );
-    let local_entity = spawn_player_mesh(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
-        local_snapshot.color,
-        spawn_pos,
-        local_snapshot.yaw,
-    );
-    // First person: the camera is inside our own capsule, so don't draw it.
-    commands.entity(local_entity).insert((
+    // First person: our own body isn't drawn, the camera is the player.
+    commands.spawn((
+        Transform::from_translation(spawn_pos).with_rotation(Quat::from_rotation_y(yaw)),
         LocalPlayer {
             id: local_id,
             velocity_y: 0.0,
             grounded: true,
-            yaw: local_snapshot.yaw,
+            yaw,
+            speed: 0.0,
         },
-        Visibility::Hidden,
+        DespawnOnExit(AppState::InGame),
     ));
+
+    *local_state = LocalState(PlayerState {
+        loadout: loadout.pack(),
+        ..default()
+    });
+    combat.reset(&loadout.stats());
 
     for (&id, snapshot) in &net.players {
         if id == local_id {
             continue;
         }
-        let pos = Vec3::from_array(snapshot.position);
-        let entity = spawn_player_mesh(
-            &mut commands,
-            &mut meshes,
-            &mut materials,
-            snapshot.color,
-            pos,
-            snapshot.yaw,
-        );
-        commands.entity(entity).insert(RemotePlayer {
-            id,
-            target_pos: pos,
-            target_yaw: snapshot.yaw,
-        });
+        spawn_remote(&mut commands, &asset_server, snapshot);
     }
 
     if let Ok(mut rig) = camera_q.single_mut() {
-        *rig = CameraRig {
-            yaw: local_snapshot.yaw,
-            pitch: 0.0,
-        };
+        *rig = CameraRig { yaw, pitch: 0.0 };
     }
 }
 
@@ -456,33 +350,41 @@ fn poll_network_events(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn move_local_player(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
+    overlay: Res<Overlay>,
+    colliders: Res<Colliders>,
+    combat: Res<Combat>,
+    local_state: Res<LocalState>,
     camera_q: Query<&CameraRig, With<MainCamera>>,
     mut player_q: Query<(&mut Transform, &mut LocalPlayer)>,
-    mut net: ResMut<NetworkState>,
 ) {
     let Ok((mut transform, mut player)) = player_q.single_mut() else {
         return;
     };
     let rig_yaw = camera_q.single().map(|r| r.yaw).unwrap_or(0.0);
+    let alive = local_state.0.health > 0.0;
 
     let mut input_dir = Vec2::ZERO;
-    if keys.pressed(KeyCode::KeyW) || keys.pressed(KeyCode::ArrowUp) {
-        input_dir.y += 1.0;
-    }
-    if keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown) {
-        input_dir.y -= 1.0;
-    }
-    if keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) {
-        input_dir.x += 1.0;
-    }
-    if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
-        input_dir.x -= 1.0;
+    if alive && !overlay.blocks_input() {
+        if keys.pressed(KeyCode::KeyW) || keys.pressed(KeyCode::ArrowUp) {
+            input_dir.y += 1.0;
+        }
+        if keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown) {
+            input_dir.y -= 1.0;
+        }
+        if keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) {
+            input_dir.x += 1.0;
+        }
+        if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
+            input_dir.x -= 1.0;
+        }
     }
 
     let dt = time.delta_secs().min(0.05);
+    let before = transform.translation;
 
     if input_dir.length_squared() > 0.0 {
         let input_dir = input_dir.normalize();
@@ -491,11 +393,13 @@ fn move_local_player(
         let right = Vec3::new(rig_yaw.cos(), 0.0, -rig_yaw.sin());
         let move_vec = (forward * input_dir.y + right * input_dir.x).normalize_or_zero();
 
-        let speed = if keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight) {
-            SPRINT_SPEED
-        } else {
-            WALK_SPEED
-        };
+        let sprinting = (keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight))
+            && !combat.aiming;
+        let mut speed = if sprinting { SPRINT_SPEED } else { WALK_SPEED };
+        speed *= combat.stats.mobility;
+        if combat.aiming {
+            speed *= 0.6;
+        }
         transform.translation += move_vec * speed * dt;
     }
 
@@ -504,7 +408,7 @@ fn move_local_player(
     transform.rotation = Quat::from_rotation_y(player.yaw);
 
     // Jump & gravity.
-    if player.grounded && keys.just_pressed(KeyCode::Space) {
+    if alive && !overlay.blocks_input() && player.grounded && keys.just_pressed(KeyCode::Space) {
         player.velocity_y = JUMP_SPEED;
         player.grounded = false;
     }
@@ -512,58 +416,100 @@ fn move_local_player(
     player.velocity_y -= GRAVITY * dt;
     transform.translation.y += player.velocity_y * dt;
 
-    if transform.translation.y <= PLAYER_GROUND_Y {
-        transform.translation.y = PLAYER_GROUND_Y;
+    // Bunkers push us out; their tops can be stood on.
+    let mut pos = transform.translation;
+    let feet = pos.y - PLAYER_GROUND_Y;
+    let top = pos.y + PLAYER_GROUND_Y;
+    let floor = colliders.resolve_player(&mut pos, PLAYER_RADIUS, feet, top);
+    transform.translation = pos;
+
+    let ground = floor + PLAYER_GROUND_Y;
+    if transform.translation.y <= ground {
+        transform.translation.y = ground;
         player.velocity_y = 0.0;
         player.grounded = true;
+    } else if transform.translation.y > ground + 0.05 {
+        player.grounded = false;
     }
 
-    // Keep player on the baseplate.
-    let limit = BASEPLATE_HALF - PLAYER_RADIUS - 0.15;
+    // Keep the player inside the nets.
+    let limit = FIELD_HALF - PLAYER_RADIUS - 0.15;
     transform.translation.x = transform.translation.x.clamp(-limit, limit);
     transform.translation.z = transform.translation.z.clamp(-limit, limit);
 
+    let moved = (transform.translation - before).with_y(0.0).length();
+    player.speed = if dt > 0.0 { moved / dt } else { 0.0 };
+}
+
+/// Sends where we are and our state (health, shots, ...) once everything this
+/// frame has had its say.
+fn send_local_state(
+    rig_q: Query<&CameraRig, With<MainCamera>>,
+    player_q: Query<(&Transform, &LocalPlayer)>,
+    mut local_state: ResMut<LocalState>,
+    mut net: ResMut<NetworkState>,
+) {
+    let Ok((transform, player)) = player_q.single() else {
+        return;
+    };
+    if let Ok(rig) = rig_q.single() {
+        local_state.0.pitch = rig.pitch;
+    }
     let pos_arr = transform.translation.to_array();
+    let state = local_state.0;
     if let Some(entry) = net.players.get_mut(&player.id) {
         entry.position = pos_arr;
         entry.yaw = player.yaw;
+        entry.state = state;
     }
-    net.send_local_transform(pos_arr, player.yaw);
+    net.send_local_transform(pos_arr, player.yaw, state);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_game_camera(
     time: Res<Time>,
-    keys: Res<ButtonInput<KeyCode>>,
+    overlay: Res<Overlay>,
+    combat: Res<Combat>,
     mut mouse_motion: MessageReader<MouseMotion>,
     cursor_q: Query<&CursorOptions, With<PrimaryWindow>>,
     player_q: Query<&Transform, (With<LocalPlayer>, Without<MainCamera>)>,
-    mut camera_q: Query<(&mut Transform, &mut CameraRig), With<MainCamera>>,
+    mut camera_q: Query<(&mut Transform, &mut CameraRig, &mut Projection), With<MainCamera>>,
 ) {
-    let Ok((mut cam_transform, mut rig)) = camera_q.single_mut() else {
+    let Ok((mut cam_transform, mut rig, mut projection)) = camera_q.single_mut() else {
         return;
     };
-    let dt = time.delta_secs().min(0.05);
 
-    // Mouse look while the mouse is captured (Esc frees it for the buttons).
+    // Mouse look while the mouse is captured and no menu is open.
     let captured = cursor_q
         .single()
         .is_ok_and(|c| c.grab_mode != CursorGrabMode::None);
+    let zoom = 1.0 + (combat.stats.zoom - 1.0) * combat.aim_blend;
     for motion in mouse_motion.read() {
-        if captured {
-            rig.yaw -= motion.delta.x * MOUSE_SENSITIVITY;
-            rig.pitch -= motion.delta.y * MOUSE_SENSITIVITY;
+        if captured && !overlay.blocks_input() {
+            rig.yaw -= motion.delta.x * MOUSE_SENSITIVITY / zoom;
+            rig.pitch -= motion.delta.y * MOUSE_SENSITIVITY / zoom;
         }
-    }
-
-    // Q/E turn too, for trackpads.
-    if keys.pressed(KeyCode::KeyQ) {
-        rig.yaw += KEY_TURN_SPEED * dt;
-    }
-    if keys.pressed(KeyCode::KeyE) {
-        rig.yaw -= KEY_TURN_SPEED * dt;
     }
     rig.yaw %= std::f32::consts::TAU;
     rig.pitch = rig.pitch.clamp(-MAX_PITCH, MAX_PITCH);
+
+    if let Projection::Perspective(p) = projection.as_mut() {
+        p.fov = BASE_FOV / zoom;
+    }
+
+    // Eliminated: watch our ragdoll from above while waiting to respawn.
+    if let Some(death) = combat.death_cam {
+        let t = combat.dead_for;
+        let angle = rig.yaw + t * 0.35;
+        let dist = 4.0 + (t * 1.5).min(2.5);
+        let eye = death + Vec3::new(angle.sin() * dist, 2.6 + t.min(2.0), angle.cos() * dist);
+        let target = death + Vec3::Y * 0.4;
+        let desired = Transform::from_translation(eye).looking_at(target, Vec3::Y);
+        let blend = 1.0 - (-6.0 * time.delta_secs()).exp();
+        cam_transform.translation = cam_transform.translation.lerp(desired.translation, blend);
+        cam_transform.rotation = cam_transform.rotation.slerp(desired.rotation, blend);
+        return;
+    }
 
     let Ok(player_transform) = player_q.single() else {
         return;
@@ -572,7 +518,7 @@ fn update_game_camera(
     cam_transform.rotation = Quat::from_rotation_y(rig.yaw) * Quat::from_rotation_x(rig.pitch);
 }
 
-fn set_cursor_grab(cursor_q: &mut Query<&mut CursorOptions, With<PrimaryWindow>>, grab: bool) {
+pub fn set_cursor_grab(cursor_q: &mut Query<&mut CursorOptions, With<PrimaryWindow>>, grab: bool) {
     if let Ok(mut cursor) = cursor_q.single_mut() {
         cursor.grab_mode = if grab {
             CursorGrabMode::Locked
@@ -591,10 +537,10 @@ fn release_cursor(mut cursor_q: Query<&mut CursorOptions, With<PrimaryWindow>>) 
     set_cursor_grab(&mut cursor_q, false);
 }
 
-/// Esc frees the mouse (to press Leave Game, Join, ...); clicking the world
-/// (not a button) captures it again.
-fn toggle_cursor_grab(
-    keys: Res<ButtonInput<KeyCode>>,
+/// The mouse is free while a menu is open, and captured otherwise. If the
+/// window lost the mouse (alt-tab), clicking the world takes it back.
+fn keep_cursor_in_sync(
+    overlay: Res<Overlay>,
     mouse: Res<ButtonInput<MouseButton>>,
     hover: Option<Res<HoverMap>>,
     ui_nodes: Query<(), With<Node>>,
@@ -604,8 +550,12 @@ fn toggle_cursor_grab(
         return;
     };
     let captured = cursor.grab_mode != CursorGrabMode::None;
-    if captured && keys.just_pressed(KeyCode::Escape) {
-        set_cursor_grab(&mut cursor_q, false);
+    if overlay.blocks_input() {
+        if captured {
+            set_cursor_grab(&mut cursor_q, false);
+        }
+    } else if overlay.is_changed() && !captured {
+        set_cursor_grab(&mut cursor_q, true);
     } else if !captured && mouse.just_pressed(MouseButton::Left) {
         let over_ui = hover.is_some_and(|h| {
             h.values()
@@ -619,8 +569,7 @@ fn toggle_cursor_grab(
 
 fn sync_remote_players(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
     net: Res<NetworkState>,
     mut remote_q: Query<(Entity, &mut RemotePlayer)>,
 ) {
@@ -635,6 +584,7 @@ fn sync_remote_players(
         if let Some(snapshot) = net.players.get(&remote.id) {
             remote.target_pos = Vec3::from_array(snapshot.position);
             remote.target_yaw = snapshot.yaw;
+            remote.state = snapshot.state;
         }
         existing.insert(remote.id, entity);
     }
@@ -643,33 +593,42 @@ fn sync_remote_players(
         if Some(id) == local_id || existing.contains_key(&id) {
             continue;
         }
-        let pos = Vec3::from_array(snapshot.position);
-        let entity = spawn_player_mesh(
-            &mut commands,
-            &mut meshes,
-            &mut materials,
-            snapshot.color,
-            pos,
-            snapshot.yaw,
-        );
-        commands.entity(entity).insert(RemotePlayer {
-            id,
-            target_pos: pos,
-            target_yaw: snapshot.yaw,
-        });
+        spawn_remote(&mut commands, &asset_server, snapshot);
     }
 }
 
 fn interpolate_remote_players(
     time: Res<Time>,
-    mut remote_q: Query<(&mut Transform, &RemotePlayer)>,
+    mut remote_q: Query<(&mut Transform, &mut RemotePlayer)>,
+    mut pose_q: Query<&mut PlayerPose>,
 ) {
     let dt = time.delta_secs().min(0.05);
     let blend = 1.0 - (-16.0 * dt).exp();
 
-    for (mut transform, remote) in &mut remote_q {
-        transform.translation = transform.translation.lerp(remote.target_pos, blend);
+    for (mut transform, mut remote) in &mut remote_q {
+        // A respawn teleports across the field: don't slide there.
+        if transform.translation.distance(remote.target_pos) > 6.0 {
+            transform.translation = remote.target_pos;
+        } else {
+            transform.translation = transform.translation.lerp(remote.target_pos, blend);
+        }
         let target_rot = Quat::from_rotation_y(remote.target_yaw);
         transform.rotation = transform.rotation.slerp(target_rot, blend);
+
+        if dt > 0.0 {
+            let moved = (transform.translation - remote.last_pos)
+                .with_y(0.0)
+                .length()
+                / dt;
+            let k = 1.0 - (-8.0 * dt).exp();
+            remote.speed += (moved - remote.speed) * k;
+        }
+        remote.last_pos = transform.translation;
+
+        if let Ok(mut pose) = pose_q.get_mut(remote.model) {
+            pose.pitch = remote.state.pitch;
+            pose.speed = remote.speed;
+            pose.loadout = remote.state.loadout;
+        }
     }
 }

@@ -1,0 +1,1348 @@
+//! Shooting, health and eliminations.
+//!
+//! Every player's shots are simulated on every screen: a player's `shots`
+//! counter going up means one more ball left their gun, aimed where they were
+//! looking. Each player checks the balls flying at *them* and takes the
+//! damage, so health and eliminations are decided by the one getting hit and
+//! everyone else sees it through their `health` / `deaths` counters.
+
+use crate::{
+    AppState, Overlay,
+    arena::Colliders,
+    loadout::{GunAssets, GunKind, GunModel, Loadout, WeaponStats, spawn_gun_parts},
+    net::NetworkState,
+    player_model::{PlayerModelAssets, Rig},
+    protocol::{MAX_HEALTH, PlayerId, PlayerState, Team},
+    ragdoll::{RagdollStart, spawn_ragdoll},
+    world::{
+        CameraRig, EYE_OFFSET, LocalPlayer, MainCamera, PLAYER_GROUND_Y, RemotePlayer,
+        WorldSystems, spawn_point, spawn_yaw,
+    },
+};
+use bevy::prelude::*;
+use std::{collections::HashMap, f32::consts::TAU};
+
+pub struct CombatPlugin;
+
+impl Plugin for CombatPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<LocalState>()
+            .init_resource::<Combat>()
+            .init_resource::<Killfeed>()
+            .add_systems(Startup, load_fx)
+            // After the camera exists.
+            .add_systems(PostStartup, spawn_viewmodel)
+            .add_systems(OnExit(AppState::InGame), (hide_viewmodel, clear_killfeed))
+            .add_systems(
+                Update,
+                (
+                    apply_loadout,
+                    aim_and_reload,
+                    fire_local,
+                    fire_remote,
+                    move_projectiles,
+                    remote_eliminations,
+                    regen_and_respawn,
+                    update_viewmodel,
+                    footsteps,
+                )
+                    .chain()
+                    .in_set(CombatSystems)
+                    .after(WorldSystems::Move)
+                    .run_if(in_state(AppState::InGame)),
+            )
+            .add_systems(Update, (update_particles, limit_decals));
+    }
+}
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CombatSystems;
+
+/// Seconds without taking damage before health starts coming back.
+pub const REGEN_DELAY: f32 = 7.0;
+/// Health per second while regenerating.
+pub const REGEN_RATE: f32 = 14.0;
+/// Seconds from elimination to respawn.
+pub const RESPAWN_TIME: f32 = 5.0;
+const PLAYER_HIT_RADIUS: f32 = 0.36;
+const MAX_DECALS: usize = 350;
+
+/// What we send others about ourselves (health, gun, counters).
+#[derive(Resource, Default)]
+pub struct LocalState(pub PlayerState);
+
+/// The local player's weapon and health bookkeeping.
+#[derive(Resource)]
+pub struct Combat {
+    pub stats: WeaponStats,
+    pub kind: GunKind,
+    pub ammo: u32,
+    /// Seconds left on a reload in progress.
+    pub reloading: Option<f32>,
+    cooldown: f32,
+    /// `Time::elapsed_secs` of the last hit we took.
+    pub last_damage: f32,
+    pub aiming: bool,
+    /// 0 (hip) to 1 (fully aimed), eased.
+    pub aim_blend: f32,
+    /// Counts down after we hit someone (hit marker).
+    pub hitmarker: f32,
+    /// Counts down after we got hit (red flash).
+    pub damage_flash: f32,
+    /// Where we went down, while eliminated.
+    pub death_cam: Option<Vec3>,
+    pub dead_for: f32,
+    recoil: f32,
+    step_timer: f32,
+    dry_fired: bool,
+}
+
+impl Default for Combat {
+    fn default() -> Self {
+        let stats = Loadout::default().stats();
+        Self {
+            stats,
+            kind: GunKind::Paintball,
+            ammo: stats.capacity,
+            reloading: None,
+            cooldown: 0.0,
+            last_damage: -100.0,
+            aiming: false,
+            aim_blend: 0.0,
+            hitmarker: 0.0,
+            damage_flash: 0.0,
+            death_cam: None,
+            dead_for: 0.0,
+            recoil: 0.0,
+            step_timer: 0.0,
+            dry_fired: false,
+        }
+    }
+}
+
+impl Combat {
+    pub fn reset(&mut self, stats: &WeaponStats) {
+        *self = Self {
+            stats: *stats,
+            kind: if stats.water {
+                GunKind::Water
+            } else {
+                GunKind::Paintball
+            },
+            ammo: stats.capacity,
+            ..default()
+        };
+    }
+
+    pub fn respawn_in(&self) -> Option<f32> {
+        self.death_cam
+            .map(|_| (RESPAWN_TIME - self.dead_for).max(0.0))
+    }
+}
+
+/// Recent eliminations for the HUD: (killer, victim, when).
+#[derive(Resource, Default)]
+pub struct Killfeed {
+    pub entries: Vec<(PlayerId, PlayerId, f32)>,
+}
+
+fn clear_killfeed(mut feed: ResMut<Killfeed>) {
+    feed.entries.clear();
+}
+
+/// What colour paint is: a team's, or water.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Paint {
+    Team(Team),
+    Water,
+}
+
+impl Paint {
+    fn color(self) -> Color {
+        match self {
+            Paint::Team(team) => {
+                let [r, g, b] = team.srgb();
+                Color::srgb(r, g, b)
+            }
+            Paint::Water => Color::srgba(0.62, 0.89, 1.0, 0.75),
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct Fx {
+    billboard: Handle<Mesh>,
+    decal: Handle<Mesh>,
+    splats: Vec<Handle<Image>>,
+    drips: Vec<Handle<Image>>,
+    droplet: Handle<Image>,
+    puff: Handle<Image>,
+    ring: Handle<Image>,
+    balls: HashMap<Team, Handle<WorldAsset>>,
+    mats: HashMap<(Paint, u8), Handle<StandardMaterial>>,
+    pub sounds: Sounds,
+    rng: u32,
+}
+
+pub struct Sounds {
+    pub shots: Vec<Handle<AudioSource>>,
+    pub splats: Vec<Handle<AudioSource>>,
+    pub player_hit: Handle<AudioSource>,
+    pub hit_tick: Handle<AudioSource>,
+    pub dry_fire: Handle<AudioSource>,
+    pub pod_reload: Handle<AudioSource>,
+    pub water_pump: Handle<AudioSource>,
+    pub water_squirt: Handle<AudioSource>,
+    pub water_splash: Handle<AudioSource>,
+    pub eliminated: Handle<AudioSource>,
+    pub confirm: Handle<AudioSource>,
+    pub round_start: Handle<AudioSource>,
+    pub steps: Vec<Handle<AudioSource>>,
+    pub bunker_hit: Handle<AudioSource>,
+}
+
+const DROPLET: u8 = 100;
+const PUFF: u8 = 101;
+const RING: u8 = 102;
+const DRIP: u8 = 50;
+
+impl Fx {
+    fn rand(&mut self) -> f32 {
+        self.rng = xorshift(self.rng);
+        self.rng as f32 / u32::MAX as f32
+    }
+    fn range(&mut self, a: f32, b: f32) -> f32 {
+        a + (b - a) * self.rand()
+    }
+    fn pick(&mut self, len: usize) -> usize {
+        ((self.rand() * len as f32) as usize).min(len.saturating_sub(1))
+    }
+    fn material(
+        &mut self,
+        paint: Paint,
+        kind: u8,
+        materials: &mut Assets<StandardMaterial>,
+    ) -> Handle<StandardMaterial> {
+        if let Some(h) = self.mats.get(&(paint, kind)) {
+            return h.clone();
+        }
+        let (texture, unlit, roughness, depth_bias) = match kind {
+            DROPLET => (self.droplet.clone(), true, 1.0, 0.0),
+            PUFF => (self.puff.clone(), true, 1.0, 0.0),
+            RING => (self.ring.clone(), true, 1.0, 0.0),
+            i if i >= DRIP => (self.drips[(i - DRIP) as usize].clone(), false, 0.3, 10.0),
+            i => (self.splats[i as usize].clone(), false, 0.3, 10.0),
+        };
+        let handle = materials.add(StandardMaterial {
+            base_color: paint.color(),
+            base_color_texture: Some(texture),
+            alpha_mode: AlphaMode::Blend,
+            unlit,
+            perceptual_roughness: roughness,
+            cull_mode: None,
+            depth_bias,
+            ..default()
+        });
+        self.mats.insert((paint, kind), handle.clone());
+        handle
+    }
+}
+
+fn xorshift(mut x: u32) -> u32 {
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    x
+}
+
+fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>) {
+    let ogg = |p: &str| assets.load::<AudioSource>(format!("audio/{p}.ogg"));
+    commands.insert_resource(Fx {
+        billboard: meshes.add(Rectangle::new(1.0, 1.0)),
+        decal: meshes.add(Plane3d::default().mesh().size(1.0, 1.0)),
+        splats: (1..=8)
+            .map(|i| assets.load(format!("textures/splats/splat_{i:02}.png")))
+            .collect(),
+        drips: (1..=4)
+            .map(|i| assets.load(format!("textures/splats/drip_{i:02}.png")))
+            .collect(),
+        droplet: assets.load("textures/particles/droplet.png"),
+        puff: assets.load("textures/particles/soft_puff.png"),
+        ring: assets.load("textures/particles/ring_shockwave.png"),
+        balls: [
+            (
+                Team::Blue,
+                assets.load(
+                    GltfAssetLabel::Scene(0).from_asset("models/projectiles/paintball_blue.glb"),
+                ),
+            ),
+            (
+                Team::Orange,
+                assets.load(
+                    GltfAssetLabel::Scene(0).from_asset("models/projectiles/paintball_orange.glb"),
+                ),
+            ),
+        ]
+        .into_iter()
+        .collect(),
+        mats: HashMap::new(),
+        sounds: Sounds {
+            shots: (1..=3)
+                .map(|i| ogg(&format!("weapons/marker_shot_{i:02}")))
+                .collect(),
+            splats: (1..=3)
+                .map(|i| ogg(&format!("impacts/splat_surface_{i:02}")))
+                .collect(),
+            player_hit: ogg("impacts/splat_player_hit"),
+            hit_tick: ogg("ui/hit_marker_tick"),
+            dry_fire: ogg("weapons/dry_fire"),
+            pod_reload: ogg("weapons/pod_reload"),
+            water_pump: ogg("water/water_pump"),
+            water_squirt: ogg("water/water_squirt"),
+            water_splash: ogg("water/water_splash"),
+            eliminated: ogg("game/eliminated_buzzer"),
+            confirm: ogg("game/flag_captured"),
+            round_start: ogg("game/round_start_horn"),
+            steps: (1..=4)
+                .map(|i| ogg(&format!("footsteps/step_grass_{i:02}")))
+                .collect(),
+            bunker_hit: ogg("impacts/hit_bunker_inflatable"),
+        },
+        rng: 0x9E37_79B9,
+    });
+}
+
+pub fn play(commands: &mut Commands, sound: &Handle<AudioSource>, volume: f32) {
+    if volume <= 0.01 {
+        return;
+    }
+    commands.spawn((
+        AudioPlayer::new(sound.clone()),
+        PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+    ));
+}
+
+/// Quieter the further it is from the listener.
+fn falloff(listener: Vec3, at: Vec3) -> f32 {
+    (1.0 - listener.distance(at) / 70.0).clamp(0.08, 1.0)
+}
+
+#[derive(Component)]
+struct Projectile {
+    owner: PlayerId,
+    team: Team,
+    water: bool,
+    velocity: Vec3,
+    gravity: f32,
+    damage: f32,
+    age: f32,
+}
+
+#[derive(Component)]
+pub struct PaintDecal {
+    born: f32,
+    /// Water dries up.
+    fade: Option<f32>,
+}
+
+#[derive(Component)]
+struct Particle {
+    vel: Vec3,
+    life: f32,
+    max: f32,
+    s0: f32,
+    s1: f32,
+    gravity: f32,
+}
+
+/// The first-person gun, a child of the camera.
+#[derive(Component)]
+pub struct ViewModel;
+
+fn spawn_viewmodel(mut commands: Commands, camera_q: Query<Entity, With<MainCamera>>) {
+    let Ok(camera) = camera_q.single() else {
+        return;
+    };
+    let vm = commands
+        .spawn((
+            ViewModel,
+            GunModel { packed: u32::MAX },
+            Transform::from_translation(HIP_POS),
+            Visibility::Hidden,
+        ))
+        .id();
+    commands.entity(camera).add_child(vm);
+}
+
+fn hide_viewmodel(mut vm_q: Query<&mut Visibility, With<ViewModel>>) {
+    for mut v in &mut vm_q {
+        *v = Visibility::Hidden;
+    }
+}
+
+const HIP_POS: Vec3 = Vec3::new(0.24, -0.27, -0.62);
+
+fn aim_pos(kind: GunKind, sight: u8) -> Vec3 {
+    match kind {
+        GunKind::Water => Vec3::new(0.06, -0.14, -0.5),
+        // Sight just under the middle of the screen, hopper off to the right.
+        GunKind::Paintball => match sight {
+            0 => Vec3::new(0.1, -0.12, -0.5),
+            4 => Vec3::new(0.09, -0.15, -0.42),
+            _ => Vec3::new(0.1, -0.14, -0.46),
+        },
+    }
+}
+
+/// The gun follows the loadout: rebuild the view model, tell others, refill.
+fn apply_loadout(
+    mut commands: Commands,
+    loadout: Res<Loadout>,
+    guns: Option<Res<GunAssets>>,
+    mut combat: ResMut<Combat>,
+    mut local_state: ResMut<LocalState>,
+    mut vm_q: Query<(Entity, &mut GunModel), With<ViewModel>>,
+) {
+    let Some(guns) = guns else {
+        return;
+    };
+    let packed = loadout.pack();
+    if local_state.0.loadout != packed {
+        local_state.0.loadout = packed;
+        let death_cam = combat.death_cam;
+        let dead_for = combat.dead_for;
+        let last_damage = combat.last_damage;
+        combat.reset(&loadout.stats());
+        combat.death_cam = death_cam;
+        combat.dead_for = dead_for;
+        combat.last_damage = last_damage;
+    }
+    for (entity, mut gun) in &mut vm_q {
+        if gun.packed != packed {
+            gun.packed = packed;
+            spawn_gun_parts(&mut commands, &guns, entity, &loadout);
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn aim_and_reload(
+    mut commands: Commands,
+    time: Res<Time>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    overlay: Res<Overlay>,
+    fx: Res<Fx>,
+    local_state: Res<LocalState>,
+    mut combat: ResMut<Combat>,
+) {
+    let dt = time.delta_secs();
+    let alive = local_state.0.health > 0.0;
+    let can_act = alive && !overlay.blocks_input();
+    combat.aiming = can_act && mouse.pressed(MouseButton::Right) && combat.reloading.is_none();
+    let target = if combat.aiming { 1.0 } else { 0.0 };
+    let k = 1.0 - (-14.0 * dt).exp();
+    combat.aim_blend += (target - combat.aim_blend) * k;
+    combat.hitmarker = (combat.hitmarker - dt).max(0.0);
+    combat.damage_flash = (combat.damage_flash - dt).max(0.0);
+    combat.cooldown = (combat.cooldown - dt).max(0.0);
+    combat.recoil = (combat.recoil - dt * 0.4).max(0.0) * (-12.0 * dt).exp();
+
+    if let Some(left) = combat.reloading {
+        let left = left - dt;
+        if left <= 0.0 {
+            combat.reloading = None;
+            combat.ammo = combat.stats.capacity;
+        } else {
+            combat.reloading = Some(left);
+        }
+    } else if can_act && keys.just_pressed(KeyCode::KeyR) && combat.ammo < combat.stats.capacity {
+        start_reload(&mut commands, &fx, &mut combat);
+    }
+}
+
+fn start_reload(commands: &mut Commands, fx: &Fx, combat: &mut Combat) {
+    combat.reloading = Some(combat.stats.reload);
+    let sound = if combat.stats.water {
+        &fx.sounds.water_pump
+    } else {
+        &fx.sounds.pod_reload
+    };
+    play(commands, sound, 0.7);
+}
+
+/// A shot's direction: where the shooter looks, nudged inside the spread
+/// cone. Seeded by (shooter, shot number) so every screen agrees.
+fn shot_direction(forward: Vec3, spread: f32, owner: PlayerId, shot: u32) -> Vec3 {
+    let mut r = xorshift(owner.wrapping_mul(0x85EB_CA6B) ^ shot.wrapping_mul(0xC2B2_AE35) | 1);
+    r = xorshift(r);
+    let a = r as f32 / u32::MAX as f32 * TAU;
+    r = xorshift(r);
+    let m = (r as f32 / u32::MAX as f32).sqrt() * spread;
+    let (t1, t2) = forward.any_orthonormal_pair();
+    (forward + (t1 * a.cos() + t2 * a.sin()) * m).normalize_or(forward)
+}
+
+fn look_rotation(yaw: f32, pitch: f32) -> Quat {
+    Quat::from_rotation_y(yaw) * Quat::from_rotation_x(pitch)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn fire_local(
+    mut commands: Commands,
+    time: Res<Time>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    overlay: Res<Overlay>,
+    net: Res<NetworkState>,
+    mut fx: ResMut<Fx>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut combat: ResMut<Combat>,
+    mut local_state: ResMut<LocalState>,
+    player_q: Query<&LocalPlayer>,
+    camera_q: Query<&Transform, With<MainCamera>>,
+) {
+    let (Ok(player), Ok(cam)) = (player_q.single(), camera_q.single()) else {
+        return;
+    };
+    let alive = local_state.0.health > 0.0;
+    if !alive || overlay.blocks_input() {
+        return;
+    }
+    if !mouse.pressed(MouseButton::Left) {
+        combat.dry_fired = false;
+        return;
+    }
+    if combat.reloading.is_some() || combat.cooldown > 0.0 {
+        return;
+    }
+    if combat.ammo == 0 {
+        if !combat.dry_fired {
+            combat.dry_fired = true;
+            play(&mut commands, &fx.sounds.dry_fire, 0.7);
+            start_reload(&mut commands, &fx, &mut combat);
+        }
+        return;
+    }
+
+    let stats = combat.stats;
+    combat.ammo -= 1;
+    combat.cooldown = stats.fire_interval;
+    combat.recoil = (combat.recoil + 0.35).min(1.0);
+    local_state.0.shots = local_state.0.shots.wrapping_add(1);
+    let shot = local_state.0.shots;
+
+    let moving = player.speed > 0.5;
+    let mut spread = stats.spread * if moving { 1.0 } else { 0.6 };
+    spread *= 1.0 + (stats.aim_spread - 1.0) * combat.aim_blend;
+    let forward = cam.forward().as_vec3();
+    let dir = shot_direction(forward, spread, player.id, shot);
+    let origin = cam.translation + forward * 0.45 + cam.right() * 0.06 * (1.0 - combat.aim_blend)
+        - cam.up() * 0.05;
+    let team = Team::of(net.local_player_id.unwrap_or(player.id));
+    spawn_projectile(
+        &mut commands,
+        &mut fx,
+        &mut materials,
+        player.id,
+        team,
+        &stats,
+        origin,
+        dir,
+    );
+
+    // Muzzle puff / spray at the barrel tip.
+    let muzzle = cam.transform_point(
+        HIP_POS.lerp(aim_pos(combat.kind, 0), combat.aim_blend) + Vec3::new(0.0, 0.02, -0.5),
+    );
+    muzzle_fx(
+        &mut commands,
+        &mut fx,
+        &mut materials,
+        muzzle,
+        dir,
+        team,
+        stats.water,
+    );
+    shot_sound(&mut commands, &mut fx, &stats, 1.0, time.elapsed_secs());
+}
+
+fn shot_sound(commands: &mut Commands, fx: &mut Fx, stats: &WeaponStats, volume: f32, _now: f32) {
+    if stats.water {
+        let s = fx.sounds.water_squirt.clone();
+        play(commands, &s, 0.35 * volume * stats.loudness);
+    } else {
+        let n = fx.sounds.shots.len();
+        let i = fx.pick(n);
+        let s = fx.sounds.shots[i].clone();
+        play(commands, &s, 0.8 * volume * stats.loudness);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_projectile(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
+    owner: PlayerId,
+    team: Team,
+    stats: &WeaponStats,
+    origin: Vec3,
+    dir: Vec3,
+) {
+    let projectile = Projectile {
+        owner,
+        team,
+        water: stats.water,
+        velocity: dir * stats.speed,
+        gravity: stats.gravity,
+        damage: stats.damage,
+        age: 0.0,
+    };
+    if stats.water {
+        let mat = fx.material(Paint::Water, DROPLET, materials);
+        commands.spawn((
+            Mesh3d(fx.billboard.clone()),
+            MeshMaterial3d(mat),
+            Transform::from_translation(origin).with_scale(Vec3::splat(0.09)),
+            projectile,
+            DespawnOnExit(AppState::InGame),
+        ));
+    } else {
+        commands.spawn((
+            WorldAssetRoot(fx.balls[&team].clone()),
+            Transform::from_translation(origin).with_scale(Vec3::splat(2.2)),
+            projectile,
+            DespawnOnExit(AppState::InGame),
+        ));
+    }
+}
+
+fn muzzle_fx(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
+    at: Vec3,
+    dir: Vec3,
+    team: Team,
+    water: bool,
+) {
+    if water {
+        let mat = fx.material(Paint::Water, DROPLET, materials);
+        for _ in 0..3 {
+            let vel = dir * fx.range(3.0, 6.0)
+                + Vec3::new(fx.range(-0.5, 0.5), fx.range(0.0, 0.6), fx.range(-0.5, 0.5));
+            let s = fx.range(0.015, 0.03);
+            let life = fx.range(0.15, 0.3);
+            spawn_particle(commands, fx, mat.clone(), at, vel, s, 0.0, life, 9.81);
+        }
+    } else {
+        let _ = team;
+        let mat = fx.material(Paint::Water, PUFF, materials);
+        spawn_particle(commands, fx, mat, at, dir * 1.5, 0.04, 0.16, 0.12, 0.0);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_particle(
+    commands: &mut Commands,
+    fx: &Fx,
+    mat: Handle<StandardMaterial>,
+    at: Vec3,
+    vel: Vec3,
+    s0: f32,
+    s1: f32,
+    life: f32,
+    gravity: f32,
+) {
+    commands.spawn((
+        Mesh3d(fx.billboard.clone()),
+        MeshMaterial3d(mat),
+        Transform::from_translation(at).with_scale(Vec3::splat(s0.max(0.001))),
+        Particle {
+            vel,
+            life: 0.0,
+            max: life,
+            s0,
+            s1,
+            gravity,
+        },
+        DespawnOnExit(AppState::InGame),
+    ));
+}
+
+/// Other players' new shots, fired from where they stand and look.
+fn fire_remote(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut fx: ResMut<Fx>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    camera_q: Query<&GlobalTransform, With<MainCamera>>,
+    mut remote_q: Query<(&Transform, &mut RemotePlayer)>,
+) {
+    let listener = camera_q
+        .single()
+        .map(|g| g.translation())
+        .unwrap_or_default();
+    for (transform, mut remote) in &mut remote_q {
+        let shots = remote.state.shots;
+        let new = shots.wrapping_sub(remote.seen_shots);
+        // Way out of order (or a wrapped counter): just catch up.
+        if new == 0 || new > 50 {
+            remote.seen_shots = shots;
+            continue;
+        }
+        let first = remote.seen_shots.wrapping_add(1);
+        remote.seen_shots = shots;
+        if !remote.alive() {
+            continue;
+        }
+        let stats = Loadout::unpack(remote.state.loadout).stats();
+        let rot = look_rotation(remote.target_yaw, remote.state.pitch);
+        let forward = rot * Vec3::NEG_Z;
+        let eye = transform.translation + Vec3::Y * EYE_OFFSET;
+        let origin = eye + forward * 0.45 + rot * Vec3::new(0.06, -0.08, 0.0);
+        let team = Team::of(remote.id);
+        for i in 0..new.min(8) {
+            let shot = first.wrapping_add(i);
+            let dir = shot_direction(forward, stats.spread * 0.8, remote.id, shot);
+            spawn_projectile(
+                &mut commands,
+                &mut fx,
+                &mut materials,
+                remote.id,
+                team,
+                &stats,
+                origin,
+                dir,
+            );
+        }
+        muzzle_fx(
+            &mut commands,
+            &mut fx,
+            &mut materials,
+            origin + forward * 0.1,
+            forward,
+            team,
+            stats.water,
+        );
+        let volume = falloff(listener, origin);
+        shot_sound(&mut commands, &mut fx, &stats, volume, time.elapsed_secs());
+    }
+}
+
+/// Closest distance between segment p1-q1 and segment p2-q2, and where along
+/// the first one it is (0..=1).
+fn segment_segment(p1: Vec3, q1: Vec3, p2: Vec3, q2: Vec3) -> (f32, f32) {
+    let d1 = q1 - p1;
+    let d2 = q2 - p2;
+    let r = p1 - p2;
+    let a = d1.dot(d1);
+    let e = d2.dot(d2);
+    let f = d2.dot(r);
+    let (s, t);
+    if a <= 1e-9 && e <= 1e-9 {
+        return (r.length(), 0.0);
+    }
+    if a <= 1e-9 {
+        s = 0.0;
+        t = (f / e).clamp(0.0, 1.0);
+    } else {
+        let c = d1.dot(r);
+        if e <= 1e-9 {
+            t = 0.0;
+            s = (-c / a).clamp(0.0, 1.0);
+        } else {
+            let b = d1.dot(d2);
+            let denom = a * e - b * b;
+            let mut s0 = if denom > 1e-9 {
+                ((b * f - c * e) / denom).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let mut t0 = (b * s0 + f) / e;
+            if t0 < 0.0 {
+                t0 = 0.0;
+                s0 = (-c / a).clamp(0.0, 1.0);
+            } else if t0 > 1.0 {
+                t0 = 1.0;
+                s0 = ((b - c) / a).clamp(0.0, 1.0);
+            }
+            s = s0;
+            t = t0;
+        }
+    }
+    let c1 = p1 + d1 * s;
+    let c2 = p2 + d2 * t;
+    (c1.distance(c2), s)
+}
+
+/// Where along `from -> to` (0..=1) it passes through a standing player.
+fn hits_player(from: Vec3, to: Vec3, center: Vec3) -> Option<f32> {
+    let axis = PLAYER_GROUND_Y - PLAYER_HIT_RADIUS;
+    let (dist, s) = segment_segment(from, to, center - Vec3::Y * axis, center + Vec3::Y * axis);
+    (dist <= PLAYER_HIT_RADIUS).then_some(s)
+}
+
+enum Target {
+    Local,
+    Remote,
+}
+
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn move_projectiles(
+    mut commands: Commands,
+    time: Res<Time>,
+    colliders: Res<Colliders>,
+    player_assets: Res<PlayerModelAssets>,
+    mut fx: ResMut<Fx>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut combat: ResMut<Combat>,
+    mut local_state: ResMut<LocalState>,
+    mut feed: ResMut<Killfeed>,
+    camera_q: Query<&GlobalTransform, With<MainCamera>>,
+    local_q: Query<(&Transform, &LocalPlayer), Without<Projectile>>,
+    remote_q: Query<(&Transform, &RemotePlayer), Without<Projectile>>,
+    mut balls: Query<(Entity, &mut Transform, &mut Projectile)>,
+) {
+    let dt = time.delta_secs().min(0.05);
+    let now = time.elapsed_secs();
+    let listener = camera_q
+        .single()
+        .map(|g| g.translation())
+        .unwrap_or_default();
+    let local = local_q.single().ok();
+    let local_id = local.map(|(_, p)| p.id);
+
+    for (entity, mut tf, mut ball) in &mut balls {
+        ball.age += dt;
+        if ball.age > 3.0 {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let g = ball.gravity;
+        ball.velocity.y -= g * dt;
+        let from = tf.translation;
+        let to = from + ball.velocity * dt;
+
+        let world_hit = colliders.segment_hit(from, to);
+        let mut best_t = world_hit.map(|h| h.t).unwrap_or(f32::MAX);
+        let mut target = None;
+
+        // Players: enemies only (paint passes through teammates).
+        if let Some((lt, lp)) = local
+            && ball.owner != lp.id
+            && Team::of(ball.owner) != Team::of(lp.id)
+            && local_state.0.health > 0.0
+            && let Some(t) = hits_player(from, to, lt.translation)
+            && t < best_t
+        {
+            best_t = t;
+            target = Some(Target::Local);
+        }
+        for (rt, remote) in &remote_q {
+            if remote.id == ball.owner
+                || Team::of(remote.id) == Team::of(ball.owner)
+                || !remote.alive()
+            {
+                continue;
+            }
+            if let Some(t) = hits_player(from, to, rt.translation)
+                && t < best_t
+            {
+                best_t = t;
+                target = Some(Target::Remote);
+            }
+        }
+
+        let paint = if ball.water {
+            Paint::Water
+        } else {
+            Paint::Team(ball.team)
+        };
+        match target {
+            Some(Target::Local) => {
+                let point = from.lerp(to, best_t);
+                let normal = -ball.velocity.normalize_or(Vec3::Z);
+                player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+                let s = fx.sounds.player_hit.clone();
+                play(&mut commands, &s, 0.9);
+                if let Some((lt, lp)) = local {
+                    take_damage(
+                        &mut commands,
+                        &mut fx,
+                        &player_assets,
+                        &mut combat,
+                        &mut local_state,
+                        &mut feed,
+                        lt,
+                        lp,
+                        ball.owner,
+                        ball.damage,
+                        ball.velocity,
+                        now,
+                    );
+                }
+                commands.entity(entity).despawn();
+            }
+            Some(Target::Remote) => {
+                let point = from.lerp(to, best_t);
+                let normal = -ball.velocity.normalize_or(Vec3::Z);
+                player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+                if Some(ball.owner) == local_id {
+                    combat.hitmarker = 0.25;
+                    let s = fx.sounds.hit_tick.clone();
+                    play(&mut commands, &s, 0.8);
+                }
+                let s = fx.sounds.player_hit.clone();
+                play(&mut commands, &s, 0.6 * falloff(listener, point));
+                commands.entity(entity).despawn();
+            }
+            None => {
+                if let Some(hit) = world_hit {
+                    impact_fx(
+                        &mut commands,
+                        &mut fx,
+                        &mut materials,
+                        now,
+                        hit.point,
+                        hit.normal,
+                        paint,
+                        hit.decals,
+                        falloff(listener, hit.point),
+                    );
+                    commands.entity(entity).despawn();
+                } else {
+                    tf.translation = to;
+                }
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn take_damage(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    player_assets: &PlayerModelAssets,
+    combat: &mut Combat,
+    local_state: &mut LocalState,
+    feed: &mut Killfeed,
+    transform: &Transform,
+    player: &LocalPlayer,
+    from: PlayerId,
+    damage: f32,
+    velocity: Vec3,
+    now: f32,
+) {
+    let state = &mut local_state.0;
+    if state.health <= 0.0 {
+        return;
+    }
+    state.health = (state.health - damage).max(0.0);
+    combat.last_damage = now;
+    combat.damage_flash = 0.35;
+    if state.health > 0.0 {
+        return;
+    }
+    // Eliminated.
+    state.deaths = state.deaths.wrapping_add(1);
+    state.killer = from;
+    combat.reloading = None;
+    combat.dead_for = 0.0;
+    let feet = transform.translation - Vec3::Y * PLAYER_GROUND_Y;
+    combat.death_cam = Some(feet);
+    feed.entries.push((from, player.id, now));
+    let s = fx.sounds.eliminated.clone();
+    play(commands, &s, 0.8);
+    let model = Transform::from_translation(feet)
+        .with_rotation(Quat::from_rotation_y(player.yaw + std::f32::consts::PI));
+    spawn_ragdoll(
+        commands,
+        player_assets,
+        Team::of(player.id),
+        RagdollStart::from_rest(&model),
+        velocity,
+        player.id ^ state.deaths,
+    );
+}
+
+/// Others' eliminations: a ragdoll where they fell, a killfeed line, and
+/// their model hidden until they respawn.
+#[allow(clippy::too_many_arguments)]
+fn remote_eliminations(
+    mut commands: Commands,
+    time: Res<Time>,
+    player_assets: Res<PlayerModelAssets>,
+    fx: Res<Fx>,
+    net: Res<NetworkState>,
+    mut feed: ResMut<Killfeed>,
+    mut remote_q: Query<(&Transform, &mut RemotePlayer)>,
+    local_q: Query<(&Transform, &LocalPlayer), Without<RemotePlayer>>,
+    mut models: Query<(&GlobalTransform, Option<&Rig>, &mut Visibility)>,
+    bones: Query<&GlobalTransform>,
+) {
+    let local_id = net.local_player_id;
+    let positions: HashMap<PlayerId, Vec3> = remote_q
+        .iter()
+        .map(|(t, r)| (r.id, t.translation))
+        .collect();
+    for (transform, mut remote) in &mut remote_q {
+        let Ok((model_tf, rig, mut vis)) = models.get_mut(remote.model) else {
+            continue;
+        };
+        let deaths = remote.state.deaths;
+        if deaths != remote.seen_deaths {
+            let fresh = deaths.wrapping_sub(remote.seen_deaths) < 10;
+            remote.seen_deaths = deaths;
+            if fresh {
+                let killer = remote.state.killer;
+                feed.entries.push((killer, remote.id, time.elapsed_secs()));
+                if Some(killer) == local_id {
+                    play(&mut commands, &fx.sounds.confirm, 0.6);
+                }
+                let start = match rig {
+                    Some(rig) => RagdollStart::from_rig(rig, model_tf, &bones),
+                    None => RagdollStart::from_rest(&model_tf.compute_transform()),
+                };
+                let from = positions.get(&killer).copied().or_else(|| {
+                    local_q
+                        .single()
+                        .ok()
+                        .filter(|(_, p)| p.id == killer)
+                        .map(|(t, _)| t.translation)
+                });
+                let push = from
+                    .map(|k| transform.translation - k)
+                    .unwrap_or(transform.forward().as_vec3() * -1.0);
+                spawn_ragdoll(
+                    &mut commands,
+                    &player_assets,
+                    Team::of(remote.id),
+                    start,
+                    push,
+                    remote.id ^ deaths,
+                );
+            }
+        }
+        let want = if remote.alive() {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *vis != want {
+            *vis = want;
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn regen_and_respawn(
+    mut commands: Commands,
+    time: Res<Time>,
+    fx: Res<Fx>,
+    loadout: Res<Loadout>,
+    mut combat: ResMut<Combat>,
+    mut local_state: ResMut<LocalState>,
+    mut feed: ResMut<Killfeed>,
+    mut player_q: Query<(&mut Transform, &mut LocalPlayer)>,
+    mut rig_q: Query<&mut CameraRig, With<MainCamera>>,
+) {
+    let dt = time.delta_secs();
+    let now = time.elapsed_secs();
+    feed.entries.retain(|e| now - e.2 < 6.0);
+
+    let state = &mut local_state.0;
+    if state.health > 0.0 {
+        if now - combat.last_damage >= REGEN_DELAY && state.health < MAX_HEALTH {
+            state.health = (state.health + REGEN_RATE * dt).min(MAX_HEALTH);
+        }
+        return;
+    }
+    combat.dead_for += dt;
+    if combat.dead_for < RESPAWN_TIME {
+        return;
+    }
+    // Back in: full health and paint, on our team's pad.
+    let Ok((mut transform, mut player)) = player_q.single_mut() else {
+        return;
+    };
+    transform.translation = spawn_point(player.id);
+    player.velocity_y = 0.0;
+    player.yaw = spawn_yaw(player.id);
+    if let Ok(mut rig) = rig_q.single_mut() {
+        rig.yaw = player.yaw;
+        rig.pitch = 0.0;
+    }
+    state.health = MAX_HEALTH;
+    combat.reset(&loadout.stats());
+    play(&mut commands, &fx.sounds.round_start, 0.35);
+}
+
+fn update_viewmodel(
+    combat: Res<Combat>,
+    local_state: Res<LocalState>,
+    overlay: Res<Overlay>,
+    loadout: Res<Loadout>,
+    time: Res<Time>,
+    player_q: Query<&LocalPlayer>,
+    mut vm_q: Query<(&mut Transform, &mut Visibility), With<ViewModel>>,
+) {
+    let Ok((mut tf, mut vis)) = vm_q.single_mut() else {
+        return;
+    };
+    let alive = local_state.0.health > 0.0;
+    *vis = if alive && !overlay.loadout {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    let speed = player_q.single().map(|p| p.speed).unwrap_or(0.0);
+    let t = time.elapsed_secs();
+    let bob = (1.0 - combat.aim_blend) * (speed / 10.0).min(1.0);
+    let sway = Vec3::new(
+        (t * 6.0).sin() * 0.012,
+        (t * 12.0).sin().abs() * -0.012,
+        0.0,
+    ) * bob;
+    let mut pos = HIP_POS.lerp(aim_pos(combat.kind, loadout.sight), combat.aim_blend) + sway;
+    pos.z += combat.recoil * 0.035;
+    // Reloading: dip the gun.
+    let reload_dip = if let Some(left) = combat.reloading {
+        let total = combat.stats.reload.max(0.01);
+        let k = 1.0 - left / total;
+        (k * std::f32::consts::PI).sin()
+    } else {
+        0.0
+    };
+    pos.y -= reload_dip * 0.12;
+    tf.translation = pos;
+    tf.rotation = Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
+        * Quat::from_rotation_z(combat.recoil * 0.06 - reload_dip * 0.5);
+}
+
+fn footsteps(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut fx: ResMut<Fx>,
+    mut combat: ResMut<Combat>,
+    player_q: Query<&LocalPlayer>,
+) {
+    let Ok(player) = player_q.single() else {
+        return;
+    };
+    if !player.grounded || player.speed < 1.0 {
+        combat.step_timer = 0.15;
+        return;
+    }
+    combat.step_timer -= time.delta_secs();
+    if combat.step_timer <= 0.0 {
+        combat.step_timer = if player.speed > 8.0 { 0.3 } else { 0.42 };
+        let n = fx.sounds.steps.len();
+        let i = fx.pick(n);
+        let s = fx.sounds.steps[i].clone();
+        play(&mut commands, &s, 0.25);
+    }
+}
+
+fn player_hit_fx(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
+    point: Vec3,
+    normal: Vec3,
+    paint: Paint,
+) {
+    let droplet = fx.material(paint, DROPLET, materials);
+    let (t1, t2) = normal.any_orthonormal_pair();
+    for _ in 0..20 {
+        let a = fx.range(0.0, TAU);
+        let vel = normal * fx.range(1.5, 3.5) + (t1 * a.cos() + t2 * a.sin()) * fx.range(0.8, 2.8);
+        let s = fx.range(0.02, 0.05);
+        let life = fx.range(0.35, 0.7);
+        spawn_particle(
+            commands,
+            fx,
+            droplet.clone(),
+            point,
+            vel,
+            s,
+            0.0,
+            life,
+            9.81,
+        );
+    }
+    let ring = fx.material(paint, RING, materials);
+    spawn_particle(commands, fx, ring, point, Vec3::ZERO, 0.1, 0.6, 0.25, 0.0);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn impact_fx(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
+    now: f32,
+    point: Vec3,
+    normal: Vec3,
+    paint: Paint,
+    decal: bool,
+    volume: f32,
+) {
+    let n = normal.normalize_or(Vec3::Y);
+    let water = paint == Paint::Water;
+
+    if decal {
+        let wall = n.y.abs() < 0.5;
+        let (kind, rotation) = if wall && fx.rand() < 0.6 {
+            // Drips run down walls.
+            let count = fx.drips.len();
+            let i = DRIP + fx.pick(count) as u8;
+            let up = (Vec3::Y - n * n.y).normalize_or(Vec3::Y);
+            // The decal plane's +Y is the normal; its -Z (texture top) points up.
+            let rot = Quat::from_mat3(&Mat3::from_cols(up.cross(n).normalize_or(Vec3::X), n, -up));
+            (i, rot)
+        } else {
+            let count = fx.splats.len();
+            let i = fx.pick(count) as u8;
+            let rot =
+                Quat::from_rotation_arc(Vec3::Y, n) * Quat::from_rotation_y(fx.range(0.0, TAU));
+            (i, rot)
+        };
+        let mat = fx.material(paint, kind, materials);
+        let size = if water {
+            fx.range(0.3, 0.5)
+        } else {
+            fx.range(0.25, 0.45)
+        };
+        commands.spawn((
+            Mesh3d(fx.decal.clone()),
+            MeshMaterial3d(mat),
+            Transform {
+                translation: point + n * 0.006,
+                rotation,
+                scale: Vec3::splat(size),
+            },
+            PaintDecal {
+                born: now,
+                fade: water.then_some(5.0),
+            },
+            DespawnOnExit(AppState::InGame),
+        ));
+    }
+
+    let droplet = fx.material(paint, DROPLET, materials);
+    let (t1, t2) = n.any_orthonormal_pair();
+    let count = if water { 10 } else { 14 };
+    for _ in 0..count {
+        let a = fx.range(0.0, TAU);
+        let vel = n * fx.range(1.0, 3.0) + (t1 * a.cos() + t2 * a.sin()) * fx.range(0.8, 2.8);
+        let s = fx.range(0.02, 0.05);
+        let life = fx.range(0.35, 0.7);
+        spawn_particle(
+            commands,
+            fx,
+            droplet.clone(),
+            point + n * 0.02,
+            vel,
+            s,
+            0.0,
+            life,
+            9.81,
+        );
+    }
+    let puff = fx.material(paint, PUFF, materials);
+    spawn_particle(
+        commands,
+        fx,
+        puff,
+        point + n * 0.05,
+        n * 0.4,
+        0.1,
+        0.45,
+        0.35,
+        0.0,
+    );
+
+    if water {
+        let s = fx.sounds.water_splash.clone();
+        play(commands, &s, 0.25 * volume);
+    } else {
+        let count = fx.sounds.splats.len();
+        let i = fx.pick(count);
+        let s = fx.sounds.splats[i].clone();
+        play(commands, &s, 0.5 * volume);
+        if decal && n.y.abs() < 0.9 && fx.rand() < 0.5 {
+            let s = fx.sounds.bunker_hit.clone();
+            play(commands, &s, 0.3 * volume);
+        }
+    }
+}
+
+fn update_particles(
+    mut commands: Commands,
+    time: Res<Time>,
+    cameras: Query<&GlobalTransform, With<MainCamera>>,
+    mut particles: Query<(Entity, &mut Transform, &mut Particle)>,
+) {
+    let dt = time.delta_secs();
+    let cam = cameras.single().map(|g| g.translation()).ok();
+    for (entity, mut tf, mut p) in &mut particles {
+        p.life += dt;
+        if p.life >= p.max {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let g = p.gravity;
+        p.vel.y -= g * dt;
+        tf.translation += p.vel * dt;
+        let k = p.life / p.max;
+        tf.scale = Vec3::splat((p.s0 + (p.s1 - p.s0) * k).max(0.001));
+        if let Some(c) = cam {
+            tf.look_at(c, Vec3::Y);
+        }
+    }
+}
+
+fn limit_decals(mut commands: Commands, time: Res<Time>, decals: Query<(Entity, &PaintDecal)>) {
+    let now = time.elapsed_secs();
+    let mut count = 0;
+    for (e, d) in &decals {
+        if let Some(fade) = d.fade
+            && now - d.born > fade
+        {
+            commands.entity(e).despawn();
+            continue;
+        }
+        count += 1;
+    }
+    if count <= MAX_DECALS {
+        return;
+    }
+    let mut all: Vec<(f32, Entity)> = decals.iter().map(|(e, d)| (d.born, e)).collect();
+    all.sort_by(|a, b| a.0.total_cmp(&b.0));
+    for (_, e) in all.into_iter().take(count - MAX_DECALS) {
+        commands.entity(e).despawn();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn everyone_agrees_on_a_shots_direction() {
+        let f = Vec3::new(0.3, 0.1, -1.0).normalize();
+        let a = shot_direction(f, 0.02, 3, 17);
+        let b = shot_direction(f, 0.02, 3, 17);
+        assert_eq!(a, b);
+        assert!(a.angle_between(f) <= 0.021);
+        assert_ne!(a, shot_direction(f, 0.02, 3, 18));
+    }
+
+    #[test]
+    fn balls_hit_standing_players() {
+        let center = Vec3::new(0.0, PLAYER_GROUND_Y, 0.0);
+        assert!(hits_player(Vec3::new(-2.0, 1.4, 0.0), Vec3::new(2.0, 1.4, 0.0), center).is_some());
+        assert!(hits_player(Vec3::new(-2.0, 1.4, 1.0), Vec3::new(2.0, 1.4, 1.0), center).is_none());
+        assert!(hits_player(Vec3::new(-2.0, 2.2, 0.0), Vec3::new(2.0, 2.2, 0.0), center).is_none());
+    }
+}
