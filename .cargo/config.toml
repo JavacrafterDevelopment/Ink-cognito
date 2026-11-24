@@ -1,0 +1,4 @@
+# MSVC: link the C runtime statically so the exe runs on a bare Windows install
+# with no Visual C++ redistributable. The release workflow builds with MSVC.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

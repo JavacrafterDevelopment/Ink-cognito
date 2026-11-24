@@ -1,3 +1,6 @@
+// Release builds on Windows open no console window beside the game.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod hub;
 mod menu;
 mod net;
