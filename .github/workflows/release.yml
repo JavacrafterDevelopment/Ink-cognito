@@ -1,0 +1,230 @@
+# Builds Ink-cognito for Windows and macOS and publishes it as a GitHub release
+# the Javacrafter Launcher can install and update. Any of these releases it:
+#
+#   - Bump `version` in Cargo.toml (e.g. 0.1.1) and merge that to main. The
+#     push to main sees v0.1.1 has no release yet, builds, tags that commit
+#     v0.1.1 and publishes. A push to main that doesn't change the version does
+#     nothing here.
+#   - Push a tag v0.1.1 by hand (it must match Cargo.toml).
+#   - Create a release v0.1.1 on GitHub's website. Its tag push runs this, and
+#     the packages are added to that release instead of making a new one.
+#
+# Either way a version is only ever built once: a release that already has the
+# packages is left alone. A version with a hyphen (0.2.0-beta.1) is published
+# as a pre-release, which the Launcher only offers on its beta channel.
+#
+# Windows: an MSVC build with the C runtime linked statically (see
+# .cargo/config.toml), so the folder is just ink-cognito.exe.
+#
+# macOS: one universal app (Apple Silicon and Intel), Ink-cognito.app.
+#
+# The release carries Ink-cognito-windows-x64.zip and Ink-cognito-macos.zip
+# (each the game folder plus launcher-manifest.json, every file's SHA-256),
+# which are what the Launcher downloads, and a .dmg for installing by hand.
+# update.json and update-macos.json on the `updates` branch are how the
+# Launcher finds and verifies updates without GitHub's API rate limit.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+# One release at a time, so two tags pushed together can't race on update.json.
+concurrency: release
+
+permissions:
+  contents: write
+
+jobs:
+  # Which version this is, and whether it still needs building.
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      mode: ${{ steps.v.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Cargo.toml and look for an existing release
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
+          tag="v$ver"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "$tag" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match Cargo.toml version $ver" >&2
+            exit 1
+          fi
+          if assets="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            if printf '%s\n' "$assets" | grep -qx 'Ink-cognito-windows-x64.zip'; then
+              echo "$tag is already released with its packages; nothing to do."
+              mode=none
+            else
+              echo "$tag exists without packages; building them for it."
+              mode=upload
+            fi
+          else
+            echo "Releasing $tag."
+            mode=create
+          fi
+          {
+            echo "version=$ver"
+            echo "tag=$tag"
+            echo "mode=$mode"
+          } >> "$GITHUB_OUTPUT"
+
+  build-windows:
+    needs: version
+    if: needs.version.outputs.mode != 'none'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --locked --target x86_64-pc-windows-msvc
+
+      - name: Build
+        run: cargo build --release --locked --target x86_64-pc-windows-msvc
+
+      - name: Assemble the folder
+        shell: pwsh
+        run: |
+          $dir = 'dist/Ink-cognito'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item target/x86_64-pc-windows-msvc/release/ink-cognito.exe $dir
+          # Bevy loads anything under assets/ next to the exe.
+          if (Test-Path assets) { Copy-Item -Recurse assets "$dir/assets" }
+
+      - name: Package
+        shell: pwsh
+        run: ./tools/release-package.ps1 -Folder dist/Ink-cognito -Name Ink-cognito -Exe ink-cognito.exe -Version ${{ needs.version.outputs.version }} -Out release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows
+          path: |
+            release/Ink-cognito-windows-x64.zip
+            release/release-entry.json
+
+  build-macos:
+    needs: version
+    if: needs.version.outputs.mode != 'none'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build (Apple Silicon and Intel, universal)
+        run: |
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+          mkdir -p target/release-universal
+          lipo -create -output target/release-universal/ink-cognito \
+            target/aarch64-apple-darwin/release/ink-cognito \
+            target/x86_64-apple-darwin/release/ink-cognito
+
+      - name: Package
+        run: ./tools/package-macos.sh target/release-universal/ink-cognito dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos
+          path: |
+            dist/Ink-cognito-macos.zip
+            dist/Ink-cognito-macos.dmg
+            dist/release-entry-macos.json
+
+  publish:
+    needs: [version, build-windows, build-macos]
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-windows
+          path: release
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-macos
+          path: dist
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ needs.version.outputs.tag }}'
+          $assets = @('release/Ink-cognito-windows-x64.zip', 'dist/Ink-cognito-macos.zip')
+          if (Test-Path 'dist/Ink-cognito-macos.dmg') { $assets += 'dist/Ink-cognito-macos.dmg' }
+          if ('${{ needs.version.outputs.mode }}' -eq 'upload') {
+            gh release upload $tag @assets --clobber
+          } else {
+            $pre = if ($tag -match '-') { '--prerelease' } else { $null }
+            # --target tags this commit when the tag doesn't exist yet (a merge to main).
+            gh release create $tag @assets --target '${{ github.sha }}' `
+              --title "Ink-cognito $($tag.TrimStart('v'))" --generate-notes $pre
+          }
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      # update.json (Windows) and update-macos.json (macOS) live on their own
+      # `updates` branch so releases never add commits to main. The Launcher
+      # reads them from raw.githubusercontent.com.
+      - name: Publish update.json and update-macos.json
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag  = '${{ needs.version.outputs.tag }}'
+          $repo = '${{ github.repository }}'
+          $info = gh release view $tag --json body,isPrerelease | ConvertFrom-Json
+          # Read raw: ConvertFrom-Json would turn the timestamp into a local-format date.
+          $published = gh release view $tag --json publishedAt --jq .publishedAt
+
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if (git ls-remote --heads origin updates) {
+            git fetch --depth 1 origin updates
+            git worktree add updates-branch FETCH_HEAD
+          } else {
+            # First release with update.json: start the branch with nothing else on it.
+            git worktree add --detach updates-branch
+            git -C updates-branch checkout --orphan updates
+            git -C updates-branch rm -rf --quiet .
+          }
+
+          ./tools/publish-update.ps1 -Entry release/release-entry.json -Repo $repo -Tag $tag `
+            -UpdateJson updates-branch/update.json -Prerelease:$info.isPrerelease `
+            -Notes "$($info.body)" -Published $published
+
+          ./tools/publish-update.ps1 -Entry dist/release-entry-macos.json -Repo $repo -Tag $tag `
+            -UpdateJson updates-branch/update-macos.json -Prerelease:$info.isPrerelease `
+            -Notes "$($info.body)" -Published $published
+
+          git -C updates-branch add update.json update-macos.json
+          git -C updates-branch commit -m "update.json and update-macos.json for $tag"
+          git -C updates-branch push origin HEAD:refs/heads/updates
