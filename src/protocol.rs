@@ -5,6 +5,11 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 /// Virtual TCP port used inside the Tailcat tunnel for game traffic.
 pub const GAME_PORT: u16 = 7777;
 
+/// A player or host heard nothing from for this long is gone (crashed,
+/// Alt+F4'd, lost its network). Pings go every couple of seconds.
+pub const SILENCE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+pub const PING_EVERY: std::time::Duration = std::time::Duration::from_secs(2);
+
 /// Upper bound on a single serialized network frame to protect against malformed packets.
 const MAX_FRAME_BYTES: usize = 64 * 1024;
 
@@ -22,7 +27,14 @@ pub struct PlayerSnapshot {
 /// Messages sent from a joining client to the host.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClientMessage {
-    UpdateTransform { position: [f32; 3], yaw: f32 },
+    UpdateTransform {
+        position: [f32; 3],
+        yaw: f32,
+    },
+    /// "Still here", every couple of seconds, so a host notices a player that vanished.
+    Ping,
+    /// The player is leaving (sent before closing).
+    Leave,
 }
 
 /// Messages sent from the host to connected clients.
@@ -39,6 +51,69 @@ pub enum ServerMessage {
     WorldState {
         players: Vec<PlayerSnapshot>,
     },
+    /// The host is closing the game: everyone goes back to the menu.
+    HostLeaving,
+}
+
+/// What a joining player sends the host over UDP (one JSON datagram each).
+///
+/// UDP is what Portside's game sessions carry (through its VOIP TailCat copy),
+/// so a hub game runs on this. Datagrams can be lost: `Hello` is resent until
+/// the host's `Welcome` arrives, and `WorldState` is sent many times a second.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ClientDatagram {
+    Hello,
+    Msg(ClientMessage),
+    Keepalive,
+    Bye,
+}
+
+/// What the host sends a UDP player.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ServerDatagram {
+    Msg(ServerMessage),
+    /// Part of the world, when all of it doesn't fit one datagram.
+    Players {
+        players: Vec<PlayerSnapshot>,
+    },
+    /// Everyone in the game right now, by id (sent with `Players`).
+    Roster {
+        ids: Vec<PlayerId>,
+    },
+    Keepalive,
+    Bye,
+}
+
+/// Keep datagrams under what fits a tunnel packet with room to spare.
+pub const MAX_DATAGRAM: usize = 1100;
+
+/// Encodes a host message as one or more datagrams that each fit `MAX_DATAGRAM`.
+pub fn encode_server_datagrams(msg: &ServerMessage) -> Vec<Vec<u8>> {
+    let whole = serde_json::to_vec(&ServerDatagram::Msg(msg.clone())).unwrap_or_default();
+    if whole.len() <= MAX_DATAGRAM {
+        return vec![whole];
+    }
+    let players = match msg {
+        ServerMessage::WorldState { players } => players,
+        ServerMessage::Welcome { players, .. } => players,
+        _ => return vec![whole],
+    };
+    let mut out = Vec::new();
+    if let ServerMessage::Welcome { your_id, .. } = msg {
+        let w = ServerMessage::Welcome {
+            your_id: *your_id,
+            players: Vec::new(),
+        };
+        out.extend(serde_json::to_vec(&ServerDatagram::Msg(w)));
+    }
+    let ids = players.iter().map(|p| p.id).collect();
+    out.extend(serde_json::to_vec(&ServerDatagram::Roster { ids }));
+    for chunk in players.chunks(6) {
+        out.extend(serde_json::to_vec(&ServerDatagram::Players {
+            players: chunk.to_vec(),
+        }));
+    }
+    out
 }
 
 /// Deterministic color palette so each player stands out clearly on the baseplate.
@@ -72,8 +147,8 @@ where
     W: AsyncWrite + Unpin,
     T: Serialize,
 {
-    let bytes = serde_json::to_vec(msg)
-        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+    let bytes =
+        serde_json::to_vec(msg).map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
     if bytes.len() > MAX_FRAME_BYTES {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -111,4 +186,35 @@ where
     let msg = serde_json::from_slice(&buf)
         .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
     Ok(Some(msg))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn big_world_state_is_split_into_datagrams_that_fit() {
+        let players: Vec<_> = (0..40)
+            .map(|id| PlayerSnapshot {
+                id,
+                position: [123.456, 1.0, -98.765],
+                yaw: 2.71,
+                color: player_color(id),
+            })
+            .collect();
+        let small = encode_server_datagrams(&ServerMessage::WorldState {
+            players: players[..2].to_vec(),
+        });
+        assert_eq!(small.len(), 1);
+        let big = encode_server_datagrams(&ServerMessage::WorldState { players });
+        assert!(big.len() > 2);
+        let mut seen = 0;
+        for d in &big {
+            assert!(d.len() <= MAX_DATAGRAM, "datagram of {} bytes", d.len());
+            if let ServerDatagram::Players { players } = serde_json::from_slice(d).unwrap() {
+                seen += players.len();
+            }
+        }
+        assert_eq!(seen, 40);
+    }
 }

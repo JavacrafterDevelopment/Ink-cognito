@@ -1,6 +1,8 @@
 use crate::{
     AppState,
-    net::{NetRole, NetworkState},
+    hub::{self, HubPlay},
+    net::{NetRole, NetworkState, Transport},
+    portside::{Portside, Session, Status},
 };
 use bevy::{
     input::{
@@ -43,13 +45,19 @@ impl Plugin for MenuPlugin {
             .add_observer(on_button_release)
             .add_observer(on_menu_click)
             .add_observer(on_hud_click)
+            .add_observer(on_hub_join_click)
             .add_systems(OnEnter(AppState::MainMenu), spawn_main_menu)
             .add_systems(
                 Update,
-                (handle_join_text_input, update_menu_ui).run_if(in_state(AppState::MainMenu)),
+                (handle_join_text_input, update_menu_ui, update_hub_menu)
+                    .run_if(in_state(AppState::MainMenu)),
             )
             .add_systems(OnEnter(AppState::InGame), spawn_in_game_hud)
-            .add_systems(Update, update_in_game_hud.run_if(in_state(AppState::InGame)));
+            .add_systems(
+                Update,
+                (update_in_game_hud, update_hub_hud, join_toast_with_key)
+                    .run_if(in_state(AppState::InGame)),
+            );
     }
 }
 
@@ -80,6 +88,7 @@ enum MenuAction {
     ConnectJoin,
     BackToHome,
     CancelConnect,
+    RetryPortside,
 }
 
 #[derive(Component, Clone, Copy)]
@@ -119,28 +128,48 @@ struct HudAddrText;
 #[derive(Component)]
 struct HudCopyBtnText;
 
-fn on_button_over(
-    over: On<PointerOver>,
-    mut q: Query<(&ButtonStyle, &mut BackgroundColor)>,
-) {
+/// A Join button for a game in the Portside hub.
+#[derive(Component, Clone)]
+struct HubJoin(Session);
+
+/// The pop-up's Join button: joins whatever the pop-up is showing.
+#[derive(Component)]
+struct HubToastJoin;
+
+#[derive(Component)]
+struct HubSection;
+
+#[derive(Component)]
+struct HubStatusText;
+
+#[derive(Component)]
+struct HubSessionList;
+
+#[derive(Component)]
+struct HubRetryNode;
+
+#[derive(Component)]
+struct HudHubText;
+
+#[derive(Component)]
+struct HubToast;
+
+#[derive(Component)]
+struct HubToastText;
+
+fn on_button_over(over: On<PointerOver>, mut q: Query<(&ButtonStyle, &mut BackgroundColor)>) {
     if let Ok((style, mut bg)) = q.get_mut(over.entity) {
         *bg = BackgroundColor(style.hover);
     }
 }
 
-fn on_button_out(
-    out: On<PointerOut>,
-    mut q: Query<(&ButtonStyle, &mut BackgroundColor)>,
-) {
+fn on_button_out(out: On<PointerOut>, mut q: Query<(&ButtonStyle, &mut BackgroundColor)>) {
     if let Ok((style, mut bg)) = q.get_mut(out.entity) {
         *bg = BackgroundColor(style.normal);
     }
 }
 
-fn on_button_press(
-    press: On<PointerPress>,
-    mut q: Query<(&ButtonStyle, &mut BackgroundColor)>,
-) {
+fn on_button_press(press: On<PointerPress>, mut q: Query<(&ButtonStyle, &mut BackgroundColor)>) {
     if press.button != PointerButton::Primary {
         return;
     }
@@ -166,6 +195,7 @@ fn on_menu_click(
     actions: Query<&MenuAction>,
     mut menu: ResMut<MenuState>,
     mut net: ResMut<NetworkState>,
+    portside: Res<Portside>,
 ) {
     if click.button != PointerButton::Primary {
         return;
@@ -217,7 +247,42 @@ fn on_menu_click(
             net.disconnect();
             net.error_text = None;
         }
+        MenuAction::RetryPortside => portside.retry(),
     }
+}
+
+fn on_hub_join_click(
+    click: On<PointerClick>,
+    buttons: Query<(Option<&HubJoin>, Has<HubToastJoin>)>,
+    mut hub: ResMut<HubPlay>,
+    mut net: ResMut<NetworkState>,
+    portside: Res<Portside>,
+    state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if click.button != PointerButton::Primary {
+        return;
+    }
+    let Ok((join, is_toast)) = buttons.get(click.entity) else {
+        return;
+    };
+    let session = match (join, is_toast) {
+        (Some(HubJoin(session)), _) => session.clone(),
+        (None, true) => match &hub.toast {
+            Some((session, _)) => session.clone(),
+            None => return,
+        },
+        _ => return,
+    };
+    if net.is_connecting {
+        return;
+    }
+    // Joining from inside a game leaves it first.
+    if *state.get() == AppState::InGame {
+        net.disconnect();
+        next_state.set(AppState::MainMenu);
+    }
+    hub.start_join(&session, &mut net, &portside);
 }
 
 fn on_hud_click(
@@ -297,7 +362,7 @@ fn spawn_main_menu(mut commands: Commands, mut menu: ResMut<MenuState>) {
                         TextColor(TEXT_PRIMARY),
                     ));
                     header.spawn((
-                        Text::new("3D Multiplayer  •  Tailcat"),
+                        Text::new("3D Multiplayer  |  Portside  |  Tailcat"),
                         TextFont::from_font_size(15.0),
                         TextColor(TEXT_MUTED),
                     ));
@@ -329,7 +394,7 @@ fn spawn_main_menu(mut commands: Commands, mut menu: ResMut<MenuState>) {
                     );
                     spawn_menu_button(
                         home,
-                        "Join Game",
+                        "Join by Address",
                         MenuAction::OpenJoin,
                         ButtonStyle {
                             normal: BTN_SECONDARY,
@@ -340,6 +405,66 @@ fn spawn_main_menu(mut commands: Commands, mut menu: ResMut<MenuState>) {
                         20.0,
                         false,
                     );
+                });
+
+                // Games in your Portside hub
+                card.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Stretch,
+                        row_gap: Val::Px(8.0),
+                        padding: UiRect::top(Val::Px(10.0)),
+                        border: UiRect::top(Val::Px(1.0)),
+                        ..default()
+                    },
+                    BorderColor::all(BORDER_SUBTLE),
+                    HubSection,
+                ))
+                .with_children(|hub| {
+                    hub.spawn((
+                        Text::new("YOUR PORTSIDE HUB"),
+                        TextFont::from_font_size(12.0),
+                        TextColor(TEXT_MUTED),
+                    ));
+                    hub.spawn((
+                        Text::new(""),
+                        TextFont::from_font_size(14.0),
+                        TextColor(TEXT_STATUS),
+                        HubStatusText,
+                    ));
+                    hub.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Stretch,
+                            row_gap: Val::Px(6.0),
+                            ..default()
+                        },
+                        HubSessionList,
+                    ));
+                    hub.spawn((
+                        Node {
+                            display: Display::None,
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Stretch,
+                            ..default()
+                        },
+                        HubRetryNode,
+                    ))
+                    .with_children(|retry| {
+                        spawn_menu_button(
+                            retry,
+                            "Retry Portside",
+                            MenuAction::RetryPortside,
+                            ButtonStyle {
+                                normal: BTN_SECONDARY,
+                                hover: BTN_SECONDARY_HOVER,
+                                press: BTN_SECONDARY_PRESS,
+                            },
+                            34.0,
+                            14.0,
+                            false,
+                        );
+                    });
                 });
 
                 // Join screen (Tailcat address input + Connect / Paste / Back)
@@ -574,9 +699,7 @@ fn handle_join_text_input(
                 net.error_text = None;
             }
             _ => {
-                if !modifier
-                    && let Some(text) = &event.text
-                {
+                if !modifier && let Some(text) = &event.text {
                     for ch in text.chars() {
                         if !ch.is_control() && !ch.is_whitespace() {
                             menu.join_address.push(ch);
@@ -670,6 +793,183 @@ fn update_menu_ui(
     }
 }
 
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn update_hub_menu(
+    mut commands: Commands,
+    hub: Res<HubPlay>,
+    menu: Res<MenuState>,
+    net: Res<NetworkState>,
+    mut section_q: Query<&mut Node, (With<HubSection>, Without<HubRetryNode>)>,
+    mut retry_q: Query<&mut Node, (With<HubRetryNode>, Without<HubSection>)>,
+    mut status_q: Query<&mut Text, With<HubStatusText>>,
+    list_q: Query<(Entity, Ref<HubSessionList>)>,
+    mut shown: Local<u64>,
+) {
+    if let Ok(mut node) = section_q.single_mut() {
+        node.display = if !net.is_connecting && menu.screen == MenuScreen::Home {
+            Display::Flex
+        } else {
+            Display::None
+        };
+    }
+    if let Ok(mut node) = retry_q.single_mut() {
+        node.display = match hub.snapshot.status {
+            Status::Denied(_) | Status::NotRunning => Display::Flex,
+            _ => Display::None,
+        };
+    }
+    if let Ok(mut text) = status_q.single_mut() {
+        let line = hub::status_line(&hub);
+        if text.0 != line {
+            text.0 = line;
+        }
+    }
+
+    let Ok((list, list_ref)) = list_q.single() else {
+        return;
+    };
+    if !list_ref.is_added() && *shown == hub.snapshot.version {
+        return;
+    }
+    *shown = hub.snapshot.version;
+    commands.entity(list).despawn_related::<Children>();
+    let sessions: Vec<Session> = hub.others_sessions().take(5).cloned().collect();
+    commands.entity(list).with_children(|list| {
+        for session in sessions {
+            list.spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(10.0),
+                    padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(10.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.03, 0.05, 0.08, 0.9)),
+                BorderColor::all(BORDER_SUBTLE),
+            ))
+            .with_children(|row| {
+                let players = match session.players {
+                    Some(1) => "  |  1 player".to_string(),
+                    Some(n) => format!("  |  {n} players"),
+                    None => String::new(),
+                };
+                row.spawn((
+                    Node {
+                        flex_grow: 1.0,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(2.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|col| {
+                    col.spawn((
+                        Text::new(shorten_middle(&session.title, 30)),
+                        TextFont::from_font_size(15.0),
+                        TextColor(TEXT_PRIMARY),
+                        Pickable::IGNORE,
+                    ));
+                    col.spawn((
+                        Text::new(format!("{}{players}", session.host_name)),
+                        TextFont::from_font_size(12.0),
+                        TextColor(TEXT_MUTED),
+                        Pickable::IGNORE,
+                    ));
+                });
+                spawn_hub_join_button(row, HubJoin(session.clone()));
+            });
+        }
+    });
+}
+
+/// J joins the game the pop-up shows, without freeing the mouse first.
+fn join_toast_with_key(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut hub: ResMut<HubPlay>,
+    mut net: ResMut<NetworkState>,
+    portside: Res<Portside>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if !keys.just_pressed(KeyCode::KeyJ) || net.is_connecting {
+        return;
+    }
+    let Some((session, _)) = hub.toast.clone() else {
+        return;
+    };
+    net.disconnect();
+    next_state.set(AppState::MainMenu);
+    hub.start_join(&session, &mut net, &portside);
+}
+
+fn spawn_hub_join_button(parent: &mut ChildSpawnerCommands, marker: impl Bundle) {
+    let style = ButtonStyle {
+        normal: BTN_PRIMARY,
+        hover: BTN_PRIMARY_HOVER,
+        press: BTN_PRIMARY_PRESS,
+    };
+    parent
+        .spawn((
+            Node {
+                padding: UiRect::axes(Val::Px(16.0), Val::Px(8.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(Val::Px(8.0)),
+                ..default()
+            },
+            BackgroundColor(style.normal),
+            style,
+            marker,
+        ))
+        .with_children(|btn| {
+            btn.spawn((
+                Text::new("Join"),
+                TextFont::from_font_size(14.0),
+                TextColor(TEXT_PRIMARY),
+                Pickable::IGNORE,
+            ));
+        });
+}
+
+#[allow(clippy::type_complexity)]
+fn update_hub_hud(
+    hub: Res<HubPlay>,
+    net: Res<NetworkState>,
+    mut line_q: Query<(&mut Text, &mut Node), (With<HudHubText>, Without<HubToastText>)>,
+    mut toast_q: Query<&mut Node, (With<HubToast>, Without<HudHubText>)>,
+    mut toast_text_q: Query<&mut Text, (With<HubToastText>, Without<HudHubText>)>,
+) {
+    if let Ok((mut text, mut node)) = line_q.single_mut() {
+        match hub::hud_line(&hub, &net) {
+            Some(line) => {
+                if text.0 != line {
+                    text.0 = line;
+                }
+                node.display = Display::Flex;
+            }
+            None => node.display = Display::None,
+        }
+    }
+    if let Ok(mut node) = toast_q.single_mut() {
+        node.display = if hub.toast.is_some() {
+            Display::Flex
+        } else {
+            Display::None
+        };
+    }
+    if let (Ok(mut text), Some((session, _))) = (toast_text_q.single_mut(), &hub.toast) {
+        let line = format!(
+            "{} started a game in your hub (J to join)\n{}",
+            session.host_name,
+            shorten_middle(&session.title, 34)
+        );
+        if text.0 != line {
+            text.0 = line;
+        }
+    }
+}
+
 fn spawn_in_game_hud(
     mut commands: Commands,
     net: Res<NetworkState>,
@@ -716,12 +1016,20 @@ fn spawn_in_game_hud(
 
                 if is_host {
                     panel.spawn((
-                        Text::new("Tailcat address: ..."),
+                        Text::new("Tailcat address: starting..."),
                         TextFont::from_font_size(13.0),
                         TextColor(TEXT_STATUS),
                         HudAddrText,
                     ));
                 }
+
+                panel.spawn((
+                    Node::default(),
+                    Text::new(""),
+                    TextFont::from_font_size(13.0),
+                    TextColor(TEXT_MUTED),
+                    HudHubText,
+                ));
 
                 panel
                     .spawn(Node {
@@ -803,12 +1111,42 @@ fn spawn_in_game_hud(
             .with_children(|hint| {
                 hint.spawn((
                     Text::new(
-                        "WASD / Arrows: Move  •  Space: Jump  •  Shift: Sprint  •  Right-Drag or Q/E: Orbit  •  Scroll: Zoom",
+                        "WASD / Arrows: Move  |  Mouse: Look  |  Space: Jump  |  Shift: Sprint  |  Q/E: Turn  |  Esc: Free mouse",
                     ),
                     TextFont::from_font_size(13.0),
                     TextColor(TEXT_MUTED),
                     Pickable::IGNORE,
                 ));
+            });
+
+            // Pop-up: someone in the hub started a game
+            root.spawn((
+                Node {
+                    display: Display::None,
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(16.0),
+                    right: Val::Px(16.0),
+                    padding: UiRect::axes(Val::Px(16.0), Val::Px(12.0)),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(14.0),
+                    border: UiRect::all(Val::Px(1.5)),
+                    border_radius: BorderRadius::all(Val::Px(12.0)),
+                    ..default()
+                },
+                BackgroundColor(BG_CARD),
+                BorderColor::all(Color::srgba(0.32, 0.56, 0.86, 0.9)),
+                HubToast,
+            ))
+            .with_children(|toast| {
+                toast.spawn((
+                    Text::new(""),
+                    TextFont::from_font_size(14.0),
+                    TextColor(TEXT_PRIMARY),
+                    Pickable::IGNORE,
+                    HubToastText,
+                ));
+                spawn_hub_join_button(toast, HubToastJoin);
             });
         });
 }
@@ -853,15 +1191,22 @@ fn update_in_game_hud(
     };
     let count = net.players.len().max(1);
     let plural = if count == 1 { "player" } else { "players" };
+    let via = match (net.active_role(), net.transport) {
+        (_, Some(Transport::Portside)) => "  |  Portside",
+        (Some(NetRole::Client), _) => "  |  Tailcat",
+        _ => "",
+    };
 
     if let Ok(mut text) = info_q.single_mut() {
-        text.0 = format!("{role_label}  •  {count} {plural}  •  Tailcat");
+        text.0 = format!("{role_label}  |  {count} {plural}{via}");
     }
 
-    if let Ok(mut text) = addr_q.single_mut()
-        && let Some(addr) = &net.tailcat_addr
-    {
-        text.0 = format!("Address: {}", shorten_middle(addr, 36));
+    if let Ok(mut text) = addr_q.single_mut() {
+        if let Some(addr) = &net.tailcat_addr {
+            text.0 = format!("Address: {}", shorten_middle(addr, 36));
+        } else if let Some(err) = &net.tailcat_error {
+            text.0 = err.clone();
+        }
     }
 
     if let Ok(mut text) = copy_q.single_mut() {

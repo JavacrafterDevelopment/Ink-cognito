@@ -5,9 +5,11 @@ use crate::{
 };
 use bevy::{
     asset::RenderAssetUsages,
-    input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
+    input::mouse::MouseMotion,
+    picking::hover::HoverMap,
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
 use std::collections::{HashMap, HashSet};
 
@@ -22,6 +24,11 @@ const WALK_SPEED: f32 = 7.0;
 const SPRINT_SPEED: f32 = 12.0;
 const JUMP_SPEED: f32 = 7.8;
 const GRAVITY: f32 = 22.0;
+/// Eye height above the capsule's center (the visor sits about here).
+const EYE_OFFSET: f32 = 0.42;
+const MOUSE_SENSITIVITY: f32 = 0.0022;
+const KEY_TURN_SPEED: f32 = 2.2;
+const MAX_PITCH: f32 = 1.5;
 
 pub struct WorldPlugin;
 
@@ -39,10 +46,15 @@ impl Plugin for WorldPlugin {
                 Update,
                 animate_menu_camera.run_if(in_state(AppState::MainMenu)),
             )
-            .add_systems(OnEnter(AppState::InGame), spawn_in_game_players)
+            .add_systems(
+                OnEnter(AppState::InGame),
+                (spawn_in_game_players, grab_cursor),
+            )
+            .add_systems(OnExit(AppState::InGame), release_cursor)
             .add_systems(
                 Update,
                 (
+                    toggle_cursor_grab,
                     move_local_player,
                     update_game_camera,
                     sync_remote_players,
@@ -57,21 +69,12 @@ impl Plugin for WorldPlugin {
 #[derive(Component)]
 pub struct MainCamera;
 
-#[derive(Component)]
+/// Where the first-person camera looks: `yaw` turns (0 looks down -Z),
+/// `pitch` looks up (+) and down (-).
+#[derive(Component, Default)]
 pub struct CameraRig {
     pub yaw: f32,
     pub pitch: f32,
-    pub distance: f32,
-}
-
-impl Default for CameraRig {
-    fn default() -> Self {
-        Self {
-            yaw: 0.0,
-            pitch: 0.42,
-            distance: 9.5,
-        }
-    }
 }
 
 #[derive(Component)]
@@ -241,10 +244,7 @@ fn build_baseplate_texture() -> Image {
     )
 }
 
-fn animate_menu_camera(
-    time: Res<Time>,
-    mut camera_q: Query<&mut Transform, With<MainCamera>>,
-) {
+fn animate_menu_camera(time: Res<Time>, mut camera_q: Query<&mut Transform, With<MainCamera>>) {
     let Ok(mut transform) = camera_q.single_mut() else {
         return;
     };
@@ -328,12 +328,16 @@ fn spawn_in_game_players(
         spawn_pos,
         local_snapshot.yaw,
     );
-    commands.entity(local_entity).insert(LocalPlayer {
-        id: local_id,
-        velocity_y: 0.0,
-        grounded: true,
-        yaw: local_snapshot.yaw,
-    });
+    // First person: the camera is inside our own capsule, so don't draw it.
+    commands.entity(local_entity).insert((
+        LocalPlayer {
+            id: local_id,
+            velocity_y: 0.0,
+            grounded: true,
+            yaw: local_snapshot.yaw,
+        },
+        Visibility::Hidden,
+    ));
 
     for (&id, snapshot) in &net.players {
         if id == local_id {
@@ -356,7 +360,10 @@ fn spawn_in_game_players(
     }
 
     if let Ok(mut rig) = camera_q.single_mut() {
-        *rig = CameraRig::default();
+        *rig = CameraRig {
+            yaw: local_snapshot.yaw,
+            pitch: 0.0,
+        };
     }
 }
 
@@ -369,23 +376,31 @@ fn poll_network_events(
     for event in events {
         match event {
             NetEvent::HostingStarted {
-                tailcat_addr,
+                udp_port,
                 local_player,
             } => {
                 net.is_connecting = false;
                 net.error_text = None;
-                net.tailcat_addr = Some(tailcat_addr);
+                net.udp_port = Some(udp_port);
                 net.local_player_id = Some(local_player.id);
-                net.status_text = "Hosting via Tailcat".to_string();
+                net.status_text = "Hosting".to_string();
                 net.players.clear();
                 net.players.insert(local_player.id, local_player);
                 next_state.set(AppState::InGame);
+            }
+            NetEvent::TailcatReady(addr) => {
+                net.tailcat_addr = Some(addr);
+                net.tailcat_error = None;
+            }
+            NetEvent::TailcatFailed(err) => {
+                warn!("{err}");
+                net.tailcat_error = Some(err);
             }
             NetEvent::Connected { your_id, players } => {
                 net.is_connecting = false;
                 net.error_text = None;
                 net.local_player_id = Some(your_id);
-                net.status_text = "Connected via Tailcat".to_string();
+                net.status_text = "Connected".to_string();
                 net.players.clear();
                 for player in players {
                     net.players.insert(player.id, player);
@@ -409,6 +424,19 @@ fn poll_network_events(
                     }
                     net.players.insert(player.id, player);
                 }
+            }
+            NetEvent::PlayerUpdates(players) => {
+                let local_id = net.local_player_id;
+                for player in players {
+                    if Some(player.id) != local_id {
+                        net.players.insert(player.id, player);
+                    }
+                }
+            }
+            NetEvent::Roster(ids) => {
+                let local_id = net.local_player_id;
+                net.players
+                    .retain(|id, _| Some(*id) == local_id || ids.contains(id));
             }
             NetEvent::Error(err) => {
                 net.disconnect();
@@ -469,12 +497,11 @@ fn move_local_player(
             WALK_SPEED
         };
         transform.translation += move_vec * speed * dt;
-
-        // Smoothly rotate player to face movement direction (-Z is front).
-        let target_yaw = (-move_vec.x).atan2(-move_vec.z);
-        player.yaw = lerp_angle(player.yaw, target_yaw, (dt * 12.0).min(1.0));
-        transform.rotation = Quat::from_rotation_y(player.yaw);
     }
+
+    // First person: the body faces where we look, so others see where that is.
+    player.yaw = rig_yaw;
+    transform.rotation = Quat::from_rotation_y(player.yaw);
 
     // Jump & gravity.
     if player.grounded && keys.just_pressed(KeyCode::Space) {
@@ -507,9 +534,8 @@ fn move_local_player(
 fn update_game_camera(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
-    mouse_buttons: Res<ButtonInput<MouseButton>>,
     mut mouse_motion: MessageReader<MouseMotion>,
-    mut mouse_wheel: MessageReader<MouseWheel>,
+    cursor_q: Query<&CursorOptions, With<PrimaryWindow>>,
     player_q: Query<&Transform, (With<LocalPlayer>, Without<MainCamera>)>,
     mut camera_q: Query<(&mut Transform, &mut CameraRig), With<MainCamera>>,
 ) {
@@ -518,50 +544,77 @@ fn update_game_camera(
     };
     let dt = time.delta_secs().min(0.05);
 
-    // Keyboard camera rotation for effortless trackpad / keyboard-only play.
-    let key_turn_speed = 2.0;
-    if keys.pressed(KeyCode::KeyQ) {
-        rig.yaw += key_turn_speed * dt;
-    }
-    if keys.pressed(KeyCode::KeyE) {
-        rig.yaw -= key_turn_speed * dt;
-    }
-
-    // Right-click or middle-click drag orbits the camera.
-    let dragging =
-        mouse_buttons.pressed(MouseButton::Right) || mouse_buttons.pressed(MouseButton::Middle);
+    // Mouse look while the mouse is captured (Esc frees it for the buttons).
+    let captured = cursor_q
+        .single()
+        .is_ok_and(|c| c.grab_mode != CursorGrabMode::None);
     for motion in mouse_motion.read() {
-        if dragging {
-            rig.yaw -= motion.delta.x * 0.006;
-            rig.pitch = (rig.pitch + motion.delta.y * 0.005).clamp(0.12, 1.25);
+        if captured {
+            rig.yaw -= motion.delta.x * MOUSE_SENSITIVITY;
+            rig.pitch -= motion.delta.y * MOUSE_SENSITIVITY;
         }
     }
 
-    // Scroll wheel zooms camera distance.
-    for wheel in mouse_wheel.read() {
-        let delta = match wheel.unit {
-            MouseScrollUnit::Line => wheel.y * 0.75,
-            MouseScrollUnit::Pixel => wheel.y * 0.015,
-        };
-        rig.distance = (rig.distance - delta).clamp(4.5, 18.0);
+    // Q/E turn too, for trackpads.
+    if keys.pressed(KeyCode::KeyQ) {
+        rig.yaw += KEY_TURN_SPEED * dt;
     }
+    if keys.pressed(KeyCode::KeyE) {
+        rig.yaw -= KEY_TURN_SPEED * dt;
+    }
+    rig.yaw %= std::f32::consts::TAU;
+    rig.pitch = rig.pitch.clamp(-MAX_PITCH, MAX_PITCH);
 
     let Ok(player_transform) = player_q.single() else {
         return;
     };
+    cam_transform.translation = player_transform.translation + Vec3::Y * EYE_OFFSET;
+    cam_transform.rotation = Quat::from_rotation_y(rig.yaw) * Quat::from_rotation_x(rig.pitch);
+}
 
-    let focus = player_transform.translation + Vec3::new(0.0, 0.75, 0.0);
-    let horiz = rig.distance * rig.pitch.cos();
-    let offset = Vec3::new(
-        rig.yaw.sin() * horiz,
-        rig.distance * rig.pitch.sin(),
-        rig.yaw.cos() * horiz,
-    );
+fn set_cursor_grab(cursor_q: &mut Query<&mut CursorOptions, With<PrimaryWindow>>, grab: bool) {
+    if let Ok(mut cursor) = cursor_q.single_mut() {
+        cursor.grab_mode = if grab {
+            CursorGrabMode::Locked
+        } else {
+            CursorGrabMode::None
+        };
+        cursor.visible = !grab;
+    }
+}
 
-    let desired_pos = focus + offset;
-    let smooth = 1.0 - (-14.0 * dt).exp();
-    cam_transform.translation = cam_transform.translation.lerp(desired_pos, smooth);
-    cam_transform.look_at(focus, Vec3::Y);
+fn grab_cursor(mut cursor_q: Query<&mut CursorOptions, With<PrimaryWindow>>) {
+    set_cursor_grab(&mut cursor_q, true);
+}
+
+fn release_cursor(mut cursor_q: Query<&mut CursorOptions, With<PrimaryWindow>>) {
+    set_cursor_grab(&mut cursor_q, false);
+}
+
+/// Esc frees the mouse (to press Leave Game, Join, ...); clicking the world
+/// (not a button) captures it again.
+fn toggle_cursor_grab(
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    hover: Option<Res<HoverMap>>,
+    ui_nodes: Query<(), With<Node>>,
+    mut cursor_q: Query<&mut CursorOptions, With<PrimaryWindow>>,
+) {
+    let Ok(cursor) = cursor_q.single() else {
+        return;
+    };
+    let captured = cursor.grab_mode != CursorGrabMode::None;
+    if captured && keys.just_pressed(KeyCode::Escape) {
+        set_cursor_grab(&mut cursor_q, false);
+    } else if !captured && mouse.just_pressed(MouseButton::Left) {
+        let over_ui = hover.is_some_and(|h| {
+            h.values()
+                .any(|hits| hits.keys().any(|e| ui_nodes.contains(*e)))
+        });
+        if !over_ui {
+            set_cursor_grab(&mut cursor_q, true);
+        }
+    }
 }
 
 fn sync_remote_players(
@@ -619,14 +672,4 @@ fn interpolate_remote_players(
         let target_rot = Quat::from_rotation_y(remote.target_yaw);
         transform.rotation = transform.rotation.slerp(target_rot, blend);
     }
-}
-
-fn lerp_angle(from: f32, to: f32, t: f32) -> f32 {
-    let mut diff = (to - from) % std::f32::consts::TAU;
-    if diff > std::f32::consts::PI {
-        diff -= std::f32::consts::TAU;
-    } else if diff < -std::f32::consts::PI {
-        diff += std::f32::consts::TAU;
-    }
-    from + diff * t
 }
