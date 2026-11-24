@@ -2,40 +2,1550 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.2.0",
-      "published": "2026-11-24T09:37:19Z",
-      "notes": "## What's Changed\n* Play through Portside hubs, first person, reliable leave/quit detection (0.2.0) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/3\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.1.0...v0.2.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.2.0",
+      "version": "0.2.1",
+      "published": "2026-11-24T10:53:37Z",
+      "notes": "**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.2.0...v0.2.1",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.2.1",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.2.0/Ink-cognito-windows-x64.zip",
-        "size": 32424447,
-        "sha256": "78809df3825bbf74f68521fdd8bf9b7204dcfdc325b681c5349448db378133f4"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.2.1/Ink-cognito-windows-x64.zip",
+        "size": 46324158,
+        "sha256": "8a89ef11f3714eb5361f58e49e88b1aba7e95da8526d757621db39cd309ac25b"
       },
       "exe": "ink-cognito.exe",
       "files": [
         {
+          "path": "assets/ASSETS-README.txt",
+          "size": 4229,
+          "sha256": "2a50af039494024506dd95b8eb01c13a798af3c24e5cc9953c900583517ef5d6"
+        },
+        {
+          "path": "assets/audio/footsteps/step_dirt_01.ogg",
+          "size": 5759,
+          "sha256": "487b5aaf569de089d82824ea157e79901f0fe50397d474856f2495b3c9724543"
+        },
+        {
+          "path": "assets/audio/footsteps/step_dirt_02.ogg",
+          "size": 5761,
+          "sha256": "19823ca3cf2e47cd01a0f7848341a03a55d2696ee5d0b11d25dd0c0d9cede966"
+        },
+        {
+          "path": "assets/audio/footsteps/step_grass_01.ogg",
+          "size": 5837,
+          "sha256": "a1bee232935999e965888352c0ade7c762e9eb6a79d21bc2eb9ad1c822d943ad"
+        },
+        {
+          "path": "assets/audio/footsteps/step_grass_02.ogg",
+          "size": 5832,
+          "sha256": "4d3106d69b1fbd344e55dcba6ce00af62d7c27cc2301c18dbb5c746ad10ec42a"
+        },
+        {
+          "path": "assets/audio/footsteps/step_grass_03.ogg",
+          "size": 5858,
+          "sha256": "f49c3c6493b3a63ddf94fd1eee5696240b6af84ca4dee788b3336161ada805b6"
+        },
+        {
+          "path": "assets/audio/footsteps/step_grass_04.ogg",
+          "size": 5900,
+          "sha256": "943905f6afeccdc4267f4addf30d5b27b013a831614e7182cd5531e9c2f36a86"
+        },
+        {
+          "path": "assets/audio/game/countdown_beep.ogg",
+          "size": 5273,
+          "sha256": "6fc25690914c10b2cef4b402200f9117db4cdf9bc83024b96762c440e52fd5f9"
+        },
+        {
+          "path": "assets/audio/game/countdown_go.ogg",
+          "size": 5158,
+          "sha256": "fb87e74866149209682c494d7b841384b324d6de28d2aba2f63a20eec26348ce"
+        },
+        {
+          "path": "assets/audio/game/eliminated_buzzer.ogg",
+          "size": 17278,
+          "sha256": "2b6845033414fa5935475efe8d27c8d4760774e27c3205c365276e97f6cc976f"
+        },
+        {
+          "path": "assets/audio/game/flag_captured.ogg",
+          "size": 5721,
+          "sha256": "66a4a4a2efdc6f03c60674b8fed44f624cdcb0109ca8c342448db7c211073054"
+        },
+        {
+          "path": "assets/audio/game/round_start_horn.ogg",
+          "size": 19342,
+          "sha256": "a2a90730e3f16ae6c038b721d0099f28196cd79e519e9d856708b11fe16d5e36"
+        },
+        {
+          "path": "assets/audio/game/whistle.ogg",
+          "size": 21016,
+          "sha256": "28a52e1e6df57959ee71b4b249b8d55fe11e7e3c964e22c1565a16ee0383a31f"
+        },
+        {
+          "path": "assets/audio/impacts/ball_bounce.ogg",
+          "size": 4494,
+          "sha256": "8d38965bff208473218152ccc711c01e2accd75baa4ed129c278a6afad69327c"
+        },
+        {
+          "path": "assets/audio/impacts/hit_bunker_inflatable.ogg",
+          "size": 6333,
+          "sha256": "f873fe1d96aa2db9ad259b9df597431ced5cef3ead48a0786fdd70b8542e4a19"
+        },
+        {
+          "path": "assets/audio/impacts/hit_metal.ogg",
+          "size": 7794,
+          "sha256": "09723c4423d3ff241ea2a6bc7492aa700e98ffed0322c9141ea5691f0dd89a3c"
+        },
+        {
+          "path": "assets/audio/impacts/hit_wood.ogg",
+          "size": 5965,
+          "sha256": "dab32f18dcf6c2dab5ab813e4b612bfd0c689e45a80c495d98699ffd3b673328"
+        },
+        {
+          "path": "assets/audio/impacts/splat_player_hit.ogg",
+          "size": 6214,
+          "sha256": "cac623f08aa872d69d78e09c6a719eb659aee64e4b61305bd7ac8e87ca82ae0a"
+        },
+        {
+          "path": "assets/audio/impacts/splat_surface_01.ogg",
+          "size": 7703,
+          "sha256": "26c90ec0157f9305997ceec9888cf3c7bf9181af9f4b75b85116efd8cdd43dc6"
+        },
+        {
+          "path": "assets/audio/impacts/splat_surface_02.ogg",
+          "size": 7708,
+          "sha256": "ec9c41dcfc4e3f2d5a6af7d7a4432cf8417b2a0816749752cd212db33374c6a1"
+        },
+        {
+          "path": "assets/audio/impacts/splat_surface_03.ogg",
+          "size": 7688,
+          "sha256": "8e7ccc6a57b286947179c0bcfb71be4b8bdb8a0a083fb93d5cb1c7050a9b8d6d"
+        },
+        {
+          "path": "assets/audio/ui/hit_marker_tick.ogg",
+          "size": 4937,
+          "sha256": "7c95c206f0092e8c99f32fe43d1f5e4f2b8181152b113a8f9f6638af11e257c3"
+        },
+        {
+          "path": "assets/audio/ui/ui_click.ogg",
+          "size": 4333,
+          "sha256": "4910be9c4d1ed70e2769294e729b709ecd694afd554c9a0d620f231c8566e2e1"
+        },
+        {
+          "path": "assets/audio/ui/ui_confirm.ogg",
+          "size": 5125,
+          "sha256": "fb6343b81c09acbcc62156ba903176df199ed48a112446e4252d08032448d9cd"
+        },
+        {
+          "path": "assets/audio/ui/ui_hover.ogg",
+          "size": 4290,
+          "sha256": "eeca1884e4332f8055422d03f128d8f12704ab59f5a7220b15c5b8fe78dc6b04"
+        },
+        {
+          "path": "assets/audio/water/water_pump.ogg",
+          "size": 8819,
+          "sha256": "1dbeb62c597c0909a21a6ba0bdb134645bd73135146a07ed4ab709cd96160213"
+        },
+        {
+          "path": "assets/audio/water/water_splash.ogg",
+          "size": 8892,
+          "sha256": "7bba276d4c11d60dfaa1ae0240842b6b733811d916a587f72248012947ef4b29"
+        },
+        {
+          "path": "assets/audio/water/water_squirt.ogg",
+          "size": 8718,
+          "sha256": "878914c24421699b60cbf4e60c5d4fba2f745d9aff5e47b2b40391174c06dd71"
+        },
+        {
+          "path": "assets/audio/water/water_stream_loop.ogg",
+          "size": 24273,
+          "sha256": "8e5202ff83143c42842e7e3627a0b4cdef0db086583145ed86ba2641fd67e262"
+        },
+        {
+          "path": "assets/audio/weapons/dry_fire.ogg",
+          "size": 5020,
+          "sha256": "a2ea73ccbe61e84827fa3f6fda6dcdff828b50715669ad86d3bc0a98950290e2"
+        },
+        {
+          "path": "assets/audio/weapons/hopper_rattle.ogg",
+          "size": 13935,
+          "sha256": "ea24f8d7e9c9405c4ff2a34ad062ade2cc71b6f50a728190e75847594eee9d1b"
+        },
+        {
+          "path": "assets/audio/weapons/marker_shot_01.ogg",
+          "size": 6225,
+          "sha256": "f56f9e1c1b3e09344bf2d7528bd56177f5652d94a4b82a1b468db8bb15cda3e4"
+        },
+        {
+          "path": "assets/audio/weapons/marker_shot_02.ogg",
+          "size": 6208,
+          "sha256": "ac9927d21a35b51e2f7390f3c718330921766a40121868340a627dac302e268c"
+        },
+        {
+          "path": "assets/audio/weapons/marker_shot_03.ogg",
+          "size": 6376,
+          "sha256": "9f39083a7ef1002add94bdbf7f17f78812eb70e5ec283f489cbdf36be39f586c"
+        },
+        {
+          "path": "assets/audio/weapons/pod_reload.ogg",
+          "size": 17526,
+          "sha256": "02e88128e40fc37ba719d1e373776a665abd6ce9884f38d3b1407cea200f513b"
+        },
+        {
+          "path": "assets/audio/weapons/pump_cycle.ogg",
+          "size": 8147,
+          "sha256": "2b2301f0a24c4674555970004520f3b5bdcff15447722bd4a28334219f327b91"
+        },
+        {
+          "path": "assets/audio/weapons/tank_hiss.ogg",
+          "size": 15183,
+          "sha256": "46001b9a3cf0f40303e7041867cedf5e651e75a2af49ace96d54dc2a5b310d68"
+        },
+        {
+          "path": "assets/audio/weapons/tank_screw_in.ogg",
+          "size": 10543,
+          "sha256": "1b0e9f2e9fa4a28c8f887601ef254d743af73b3fed799b4bec51d3dca8145dc8"
+        },
+        {
+          "path": "assets/branding/logo.png",
+          "size": 810317,
+          "sha256": "160c9aefd26318e11ade9e18ec742b9e9d170546adda15677be53bcdff747fac"
+        },
+        {
+          "path": "assets/branding/menu_background.png",
+          "size": 2240875,
+          "sha256": "abd092d548a2566a5b66b423af09402ef5e46f349849907bf396bbc9ed19a8bc"
+        },
+        {
+          "path": "assets/models/bunkers/brick.glb",
+          "size": 7180,
+          "sha256": "e07f7eaed28438ec2158436255d22347150fcdbea5b6568e6dbd883f0b5c8e89"
+        },
+        {
+          "path": "assets/models/bunkers/cake.glb",
+          "size": 15324,
+          "sha256": "8e4ac662e9817bf4ba5e6e3071ca7deff0073b6655dcc75cc27d83f119b0c370"
+        },
+        {
+          "path": "assets/models/bunkers/can.glb",
+          "size": 19432,
+          "sha256": "5ca0c502844387551fd262f1d796df5fc7753174ef70a69635e12f2241811444"
+        },
+        {
+          "path": "assets/models/bunkers/dorito.glb",
+          "size": 3188,
+          "sha256": "efc0afd309c9e48e93cdfd6b5d30931167f2f8d57491d9bd132cc33a5fc72a58"
+        },
+        {
+          "path": "assets/models/bunkers/mini_can.glb",
+          "size": 11916,
+          "sha256": "89b79d2f38988e97855cecfd999cae6db5202dad274620a3d469b4abf3011fb3"
+        },
+        {
+          "path": "assets/models/bunkers/snake.glb",
+          "size": 7160,
+          "sha256": "63d17475b99b9bc588f99e9ba6542cd6dfd5f51b9ffd9a20bdd1c09c3d38a10d"
+        },
+        {
+          "path": "assets/models/bunkers/tall_wall.glb",
+          "size": 8296,
+          "sha256": "81919e9c2d78b165317f3d03b643ba382c4d006623ff2be25d7790a7d9df0e29"
+        },
+        {
+          "path": "assets/models/bunkers/temple.glb",
+          "size": 3672,
+          "sha256": "b014b671b78290dd21dde4d6d3cd83b1d51596ac4c783758ee72ea3576fb72c5"
+        },
+        {
+          "path": "assets/models/bunkers/tree.glb",
+          "size": 13612,
+          "sha256": "3abcd5ea98e7c550162c641c3aa8ea9f48c0d9cf1ced562b1b87c3404c510920"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_bull.glb",
+          "size": 11380,
+          "sha256": "cd12f1fdae5f7c4e66211b16e23eabde19c7c0190fffa7a89a8de17c378f39c0"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_long.glb",
+          "size": 19548,
+          "sha256": "d36d22d4d17ad72f8c1b94a90dd5f9b9840072e55b61c461a73139986b36386d"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_ported.glb",
+          "size": 19472,
+          "sha256": "3b58042c47237c07d59784ef0034b26ede6a8b4d84aa2d5fbdfef8b186e5d111"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_shrouded.glb",
+          "size": 18256,
+          "sha256": "d9f0b9dc29f96745da3a05dbdff31289a3fcf680c84f951b25174719d6d4e16d"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_stub.glb",
+          "size": 12016,
+          "sha256": "5df8569752b3c00acc19540693ec5cede0a5dc20e46d2417db41c053ada638ea"
+        },
+        {
+          "path": "assets/models/guns/attachments/foregrips/grip_angled.glb",
+          "size": 5484,
+          "sha256": "9aa1020a9f94b762028f548bf12c4d10543d0626ccf7ce51edbff900fbd6b83f"
+        },
+        {
+          "path": "assets/models/guns/attachments/foregrips/grip_bipod.glb",
+          "size": 12472,
+          "sha256": "93c2bf063d9f0ad71b477a268026304c7014cbae55a5c6dc3a73cef86afa4d83"
+        },
+        {
+          "path": "assets/models/guns/attachments/foregrips/grip_vertical.glb",
+          "size": 8172,
+          "sha256": "eecf78191e8c3a2fbb5ecd23ecf6ab3260f5e6c7a863ad9abd8bb2fb826145b8"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_drum.glb",
+          "size": 15092,
+          "sha256": "9c95dbdc21eeec64bfbd3f16caa4df8cded9e72b78e7047f48f8a881282d2d03"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_gravity.glb",
+          "size": 10928,
+          "sha256": "8561b80d55209e7c5af58677e2d3c15aec04939a6053125ab42b775948fd1444"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_loader.glb",
+          "size": 16024,
+          "sha256": "ec251d594202812d936c7e0a58167a52ac569fbbb26f2877fda82d248beebf65"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_low_pro.glb",
+          "size": 6380,
+          "sha256": "f65d05e06ec07ae2f8e34ece54f01612c82fe713eab093c58c521b40788efbb3"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_pod.glb",
+          "size": 22104,
+          "sha256": "58d7e7a5dc47c9cc41bcdf8c131316b5ca15077397095a89f68dd88d7b718fc4"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_holo.glb",
+          "size": 13148,
+          "sha256": "11347d7bd4b06e054e034147333f8d9b055dc4b6416404b23b13646fcb0b0645"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_iron.glb",
+          "size": 9028,
+          "sha256": "9cc2025b926239e55feb2fcf79adb69997c5e1a378bad712dd1544968c54b55e"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_red_dot.glb",
+          "size": 9884,
+          "sha256": "2a2c682235c9702f5900b497a338e9092f22e2b8a580bb2e0ee78ddff3dc9c3a"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_scope.glb",
+          "size": 18904,
+          "sha256": "e1ee1eff85edd4a58044b0a24010b93cda025c9ec68c619889e499f1bbe8ff18"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_cheek_rise.glb",
+          "size": 12064,
+          "sha256": "6b2fb3975bbb75ca70b7dbe164f5bfccff8114c49d5e084910ef0445efba4993"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_collapsible.glb",
+          "size": 11020,
+          "sha256": "fb201e2769ec82ac3fa23cd6dce4db5d6498347c5c448a8e87b4612421768eab"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_fixed.glb",
+          "size": 7184,
+          "sha256": "c4677bbb6d8dcb09af0eeecd83ec03ce27951f472d37f691669b50dbfb270dd4"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_skeleton.glb",
+          "size": 6900,
+          "sha256": "d50eab6920e042cf8b33737fda34f27fb29bff3fc2f9c5600840b945f6776660"
+        },
+        {
+          "path": "assets/models/guns/attachments/tanks/tank_co2.glb",
+          "size": 10868,
+          "sha256": "2832f7eeb914780215cfeaf4c87e0c0854a07998f37f86d943a0ae5ec15dd787"
+        },
+        {
+          "path": "assets/models/guns/attachments/tanks/tank_hpa_carbon.glb",
+          "size": 17800,
+          "sha256": "bb5c922127b542d6ba5de5df569c72892002e537189e9f2745db50fda1045ab7"
+        },
+        {
+          "path": "assets/models/guns/attachments/tanks/tank_hpa_large.glb",
+          "size": 15504,
+          "sha256": "5b94dae54a26cecc779e06e09f9b3cff16ee407c8ce70fc03a64f32355650640"
+        },
+        {
+          "path": "assets/models/guns/attachments/tanks/tank_hpa_small.glb",
+          "size": 15528,
+          "sha256": "43f5c63492baa46e78fd2107231948aa06e6aa0d080bb3e6b56851da61443510"
+        },
+        {
+          "path": "assets/models/guns/bodies/bulldog.glb",
+          "size": 45004,
+          "sha256": "45d8d04dea452944d05979cc030df976811ab7a02c0b2123f2e4c1195dfd7d46"
+        },
+        {
+          "path": "assets/models/guns/bodies/phantom.glb",
+          "size": 51256,
+          "sha256": "23d897de27b0b3ca2edfcfb124fcf2676fb3ab310a729d95719065ed621fd57c"
+        },
+        {
+          "path": "assets/models/guns/bodies/raptor.glb",
+          "size": 35252,
+          "sha256": "2fadb43841fb1074e71db103bd71f38a3af496cae0babb6f1dae031c2e7a9352"
+        },
+        {
+          "path": "assets/models/guns/bodies/titan.glb",
+          "size": 41028,
+          "sha256": "a85d356db2cead9ec76bfac18c20cd44af63610a9f5164bde8d6d025f8c15dad"
+        },
+        {
+          "path": "assets/models/guns/bodies/vanta.glb",
+          "size": 38208,
+          "sha256": "693c35fc428d32c0611170cc26f32204d2fd8ed55dfa06490ea060db83a55d0f"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/bulldog_factory.glb",
+          "size": 108044,
+          "sha256": "376c1adb1377ad121382060a98bbec2a989e560799f16a64b635b2f45f9c630f"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/phantom_factory.glb",
+          "size": 114400,
+          "sha256": "5e90559b1142f318e756922350bbd530a7e33e355bfb8221bf83a7bd9eb2305a"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/raptor_factory.glb",
+          "size": 87968,
+          "sha256": "5fafcd1029fd73b5d5daa3dc71e150abdb0718ee6860746624a02d6d20a972f9"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/titan_factory.glb",
+          "size": 109896,
+          "sha256": "39bfec444c97014fcc2194c355c85447958f77012f70aff376e483618fb05a31"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/vanta_factory.glb",
+          "size": 76676,
+          "sha256": "6ec57a37899e9fa67f56069bd302c5835b34894069df901770e2f431c8637df9"
+        },
+        {
+          "path": "assets/models/pickups/air_refill_station.glb",
+          "size": 16020,
+          "sha256": "7c2261765089bf5e831d1c6707eeeca8a478e6afb58685d16eae8b81525001f4"
+        },
+        {
+          "path": "assets/models/pickups/paint_case.glb",
+          "size": 7180,
+          "sha256": "909027b6750cd392890670d0c1fa1804a826dfe7d2597b10840da3f0a767973f"
+        },
+        {
+          "path": "assets/models/pickups/pod_pickup.glb",
+          "size": 20544,
+          "sha256": "07e244cb3506e81848269094f3b59963daafd879594278d28e83e96aaee9e252"
+        },
+        {
+          "path": "assets/models/players/blue_player_rigged.glb",
+          "size": 506048,
+          "sha256": "bd0f696b151b2e7a6ca00421953b86cf77698feb92def5ccc80037f0af547ce5"
+        },
+        {
+          "path": "assets/models/players/orange_player_rigged.glb",
+          "size": 491084,
+          "sha256": "6327c9b818b8019472c68da7ec6cd3bdd134b5dd142b2117524980eaeee846a8"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_blue.glb",
+          "size": 13076,
+          "sha256": "16c8ba8fc256a2f548cc51bb80d562dbb8c2ce62338a36e773a16cf3e36ea8ad"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_orange.glb",
+          "size": 13084,
+          "sha256": "6e653cc1527a2ea26875ffd26f3a0c042e8a3e4c4c57fad1f20861184ce4932e"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_pink.glb",
+          "size": 13060,
+          "sha256": "e090c4ddba172a6b7299eb4bc0baea089bce9f36077350707cf9284e4657a33f"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_shell_shards.glb",
+          "size": 5264,
+          "sha256": "7c61a7762fc3b2781cf931bec95911be3e38f724d9a80f0b61aa78853b872509"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_yellow.glb",
+          "size": 13084,
+          "sha256": "f605dc943120f9aaec19259c4010bcdfdff673104850c09725e98c6f978e3909"
+        },
+        {
+          "path": "assets/models/projectiles/water_balloon.glb",
+          "size": 8436,
+          "sha256": "3c67be1f4ff51ce158a472d5a3a322e9b901fa60640229cf5bbc42f6163abdf9"
+        },
+        {
+          "path": "assets/models/props/barrel.glb",
+          "size": 25728,
+          "sha256": "1fd5cae4e581bfdbdbba62b635dbc574943206c505c7290beb4e31367aa49511"
+        },
+        {
+          "path": "assets/models/props/crate.glb",
+          "size": 16372,
+          "sha256": "e349de876d949176abdc9e680952f1ee29f75222060e3c8a27a31300880668fc"
+        },
+        {
+          "path": "assets/models/props/field_cone.glb",
+          "size": 11780,
+          "sha256": "43e3b194738b66734de125b5d192c953e8cc43ec3a8b443ceda69941eeaa9eb7"
+        },
+        {
+          "path": "assets/models/props/flag_blue.glb",
+          "size": 18560,
+          "sha256": "48c2ea9f127715121c4c01fc555fd9a44d0355e87a06e57bd4e884de8437b326"
+        },
+        {
+          "path": "assets/models/props/flag_orange.glb",
+          "size": 18572,
+          "sha256": "b4c0c08366b1d278521d2d419f1d75339ba1fa909d9ddc2813422f8f90395af6"
+        },
+        {
+          "path": "assets/models/props/netting_fence_section.glb",
+          "size": 9056,
+          "sha256": "583fc8c29c4d18183542788646a2c3e51b6a262388ec12e1ccc78fbdea677a0b"
+        },
+        {
+          "path": "assets/models/props/sandbag_wall.glb",
+          "size": 32672,
+          "sha256": "e68373e21aafd57bdf0ad85133178920e98b10f0363c2c428b2e96fbf00587b6"
+        },
+        {
+          "path": "assets/models/props/spawn_pad_blue.glb",
+          "size": 23068,
+          "sha256": "f3d89aae9279fea0202384eed9d5da81f95ac4ca4036c4dbe5366de5478e4f19"
+        },
+        {
+          "path": "assets/models/props/spawn_pad_orange.glb",
+          "size": 23080,
+          "sha256": "397b90ae0bfec26a544b1169bf37d0026bba26aa14310c4327389814659f2e38"
+        },
+        {
+          "path": "assets/models/water-guns/minnow.glb",
+          "size": 43244,
+          "sha256": "41ea3fabd188d9f4e04125a785aab51c9504127f4e28fb74377d91dc5dba5845"
+        },
+        {
+          "path": "assets/models/water-guns/monsoon.glb",
+          "size": 69160,
+          "sha256": "2907c5b77857329841095994e4c26ef1a51dc37149db8d70405fbd9f63b30774"
+        },
+        {
+          "path": "assets/models/water-guns/tidal.glb",
+          "size": 59672,
+          "sha256": "26d3590956fe603281b41a1b39636af0269860817b9568805772e1dcb2e67dc0"
+        },
+        {
+          "path": "assets/music/Menu_Palms_at_Midnight.ogg",
+          "size": 2815501,
+          "sha256": "ceb5995678724e409a11dd1413619081508fbea2f14311f1aad015426e7d6d86"
+        },
+        {
+          "path": "assets/music/Menu_Plaza_At_Midnight.ogg",
+          "size": 2331958,
+          "sha256": "db0c74c86490ae11f8ead7abae2922c84d869bb05ae504da68084b4a716230ed"
+        },
+        {
+          "path": "assets/music/Menu_The_Lobby_Charge.ogg",
+          "size": 2751351,
+          "sha256": "1ab4ad7c8ccb512f0e60a563d95882c0a9c2e83892428d3a0d33911efbfb5f8b"
+        },
+        {
+          "path": "assets/textures/flipbooks/air_puff_4x4.png",
+          "size": 67708,
+          "sha256": "3916251bfe44c9c294584e777af77b77549de8f2ab85933fa0ebf9ae3dbea312"
+        },
+        {
+          "path": "assets/textures/flipbooks/paint_burst_4x4.png",
+          "size": 104372,
+          "sha256": "7b06c57b80f1dc5e466b58ffac694731bc404323ced8b9f9426b7f5afc5644ce"
+        },
+        {
+          "path": "assets/textures/flipbooks/water_spray_4x4.png",
+          "size": 45043,
+          "sha256": "5f167831a3383d11f4c4bd693595a0e27622e3a35a9b4dfb40b8c23738b3d431"
+        },
+        {
+          "path": "assets/textures/ground/dirt_tile.png",
+          "size": 139318,
+          "sha256": "3c75c7fd7062f2cb280cbfce7949d84627633b66c969b7155a6bf825ef1c223a"
+        },
+        {
+          "path": "assets/textures/ground/netting_tile.png",
+          "size": 7476,
+          "sha256": "690b4eede6a174ab927c72929b6e91b2b4c75102dc2126fb57bf46c7537f99b1"
+        },
+        {
+          "path": "assets/textures/ground/turf_tile.png",
+          "size": 138847,
+          "sha256": "252abf0bd9aba062daf9cd1db9db92c2fd0ddcaf38b7e30969117ba95fcf66b7"
+        },
+        {
+          "path": "assets/textures/particles/air_puff_cone.png",
+          "size": 7951,
+          "sha256": "7caabb153e30389d564797bceca04c74e6f1a28adf8d01a2abfbc59a57aabf99"
+        },
+        {
+          "path": "assets/textures/particles/droplet.png",
+          "size": 7221,
+          "sha256": "ab56cbf9c76e9d0ef2930c279d4a02a35d83edbe92f2c6c40610ca67a42ab270"
+        },
+        {
+          "path": "assets/textures/particles/ring_shockwave.png",
+          "size": 9449,
+          "sha256": "3088afed717a649475b158df3b9d46f720bca89be7a04bec582413625684c782"
+        },
+        {
+          "path": "assets/textures/particles/shell_fragment.png",
+          "size": 7057,
+          "sha256": "3a943113a8e38f7f35c1e15c0d9a8b3ce62adb1459f481c685209d97040eb0fd"
+        },
+        {
+          "path": "assets/textures/particles/smoke_puff.png",
+          "size": 14269,
+          "sha256": "a6f9866961acb9e1f06669cb85b7854ed6a3bb81e51bafd09e1ab02e69282434"
+        },
+        {
+          "path": "assets/textures/particles/soft_puff.png",
+          "size": 9558,
+          "sha256": "02f632899597d59dd921c9601c371628834a4c1e5d726979cbfa01d755dc39e8"
+        },
+        {
+          "path": "assets/textures/particles/spark_star.png",
+          "size": 6564,
+          "sha256": "00bfc4929923dfd73fb309d1cd7325db93f1e37631291a45ec907cbe16d42dc9"
+        },
+        {
+          "path": "assets/textures/particles/splash_streak.png",
+          "size": 6848,
+          "sha256": "659b8bf109d97b6f9f09fd18d7bcd884a2a56c384cbabf7fb149b01e068c481c"
+        },
+        {
+          "path": "assets/textures/splats/drip_01.png",
+          "size": 39151,
+          "sha256": "6235ee8be5e8a31a5ece2c02518932919bb4adbba3df11eef74f980f14f7b954"
+        },
+        {
+          "path": "assets/textures/splats/drip_02.png",
+          "size": 35935,
+          "sha256": "2a86fc22f7917606a2800a1f59724bd1f5b9995f5856f724aefb0ab38515d46e"
+        },
+        {
+          "path": "assets/textures/splats/drip_03.png",
+          "size": 36057,
+          "sha256": "b2af3185f27d69745a5a35e9767cb0e7642166b06a584fe890c8945ac8f6e832"
+        },
+        {
+          "path": "assets/textures/splats/drip_04.png",
+          "size": 41840,
+          "sha256": "3af531f3439fe74193f37f65667b7b009ec7321c2a599e5a2288b9bc9e315c61"
+        },
+        {
+          "path": "assets/textures/splats/splat_01.png",
+          "size": 85040,
+          "sha256": "77c67d09ff79aa8db2c4504fec275640e1ba63a822d4d39fa2f5cc98be391ba7"
+        },
+        {
+          "path": "assets/textures/splats/splat_02.png",
+          "size": 85811,
+          "sha256": "1fbc9a261134e0ff96979e5f93fc6ca33bdefd5367e5f0ae7f44288f620807f0"
+        },
+        {
+          "path": "assets/textures/splats/splat_03.png",
+          "size": 75225,
+          "sha256": "6f0ea1887bce75014836c5b192207e18f305297f257087dfcb294d22a43eb712"
+        },
+        {
+          "path": "assets/textures/splats/splat_04.png",
+          "size": 66633,
+          "sha256": "8f016dd0b130fb05f1bf3cb3e04ef10906a26175ee8486cd737abab231636945"
+        },
+        {
+          "path": "assets/textures/splats/splat_05.png",
+          "size": 86522,
+          "sha256": "a3d19dc09c56ebee61fc70044e7ac46d4a16f564e15873265e6c0b4a2172b479"
+        },
+        {
+          "path": "assets/textures/splats/splat_06.png",
+          "size": 86815,
+          "sha256": "bda011778be3255d26889c79f743d0785dca688a3d220b0da19d5d92ff02d9f7"
+        },
+        {
+          "path": "assets/textures/splats/splat_07.png",
+          "size": 76143,
+          "sha256": "d242abbdf4b6645175405d05b2aae631c0291385d06ccffbfa1454a01357893b"
+        },
+        {
+          "path": "assets/textures/splats/splat_08.png",
+          "size": 84008,
+          "sha256": "e69a72005a8c401e09f1cb3b6398e72b995faf9bc1cc2290452a26837246d087"
+        },
+        {
+          "path": "assets/textures/splats/splat_atlas_4x3.png",
+          "size": 733293,
+          "sha256": "4ea64ffeb2d9f7a716865274a1e906abbefb6f84f69865750d4f2fc42b6e243e"
+        },
+        {
+          "path": "assets/textures/ui/ammo_ball.png",
+          "size": 6498,
+          "sha256": "edb088248ae5019812a0c3e1cdd56b79e151e640ce8ff21ffd0c321d8fe19362"
+        },
+        {
+          "path": "assets/textures/ui/ammo_pod.png",
+          "size": 7076,
+          "sha256": "c556e374946abad7f5b0ca3b219e2c42c531783167bf4b30d7de22cca8c212b6"
+        },
+        {
+          "path": "assets/textures/ui/crosshair_circle.png",
+          "size": 6886,
+          "sha256": "001e6f9b030654c3e851826e65ea557d3637e81bfecd494aa9cd66c7d768428a"
+        },
+        {
+          "path": "assets/textures/ui/crosshair_cross.png",
+          "size": 6366,
+          "sha256": "88e23f3352298b9c40c93b16fe3af290908e60d10d4e5b5d0c23fc79948170cf"
+        },
+        {
+          "path": "assets/textures/ui/crosshair_dot.png",
+          "size": 6089,
+          "sha256": "3844639c522e9ea9886fc7eddb8e704a27db7197b516c870b5783ee31bd24b41"
+        },
+        {
+          "path": "assets/textures/ui/eliminated.png",
+          "size": 6231,
+          "sha256": "1dae8a58d1d6e3680ed3e645274c9ebac135702a22aa21d14abe651a48d49eeb"
+        },
+        {
+          "path": "assets/textures/ui/flag.png",
+          "size": 6597,
+          "sha256": "3adb1b85beba01ceb38ebc9cc2be36cc5fa21500a1743ad58f2c5363a4e08f9a"
+        },
+        {
+          "path": "assets/textures/ui/hit_marker.png",
+          "size": 6253,
+          "sha256": "ba8db51c7d06915f9fbc7664824fcbfed7a22dc42446c66791f7993f9014f8f3"
+        },
+        {
+          "path": "assets/textures/ui/meter_frame.png",
+          "size": 6769,
+          "sha256": "d1abd352b1467f9a11b1c0b3dadd46809f106d16d0a7288c0797ec14727ef00b"
+        },
+        {
+          "path": "assets/textures/ui/splat_icon.png",
+          "size": 8179,
+          "sha256": "4eefc0411bc37ed85e502a9516396316961a43cfacb25c1ef7e3b6232c0d6d6f"
+        },
+        {
+          "path": "assets/textures/ui/team_blue.png",
+          "size": 11781,
+          "sha256": "95e934859a4f41211d3259b94de50994e9c521c545721263499d266b979d097f"
+        },
+        {
+          "path": "assets/textures/ui/team_orange.png",
+          "size": 11638,
+          "sha256": "cf65911b1a49f2806348719d50a70edf52f96d905e943c5ae4ff154b70ef91b7"
+        },
+        {
+          "path": "assets/textures/ui/team_shield_white.png",
+          "size": 8691,
+          "sha256": "b6a5e8ddc50152e11dc8f0f9da759586c4809f9f21337221861c2a223b357adc"
+        },
+        {
+          "path": "assets/textures/ui/timer.png",
+          "size": 7660,
+          "sha256": "d3222216302afd8724e8871a55fb7cd124e1a599375fd965f178e2fa27daa61c"
+        },
+        {
           "path": "ink-cognito.exe",
-          "size": 97013760,
-          "sha256": "579797e230568f4ede94cb4c65f9c660dc967274abec60171f3c61f94f1c61ee"
+          "size": 98125312,
+          "sha256": "c56bf907da14f8ae59c36f2a752c26f04f5a44f19c6c971c92b3713fdbf3db5f"
         }
       ]
     },
     "stable": {
-      "version": "0.2.0",
-      "published": "2026-11-24T09:37:19Z",
-      "notes": "## What's Changed\n* Play through Portside hubs, first person, reliable leave/quit detection (0.2.0) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/3\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.1.0...v0.2.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.2.0",
+      "version": "0.2.1",
+      "published": "2026-11-24T10:53:37Z",
+      "notes": "**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.2.0...v0.2.1",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.2.1",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.2.0/Ink-cognito-windows-x64.zip",
-        "size": 32424447,
-        "sha256": "78809df3825bbf74f68521fdd8bf9b7204dcfdc325b681c5349448db378133f4"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.2.1/Ink-cognito-windows-x64.zip",
+        "size": 46324158,
+        "sha256": "8a89ef11f3714eb5361f58e49e88b1aba7e95da8526d757621db39cd309ac25b"
       },
       "exe": "ink-cognito.exe",
       "files": [
         {
+          "path": "assets/ASSETS-README.txt",
+          "size": 4229,
+          "sha256": "2a50af039494024506dd95b8eb01c13a798af3c24e5cc9953c900583517ef5d6"
+        },
+        {
+          "path": "assets/audio/footsteps/step_dirt_01.ogg",
+          "size": 5759,
+          "sha256": "487b5aaf569de089d82824ea157e79901f0fe50397d474856f2495b3c9724543"
+        },
+        {
+          "path": "assets/audio/footsteps/step_dirt_02.ogg",
+          "size": 5761,
+          "sha256": "19823ca3cf2e47cd01a0f7848341a03a55d2696ee5d0b11d25dd0c0d9cede966"
+        },
+        {
+          "path": "assets/audio/footsteps/step_grass_01.ogg",
+          "size": 5837,
+          "sha256": "a1bee232935999e965888352c0ade7c762e9eb6a79d21bc2eb9ad1c822d943ad"
+        },
+        {
+          "path": "assets/audio/footsteps/step_grass_02.ogg",
+          "size": 5832,
+          "sha256": "4d3106d69b1fbd344e55dcba6ce00af62d7c27cc2301c18dbb5c746ad10ec42a"
+        },
+        {
+          "path": "assets/audio/footsteps/step_grass_03.ogg",
+          "size": 5858,
+          "sha256": "f49c3c6493b3a63ddf94fd1eee5696240b6af84ca4dee788b3336161ada805b6"
+        },
+        {
+          "path": "assets/audio/footsteps/step_grass_04.ogg",
+          "size": 5900,
+          "sha256": "943905f6afeccdc4267f4addf30d5b27b013a831614e7182cd5531e9c2f36a86"
+        },
+        {
+          "path": "assets/audio/game/countdown_beep.ogg",
+          "size": 5273,
+          "sha256": "6fc25690914c10b2cef4b402200f9117db4cdf9bc83024b96762c440e52fd5f9"
+        },
+        {
+          "path": "assets/audio/game/countdown_go.ogg",
+          "size": 5158,
+          "sha256": "fb87e74866149209682c494d7b841384b324d6de28d2aba2f63a20eec26348ce"
+        },
+        {
+          "path": "assets/audio/game/eliminated_buzzer.ogg",
+          "size": 17278,
+          "sha256": "2b6845033414fa5935475efe8d27c8d4760774e27c3205c365276e97f6cc976f"
+        },
+        {
+          "path": "assets/audio/game/flag_captured.ogg",
+          "size": 5721,
+          "sha256": "66a4a4a2efdc6f03c60674b8fed44f624cdcb0109ca8c342448db7c211073054"
+        },
+        {
+          "path": "assets/audio/game/round_start_horn.ogg",
+          "size": 19342,
+          "sha256": "a2a90730e3f16ae6c038b721d0099f28196cd79e519e9d856708b11fe16d5e36"
+        },
+        {
+          "path": "assets/audio/game/whistle.ogg",
+          "size": 21016,
+          "sha256": "28a52e1e6df57959ee71b4b249b8d55fe11e7e3c964e22c1565a16ee0383a31f"
+        },
+        {
+          "path": "assets/audio/impacts/ball_bounce.ogg",
+          "size": 4494,
+          "sha256": "8d38965bff208473218152ccc711c01e2accd75baa4ed129c278a6afad69327c"
+        },
+        {
+          "path": "assets/audio/impacts/hit_bunker_inflatable.ogg",
+          "size": 6333,
+          "sha256": "f873fe1d96aa2db9ad259b9df597431ced5cef3ead48a0786fdd70b8542e4a19"
+        },
+        {
+          "path": "assets/audio/impacts/hit_metal.ogg",
+          "size": 7794,
+          "sha256": "09723c4423d3ff241ea2a6bc7492aa700e98ffed0322c9141ea5691f0dd89a3c"
+        },
+        {
+          "path": "assets/audio/impacts/hit_wood.ogg",
+          "size": 5965,
+          "sha256": "dab32f18dcf6c2dab5ab813e4b612bfd0c689e45a80c495d98699ffd3b673328"
+        },
+        {
+          "path": "assets/audio/impacts/splat_player_hit.ogg",
+          "size": 6214,
+          "sha256": "cac623f08aa872d69d78e09c6a719eb659aee64e4b61305bd7ac8e87ca82ae0a"
+        },
+        {
+          "path": "assets/audio/impacts/splat_surface_01.ogg",
+          "size": 7703,
+          "sha256": "26c90ec0157f9305997ceec9888cf3c7bf9181af9f4b75b85116efd8cdd43dc6"
+        },
+        {
+          "path": "assets/audio/impacts/splat_surface_02.ogg",
+          "size": 7708,
+          "sha256": "ec9c41dcfc4e3f2d5a6af7d7a4432cf8417b2a0816749752cd212db33374c6a1"
+        },
+        {
+          "path": "assets/audio/impacts/splat_surface_03.ogg",
+          "size": 7688,
+          "sha256": "8e7ccc6a57b286947179c0bcfb71be4b8bdb8a0a083fb93d5cb1c7050a9b8d6d"
+        },
+        {
+          "path": "assets/audio/ui/hit_marker_tick.ogg",
+          "size": 4937,
+          "sha256": "7c95c206f0092e8c99f32fe43d1f5e4f2b8181152b113a8f9f6638af11e257c3"
+        },
+        {
+          "path": "assets/audio/ui/ui_click.ogg",
+          "size": 4333,
+          "sha256": "4910be9c4d1ed70e2769294e729b709ecd694afd554c9a0d620f231c8566e2e1"
+        },
+        {
+          "path": "assets/audio/ui/ui_confirm.ogg",
+          "size": 5125,
+          "sha256": "fb6343b81c09acbcc62156ba903176df199ed48a112446e4252d08032448d9cd"
+        },
+        {
+          "path": "assets/audio/ui/ui_hover.ogg",
+          "size": 4290,
+          "sha256": "eeca1884e4332f8055422d03f128d8f12704ab59f5a7220b15c5b8fe78dc6b04"
+        },
+        {
+          "path": "assets/audio/water/water_pump.ogg",
+          "size": 8819,
+          "sha256": "1dbeb62c597c0909a21a6ba0bdb134645bd73135146a07ed4ab709cd96160213"
+        },
+        {
+          "path": "assets/audio/water/water_splash.ogg",
+          "size": 8892,
+          "sha256": "7bba276d4c11d60dfaa1ae0240842b6b733811d916a587f72248012947ef4b29"
+        },
+        {
+          "path": "assets/audio/water/water_squirt.ogg",
+          "size": 8718,
+          "sha256": "878914c24421699b60cbf4e60c5d4fba2f745d9aff5e47b2b40391174c06dd71"
+        },
+        {
+          "path": "assets/audio/water/water_stream_loop.ogg",
+          "size": 24273,
+          "sha256": "8e5202ff83143c42842e7e3627a0b4cdef0db086583145ed86ba2641fd67e262"
+        },
+        {
+          "path": "assets/audio/weapons/dry_fire.ogg",
+          "size": 5020,
+          "sha256": "a2ea73ccbe61e84827fa3f6fda6dcdff828b50715669ad86d3bc0a98950290e2"
+        },
+        {
+          "path": "assets/audio/weapons/hopper_rattle.ogg",
+          "size": 13935,
+          "sha256": "ea24f8d7e9c9405c4ff2a34ad062ade2cc71b6f50a728190e75847594eee9d1b"
+        },
+        {
+          "path": "assets/audio/weapons/marker_shot_01.ogg",
+          "size": 6225,
+          "sha256": "f56f9e1c1b3e09344bf2d7528bd56177f5652d94a4b82a1b468db8bb15cda3e4"
+        },
+        {
+          "path": "assets/audio/weapons/marker_shot_02.ogg",
+          "size": 6208,
+          "sha256": "ac9927d21a35b51e2f7390f3c718330921766a40121868340a627dac302e268c"
+        },
+        {
+          "path": "assets/audio/weapons/marker_shot_03.ogg",
+          "size": 6376,
+          "sha256": "9f39083a7ef1002add94bdbf7f17f78812eb70e5ec283f489cbdf36be39f586c"
+        },
+        {
+          "path": "assets/audio/weapons/pod_reload.ogg",
+          "size": 17526,
+          "sha256": "02e88128e40fc37ba719d1e373776a665abd6ce9884f38d3b1407cea200f513b"
+        },
+        {
+          "path": "assets/audio/weapons/pump_cycle.ogg",
+          "size": 8147,
+          "sha256": "2b2301f0a24c4674555970004520f3b5bdcff15447722bd4a28334219f327b91"
+        },
+        {
+          "path": "assets/audio/weapons/tank_hiss.ogg",
+          "size": 15183,
+          "sha256": "46001b9a3cf0f40303e7041867cedf5e651e75a2af49ace96d54dc2a5b310d68"
+        },
+        {
+          "path": "assets/audio/weapons/tank_screw_in.ogg",
+          "size": 10543,
+          "sha256": "1b0e9f2e9fa4a28c8f887601ef254d743af73b3fed799b4bec51d3dca8145dc8"
+        },
+        {
+          "path": "assets/branding/logo.png",
+          "size": 810317,
+          "sha256": "160c9aefd26318e11ade9e18ec742b9e9d170546adda15677be53bcdff747fac"
+        },
+        {
+          "path": "assets/branding/menu_background.png",
+          "size": 2240875,
+          "sha256": "abd092d548a2566a5b66b423af09402ef5e46f349849907bf396bbc9ed19a8bc"
+        },
+        {
+          "path": "assets/models/bunkers/brick.glb",
+          "size": 7180,
+          "sha256": "e07f7eaed28438ec2158436255d22347150fcdbea5b6568e6dbd883f0b5c8e89"
+        },
+        {
+          "path": "assets/models/bunkers/cake.glb",
+          "size": 15324,
+          "sha256": "8e4ac662e9817bf4ba5e6e3071ca7deff0073b6655dcc75cc27d83f119b0c370"
+        },
+        {
+          "path": "assets/models/bunkers/can.glb",
+          "size": 19432,
+          "sha256": "5ca0c502844387551fd262f1d796df5fc7753174ef70a69635e12f2241811444"
+        },
+        {
+          "path": "assets/models/bunkers/dorito.glb",
+          "size": 3188,
+          "sha256": "efc0afd309c9e48e93cdfd6b5d30931167f2f8d57491d9bd132cc33a5fc72a58"
+        },
+        {
+          "path": "assets/models/bunkers/mini_can.glb",
+          "size": 11916,
+          "sha256": "89b79d2f38988e97855cecfd999cae6db5202dad274620a3d469b4abf3011fb3"
+        },
+        {
+          "path": "assets/models/bunkers/snake.glb",
+          "size": 7160,
+          "sha256": "63d17475b99b9bc588f99e9ba6542cd6dfd5f51b9ffd9a20bdd1c09c3d38a10d"
+        },
+        {
+          "path": "assets/models/bunkers/tall_wall.glb",
+          "size": 8296,
+          "sha256": "81919e9c2d78b165317f3d03b643ba382c4d006623ff2be25d7790a7d9df0e29"
+        },
+        {
+          "path": "assets/models/bunkers/temple.glb",
+          "size": 3672,
+          "sha256": "b014b671b78290dd21dde4d6d3cd83b1d51596ac4c783758ee72ea3576fb72c5"
+        },
+        {
+          "path": "assets/models/bunkers/tree.glb",
+          "size": 13612,
+          "sha256": "3abcd5ea98e7c550162c641c3aa8ea9f48c0d9cf1ced562b1b87c3404c510920"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_bull.glb",
+          "size": 11380,
+          "sha256": "cd12f1fdae5f7c4e66211b16e23eabde19c7c0190fffa7a89a8de17c378f39c0"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_long.glb",
+          "size": 19548,
+          "sha256": "d36d22d4d17ad72f8c1b94a90dd5f9b9840072e55b61c461a73139986b36386d"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_ported.glb",
+          "size": 19472,
+          "sha256": "3b58042c47237c07d59784ef0034b26ede6a8b4d84aa2d5fbdfef8b186e5d111"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_shrouded.glb",
+          "size": 18256,
+          "sha256": "d9f0b9dc29f96745da3a05dbdff31289a3fcf680c84f951b25174719d6d4e16d"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_stub.glb",
+          "size": 12016,
+          "sha256": "5df8569752b3c00acc19540693ec5cede0a5dc20e46d2417db41c053ada638ea"
+        },
+        {
+          "path": "assets/models/guns/attachments/foregrips/grip_angled.glb",
+          "size": 5484,
+          "sha256": "9aa1020a9f94b762028f548bf12c4d10543d0626ccf7ce51edbff900fbd6b83f"
+        },
+        {
+          "path": "assets/models/guns/attachments/foregrips/grip_bipod.glb",
+          "size": 12472,
+          "sha256": "93c2bf063d9f0ad71b477a268026304c7014cbae55a5c6dc3a73cef86afa4d83"
+        },
+        {
+          "path": "assets/models/guns/attachments/foregrips/grip_vertical.glb",
+          "size": 8172,
+          "sha256": "eecf78191e8c3a2fbb5ecd23ecf6ab3260f5e6c7a863ad9abd8bb2fb826145b8"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_drum.glb",
+          "size": 15092,
+          "sha256": "9c95dbdc21eeec64bfbd3f16caa4df8cded9e72b78e7047f48f8a881282d2d03"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_gravity.glb",
+          "size": 10928,
+          "sha256": "8561b80d55209e7c5af58677e2d3c15aec04939a6053125ab42b775948fd1444"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_loader.glb",
+          "size": 16024,
+          "sha256": "ec251d594202812d936c7e0a58167a52ac569fbbb26f2877fda82d248beebf65"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_low_pro.glb",
+          "size": 6380,
+          "sha256": "f65d05e06ec07ae2f8e34ece54f01612c82fe713eab093c58c521b40788efbb3"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_pod.glb",
+          "size": 22104,
+          "sha256": "58d7e7a5dc47c9cc41bcdf8c131316b5ca15077397095a89f68dd88d7b718fc4"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_holo.glb",
+          "size": 13148,
+          "sha256": "11347d7bd4b06e054e034147333f8d9b055dc4b6416404b23b13646fcb0b0645"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_iron.glb",
+          "size": 9028,
+          "sha256": "9cc2025b926239e55feb2fcf79adb69997c5e1a378bad712dd1544968c54b55e"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_red_dot.glb",
+          "size": 9884,
+          "sha256": "2a2c682235c9702f5900b497a338e9092f22e2b8a580bb2e0ee78ddff3dc9c3a"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_scope.glb",
+          "size": 18904,
+          "sha256": "e1ee1eff85edd4a58044b0a24010b93cda025c9ec68c619889e499f1bbe8ff18"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_cheek_rise.glb",
+          "size": 12064,
+          "sha256": "6b2fb3975bbb75ca70b7dbe164f5bfccff8114c49d5e084910ef0445efba4993"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_collapsible.glb",
+          "size": 11020,
+          "sha256": "fb201e2769ec82ac3fa23cd6dce4db5d6498347c5c448a8e87b4612421768eab"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_fixed.glb",
+          "size": 7184,
+          "sha256": "c4677bbb6d8dcb09af0eeecd83ec03ce27951f472d37f691669b50dbfb270dd4"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_skeleton.glb",
+          "size": 6900,
+          "sha256": "d50eab6920e042cf8b33737fda34f27fb29bff3fc2f9c5600840b945f6776660"
+        },
+        {
+          "path": "assets/models/guns/attachments/tanks/tank_co2.glb",
+          "size": 10868,
+          "sha256": "2832f7eeb914780215cfeaf4c87e0c0854a07998f37f86d943a0ae5ec15dd787"
+        },
+        {
+          "path": "assets/models/guns/attachments/tanks/tank_hpa_carbon.glb",
+          "size": 17800,
+          "sha256": "bb5c922127b542d6ba5de5df569c72892002e537189e9f2745db50fda1045ab7"
+        },
+        {
+          "path": "assets/models/guns/attachments/tanks/tank_hpa_large.glb",
+          "size": 15504,
+          "sha256": "5b94dae54a26cecc779e06e09f9b3cff16ee407c8ce70fc03a64f32355650640"
+        },
+        {
+          "path": "assets/models/guns/attachments/tanks/tank_hpa_small.glb",
+          "size": 15528,
+          "sha256": "43f5c63492baa46e78fd2107231948aa06e6aa0d080bb3e6b56851da61443510"
+        },
+        {
+          "path": "assets/models/guns/bodies/bulldog.glb",
+          "size": 45004,
+          "sha256": "45d8d04dea452944d05979cc030df976811ab7a02c0b2123f2e4c1195dfd7d46"
+        },
+        {
+          "path": "assets/models/guns/bodies/phantom.glb",
+          "size": 51256,
+          "sha256": "23d897de27b0b3ca2edfcfb124fcf2676fb3ab310a729d95719065ed621fd57c"
+        },
+        {
+          "path": "assets/models/guns/bodies/raptor.glb",
+          "size": 35252,
+          "sha256": "2fadb43841fb1074e71db103bd71f38a3af496cae0babb6f1dae031c2e7a9352"
+        },
+        {
+          "path": "assets/models/guns/bodies/titan.glb",
+          "size": 41028,
+          "sha256": "a85d356db2cead9ec76bfac18c20cd44af63610a9f5164bde8d6d025f8c15dad"
+        },
+        {
+          "path": "assets/models/guns/bodies/vanta.glb",
+          "size": 38208,
+          "sha256": "693c35fc428d32c0611170cc26f32204d2fd8ed55dfa06490ea060db83a55d0f"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/bulldog_factory.glb",
+          "size": 108044,
+          "sha256": "376c1adb1377ad121382060a98bbec2a989e560799f16a64b635b2f45f9c630f"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/phantom_factory.glb",
+          "size": 114400,
+          "sha256": "5e90559b1142f318e756922350bbd530a7e33e355bfb8221bf83a7bd9eb2305a"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/raptor_factory.glb",
+          "size": 87968,
+          "sha256": "5fafcd1029fd73b5d5daa3dc71e150abdb0718ee6860746624a02d6d20a972f9"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/titan_factory.glb",
+          "size": 109896,
+          "sha256": "39bfec444c97014fcc2194c355c85447958f77012f70aff376e483618fb05a31"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/vanta_factory.glb",
+          "size": 76676,
+          "sha256": "6ec57a37899e9fa67f56069bd302c5835b34894069df901770e2f431c8637df9"
+        },
+        {
+          "path": "assets/models/pickups/air_refill_station.glb",
+          "size": 16020,
+          "sha256": "7c2261765089bf5e831d1c6707eeeca8a478e6afb58685d16eae8b81525001f4"
+        },
+        {
+          "path": "assets/models/pickups/paint_case.glb",
+          "size": 7180,
+          "sha256": "909027b6750cd392890670d0c1fa1804a826dfe7d2597b10840da3f0a767973f"
+        },
+        {
+          "path": "assets/models/pickups/pod_pickup.glb",
+          "size": 20544,
+          "sha256": "07e244cb3506e81848269094f3b59963daafd879594278d28e83e96aaee9e252"
+        },
+        {
+          "path": "assets/models/players/blue_player_rigged.glb",
+          "size": 506048,
+          "sha256": "bd0f696b151b2e7a6ca00421953b86cf77698feb92def5ccc80037f0af547ce5"
+        },
+        {
+          "path": "assets/models/players/orange_player_rigged.glb",
+          "size": 491084,
+          "sha256": "6327c9b818b8019472c68da7ec6cd3bdd134b5dd142b2117524980eaeee846a8"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_blue.glb",
+          "size": 13076,
+          "sha256": "16c8ba8fc256a2f548cc51bb80d562dbb8c2ce62338a36e773a16cf3e36ea8ad"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_orange.glb",
+          "size": 13084,
+          "sha256": "6e653cc1527a2ea26875ffd26f3a0c042e8a3e4c4c57fad1f20861184ce4932e"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_pink.glb",
+          "size": 13060,
+          "sha256": "e090c4ddba172a6b7299eb4bc0baea089bce9f36077350707cf9284e4657a33f"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_shell_shards.glb",
+          "size": 5264,
+          "sha256": "7c61a7762fc3b2781cf931bec95911be3e38f724d9a80f0b61aa78853b872509"
+        },
+        {
+          "path": "assets/models/projectiles/paintball_yellow.glb",
+          "size": 13084,
+          "sha256": "f605dc943120f9aaec19259c4010bcdfdff673104850c09725e98c6f978e3909"
+        },
+        {
+          "path": "assets/models/projectiles/water_balloon.glb",
+          "size": 8436,
+          "sha256": "3c67be1f4ff51ce158a472d5a3a322e9b901fa60640229cf5bbc42f6163abdf9"
+        },
+        {
+          "path": "assets/models/props/barrel.glb",
+          "size": 25728,
+          "sha256": "1fd5cae4e581bfdbdbba62b635dbc574943206c505c7290beb4e31367aa49511"
+        },
+        {
+          "path": "assets/models/props/crate.glb",
+          "size": 16372,
+          "sha256": "e349de876d949176abdc9e680952f1ee29f75222060e3c8a27a31300880668fc"
+        },
+        {
+          "path": "assets/models/props/field_cone.glb",
+          "size": 11780,
+          "sha256": "43e3b194738b66734de125b5d192c953e8cc43ec3a8b443ceda69941eeaa9eb7"
+        },
+        {
+          "path": "assets/models/props/flag_blue.glb",
+          "size": 18560,
+          "sha256": "48c2ea9f127715121c4c01fc555fd9a44d0355e87a06e57bd4e884de8437b326"
+        },
+        {
+          "path": "assets/models/props/flag_orange.glb",
+          "size": 18572,
+          "sha256": "b4c0c08366b1d278521d2d419f1d75339ba1fa909d9ddc2813422f8f90395af6"
+        },
+        {
+          "path": "assets/models/props/netting_fence_section.glb",
+          "size": 9056,
+          "sha256": "583fc8c29c4d18183542788646a2c3e51b6a262388ec12e1ccc78fbdea677a0b"
+        },
+        {
+          "path": "assets/models/props/sandbag_wall.glb",
+          "size": 32672,
+          "sha256": "e68373e21aafd57bdf0ad85133178920e98b10f0363c2c428b2e96fbf00587b6"
+        },
+        {
+          "path": "assets/models/props/spawn_pad_blue.glb",
+          "size": 23068,
+          "sha256": "f3d89aae9279fea0202384eed9d5da81f95ac4ca4036c4dbe5366de5478e4f19"
+        },
+        {
+          "path": "assets/models/props/spawn_pad_orange.glb",
+          "size": 23080,
+          "sha256": "397b90ae0bfec26a544b1169bf37d0026bba26aa14310c4327389814659f2e38"
+        },
+        {
+          "path": "assets/models/water-guns/minnow.glb",
+          "size": 43244,
+          "sha256": "41ea3fabd188d9f4e04125a785aab51c9504127f4e28fb74377d91dc5dba5845"
+        },
+        {
+          "path": "assets/models/water-guns/monsoon.glb",
+          "size": 69160,
+          "sha256": "2907c5b77857329841095994e4c26ef1a51dc37149db8d70405fbd9f63b30774"
+        },
+        {
+          "path": "assets/models/water-guns/tidal.glb",
+          "size": 59672,
+          "sha256": "26d3590956fe603281b41a1b39636af0269860817b9568805772e1dcb2e67dc0"
+        },
+        {
+          "path": "assets/music/Menu_Palms_at_Midnight.ogg",
+          "size": 2815501,
+          "sha256": "ceb5995678724e409a11dd1413619081508fbea2f14311f1aad015426e7d6d86"
+        },
+        {
+          "path": "assets/music/Menu_Plaza_At_Midnight.ogg",
+          "size": 2331958,
+          "sha256": "db0c74c86490ae11f8ead7abae2922c84d869bb05ae504da68084b4a716230ed"
+        },
+        {
+          "path": "assets/music/Menu_The_Lobby_Charge.ogg",
+          "size": 2751351,
+          "sha256": "1ab4ad7c8ccb512f0e60a563d95882c0a9c2e83892428d3a0d33911efbfb5f8b"
+        },
+        {
+          "path": "assets/textures/flipbooks/air_puff_4x4.png",
+          "size": 67708,
+          "sha256": "3916251bfe44c9c294584e777af77b77549de8f2ab85933fa0ebf9ae3dbea312"
+        },
+        {
+          "path": "assets/textures/flipbooks/paint_burst_4x4.png",
+          "size": 104372,
+          "sha256": "7b06c57b80f1dc5e466b58ffac694731bc404323ced8b9f9426b7f5afc5644ce"
+        },
+        {
+          "path": "assets/textures/flipbooks/water_spray_4x4.png",
+          "size": 45043,
+          "sha256": "5f167831a3383d11f4c4bd693595a0e27622e3a35a9b4dfb40b8c23738b3d431"
+        },
+        {
+          "path": "assets/textures/ground/dirt_tile.png",
+          "size": 139318,
+          "sha256": "3c75c7fd7062f2cb280cbfce7949d84627633b66c969b7155a6bf825ef1c223a"
+        },
+        {
+          "path": "assets/textures/ground/netting_tile.png",
+          "size": 7476,
+          "sha256": "690b4eede6a174ab927c72929b6e91b2b4c75102dc2126fb57bf46c7537f99b1"
+        },
+        {
+          "path": "assets/textures/ground/turf_tile.png",
+          "size": 138847,
+          "sha256": "252abf0bd9aba062daf9cd1db9db92c2fd0ddcaf38b7e30969117ba95fcf66b7"
+        },
+        {
+          "path": "assets/textures/particles/air_puff_cone.png",
+          "size": 7951,
+          "sha256": "7caabb153e30389d564797bceca04c74e6f1a28adf8d01a2abfbc59a57aabf99"
+        },
+        {
+          "path": "assets/textures/particles/droplet.png",
+          "size": 7221,
+          "sha256": "ab56cbf9c76e9d0ef2930c279d4a02a35d83edbe92f2c6c40610ca67a42ab270"
+        },
+        {
+          "path": "assets/textures/particles/ring_shockwave.png",
+          "size": 9449,
+          "sha256": "3088afed717a649475b158df3b9d46f720bca89be7a04bec582413625684c782"
+        },
+        {
+          "path": "assets/textures/particles/shell_fragment.png",
+          "size": 7057,
+          "sha256": "3a943113a8e38f7f35c1e15c0d9a8b3ce62adb1459f481c685209d97040eb0fd"
+        },
+        {
+          "path": "assets/textures/particles/smoke_puff.png",
+          "size": 14269,
+          "sha256": "a6f9866961acb9e1f06669cb85b7854ed6a3bb81e51bafd09e1ab02e69282434"
+        },
+        {
+          "path": "assets/textures/particles/soft_puff.png",
+          "size": 9558,
+          "sha256": "02f632899597d59dd921c9601c371628834a4c1e5d726979cbfa01d755dc39e8"
+        },
+        {
+          "path": "assets/textures/particles/spark_star.png",
+          "size": 6564,
+          "sha256": "00bfc4929923dfd73fb309d1cd7325db93f1e37631291a45ec907cbe16d42dc9"
+        },
+        {
+          "path": "assets/textures/particles/splash_streak.png",
+          "size": 6848,
+          "sha256": "659b8bf109d97b6f9f09fd18d7bcd884a2a56c384cbabf7fb149b01e068c481c"
+        },
+        {
+          "path": "assets/textures/splats/drip_01.png",
+          "size": 39151,
+          "sha256": "6235ee8be5e8a31a5ece2c02518932919bb4adbba3df11eef74f980f14f7b954"
+        },
+        {
+          "path": "assets/textures/splats/drip_02.png",
+          "size": 35935,
+          "sha256": "2a86fc22f7917606a2800a1f59724bd1f5b9995f5856f724aefb0ab38515d46e"
+        },
+        {
+          "path": "assets/textures/splats/drip_03.png",
+          "size": 36057,
+          "sha256": "b2af3185f27d69745a5a35e9767cb0e7642166b06a584fe890c8945ac8f6e832"
+        },
+        {
+          "path": "assets/textures/splats/drip_04.png",
+          "size": 41840,
+          "sha256": "3af531f3439fe74193f37f65667b7b009ec7321c2a599e5a2288b9bc9e315c61"
+        },
+        {
+          "path": "assets/textures/splats/splat_01.png",
+          "size": 85040,
+          "sha256": "77c67d09ff79aa8db2c4504fec275640e1ba63a822d4d39fa2f5cc98be391ba7"
+        },
+        {
+          "path": "assets/textures/splats/splat_02.png",
+          "size": 85811,
+          "sha256": "1fbc9a261134e0ff96979e5f93fc6ca33bdefd5367e5f0ae7f44288f620807f0"
+        },
+        {
+          "path": "assets/textures/splats/splat_03.png",
+          "size": 75225,
+          "sha256": "6f0ea1887bce75014836c5b192207e18f305297f257087dfcb294d22a43eb712"
+        },
+        {
+          "path": "assets/textures/splats/splat_04.png",
+          "size": 66633,
+          "sha256": "8f016dd0b130fb05f1bf3cb3e04ef10906a26175ee8486cd737abab231636945"
+        },
+        {
+          "path": "assets/textures/splats/splat_05.png",
+          "size": 86522,
+          "sha256": "a3d19dc09c56ebee61fc70044e7ac46d4a16f564e15873265e6c0b4a2172b479"
+        },
+        {
+          "path": "assets/textures/splats/splat_06.png",
+          "size": 86815,
+          "sha256": "bda011778be3255d26889c79f743d0785dca688a3d220b0da19d5d92ff02d9f7"
+        },
+        {
+          "path": "assets/textures/splats/splat_07.png",
+          "size": 76143,
+          "sha256": "d242abbdf4b6645175405d05b2aae631c0291385d06ccffbfa1454a01357893b"
+        },
+        {
+          "path": "assets/textures/splats/splat_08.png",
+          "size": 84008,
+          "sha256": "e69a72005a8c401e09f1cb3b6398e72b995faf9bc1cc2290452a26837246d087"
+        },
+        {
+          "path": "assets/textures/splats/splat_atlas_4x3.png",
+          "size": 733293,
+          "sha256": "4ea64ffeb2d9f7a716865274a1e906abbefb6f84f69865750d4f2fc42b6e243e"
+        },
+        {
+          "path": "assets/textures/ui/ammo_ball.png",
+          "size": 6498,
+          "sha256": "edb088248ae5019812a0c3e1cdd56b79e151e640ce8ff21ffd0c321d8fe19362"
+        },
+        {
+          "path": "assets/textures/ui/ammo_pod.png",
+          "size": 7076,
+          "sha256": "c556e374946abad7f5b0ca3b219e2c42c531783167bf4b30d7de22cca8c212b6"
+        },
+        {
+          "path": "assets/textures/ui/crosshair_circle.png",
+          "size": 6886,
+          "sha256": "001e6f9b030654c3e851826e65ea557d3637e81bfecd494aa9cd66c7d768428a"
+        },
+        {
+          "path": "assets/textures/ui/crosshair_cross.png",
+          "size": 6366,
+          "sha256": "88e23f3352298b9c40c93b16fe3af290908e60d10d4e5b5d0c23fc79948170cf"
+        },
+        {
+          "path": "assets/textures/ui/crosshair_dot.png",
+          "size": 6089,
+          "sha256": "3844639c522e9ea9886fc7eddb8e704a27db7197b516c870b5783ee31bd24b41"
+        },
+        {
+          "path": "assets/textures/ui/eliminated.png",
+          "size": 6231,
+          "sha256": "1dae8a58d1d6e3680ed3e645274c9ebac135702a22aa21d14abe651a48d49eeb"
+        },
+        {
+          "path": "assets/textures/ui/flag.png",
+          "size": 6597,
+          "sha256": "3adb1b85beba01ceb38ebc9cc2be36cc5fa21500a1743ad58f2c5363a4e08f9a"
+        },
+        {
+          "path": "assets/textures/ui/hit_marker.png",
+          "size": 6253,
+          "sha256": "ba8db51c7d06915f9fbc7664824fcbfed7a22dc42446c66791f7993f9014f8f3"
+        },
+        {
+          "path": "assets/textures/ui/meter_frame.png",
+          "size": 6769,
+          "sha256": "d1abd352b1467f9a11b1c0b3dadd46809f106d16d0a7288c0797ec14727ef00b"
+        },
+        {
+          "path": "assets/textures/ui/splat_icon.png",
+          "size": 8179,
+          "sha256": "4eefc0411bc37ed85e502a9516396316961a43cfacb25c1ef7e3b6232c0d6d6f"
+        },
+        {
+          "path": "assets/textures/ui/team_blue.png",
+          "size": 11781,
+          "sha256": "95e934859a4f41211d3259b94de50994e9c521c545721263499d266b979d097f"
+        },
+        {
+          "path": "assets/textures/ui/team_orange.png",
+          "size": 11638,
+          "sha256": "cf65911b1a49f2806348719d50a70edf52f96d905e943c5ae4ff154b70ef91b7"
+        },
+        {
+          "path": "assets/textures/ui/team_shield_white.png",
+          "size": 8691,
+          "sha256": "b6a5e8ddc50152e11dc8f0f9da759586c4809f9f21337221861c2a223b357adc"
+        },
+        {
+          "path": "assets/textures/ui/timer.png",
+          "size": 7660,
+          "sha256": "d3222216302afd8724e8871a55fb7cd124e1a599375fd965f178e2fa27daa61c"
+        },
+        {
           "path": "ink-cognito.exe",
-          "size": 97013760,
-          "sha256": "579797e230568f4ede94cb4c65f9c660dc967274abec60171f3c61f94f1c61ee"
+          "size": 98125312,
+          "sha256": "c56bf907da14f8ae59c36f2a752c26f04f5a44f19c6c971c92b3713fdbf3db5f"
         }
       ]
     }
