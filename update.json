@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.2.1",
-      "published": "2026-11-24T10:53:37Z",
-      "notes": "**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.2.0...v0.2.1",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.2.1",
+      "version": "0.3.0",
+      "published": "2026-11-24T20:18:37Z",
+      "notes": "## What's Changed\n* Paintball gameplay with LowPoly Armory assets, loadouts and menus (0.2.1) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/4\n* Fix multiplayer hit desync, add audio Options menu, and document physics/shooting by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/5\n* Add maps, game modes, ranked, UI kit menus and HUD by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/6\n* Release 0.3.0 by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/7\n\n## New Contributors\n* @Sawman24 made their first contribution in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/4\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.2.1...v0.3.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.3.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.2.1/Ink-cognito-windows-x64.zip",
-        "size": 46324158,
-        "sha256": "8a89ef11f3714eb5361f58e49e88b1aba7e95da8526d757621db39cd309ac25b"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.3.0/Ink-cognito-windows-x64.zip",
+        "size": 50206327,
+        "sha256": "a2e0653a3297c67865f7e88a1583bc9bde8202af3af4218a5bddd43256f9e7b8"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -214,6 +214,26 @@
           "sha256": "abd092d548a2566a5b66b423af09402ef5e46f349849907bf396bbc9ed19a8bc"
         },
         {
+          "path": "assets/fonts/Anton-OFL.txt",
+          "size": 4484,
+          "sha256": "ee67e6ee22790b7929f1a3769ca2801d565c64b5a9096942c1adf5596de9c9e4"
+        },
+        {
+          "path": "assets/fonts/Anton-Regular.ttf",
+          "size": 170812,
+          "sha256": "a4ba3a92350ebb031da0cb47630ac49eb265082ca1bc0450442f4a83ab947cab"
+        },
+        {
+          "path": "assets/fonts/ArchivoBlack-OFL.txt",
+          "size": 4492,
+          "sha256": "3173acd82f8c6159b5b1037b539fcbd4edff68e65c2ea8b9412b5a5ca97b08ff"
+        },
+        {
+          "path": "assets/fonts/ArchivoBlack-Regular.ttf",
+          "size": 90988,
+          "sha256": "dd9a89a019b4849f66ab75455fe7bdf931311042cbb0f0f97acc061539703180"
+        },
+        {
           "path": "assets/models/bunkers/brick.glb",
           "size": 7180,
           "sha256": "e07f7eaed28438ec2158436255d22347150fcdbea5b6568e6dbd883f0b5c8e89"
@@ -274,6 +294,11 @@
           "sha256": "3b58042c47237c07d59784ef0034b26ede6a8b4d84aa2d5fbdfef8b186e5d111"
         },
         {
+          "path": "assets/models/guns/attachments/barrels/barrel_sawed_off.glb",
+          "size": 14308,
+          "sha256": "7eb25eabccdb99ea3aaaa915a7b7ea61531c69ca1a7c8560251976acb6df405e"
+        },
+        {
           "path": "assets/models/guns/attachments/barrels/barrel_shrouded.glb",
           "size": 18256,
           "sha256": "d9f0b9dc29f96745da3a05dbdff31289a3fcf680c84f951b25174719d6d4e16d"
@@ -282,6 +307,16 @@
           "path": "assets/models/guns/attachments/barrels/barrel_stub.glb",
           "size": 12016,
           "sha256": "5df8569752b3c00acc19540693ec5cede0a5dc20e46d2417db41c053ada638ea"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_suppressor.glb",
+          "size": 21848,
+          "sha256": "656bdf8310b368963910a12742899db94639f6bfc43817f891e0fc69a2d284f9"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_twin.glb",
+          "size": 17120,
+          "sha256": "135f45730206fdff6c42f50270023f9e3e3733e19bca78af13ca73c42a74cd27"
         },
         {
           "path": "assets/models/guns/attachments/foregrips/grip_angled.glb",
@@ -294,9 +329,24 @@
           "sha256": "93c2bf063d9f0ad71b477a268026304c7014cbae55a5c6dc3a73cef86afa4d83"
         },
         {
+          "path": "assets/models/guns/attachments/foregrips/grip_handstop.glb",
+          "size": 6952,
+          "sha256": "1b6a77e7b5fdab67f96493d0a81c77a694471d6b2e3411241de52c360b17f955"
+        },
+        {
+          "path": "assets/models/guns/attachments/foregrips/grip_stubby.glb",
+          "size": 9540,
+          "sha256": "42dae1bd3a24af5d3d7933eecb9db5f8d9d290551f1c5fb745fedc18c9e18892"
+        },
+        {
           "path": "assets/models/guns/attachments/foregrips/grip_vertical.glb",
           "size": 8172,
           "sha256": "eecf78191e8c3a2fbb5ecd23ecf6ab3260f5e6c7a863ad9abd8bb2fb826145b8"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_box.glb",
+          "size": 7808,
+          "sha256": "9893888a13750b2d89e61a27ba1530b07fca3bdeb5148cfdf50669c925db219b"
         },
         {
           "path": "assets/models/guns/attachments/hoppers/hopper_drum.glb",
@@ -324,6 +374,16 @@
           "sha256": "58d7e7a5dc47c9cc41bcdf8c131316b5ca15077397095a89f68dd88d7b718fc4"
         },
         {
+          "path": "assets/models/guns/attachments/hoppers/hopper_speedfeed.glb",
+          "size": 18060,
+          "sha256": "5cb62b4d3a458818d78d9f679e4bb979f3e02bfd31c304d82cb65c9e47b6575f"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_stick_mag.glb",
+          "size": 6936,
+          "sha256": "7ea69fac70262654e4a598ab8cbbf99534926631a508cb620d4dcb048018020e"
+        },
+        {
           "path": "assets/models/guns/attachments/sights/sight_holo.glb",
           "size": 13148,
           "sha256": "11347d7bd4b06e054e034147333f8d9b055dc4b6416404b23b13646fcb0b0645"
@@ -334,9 +394,24 @@
           "sha256": "9cc2025b926239e55feb2fcf79adb69997c5e1a378bad712dd1544968c54b55e"
         },
         {
+          "path": "assets/models/guns/attachments/sights/sight_laser.glb",
+          "size": 9872,
+          "sha256": "bf7f678154e250a23d977e3f6095af32bc37b8ada5d77e25e34f8cb8572d46f6"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_prism.glb",
+          "size": 13688,
+          "sha256": "d16563c2844bf6da67e65a66c5ff18975acd7e36e835c069f13430ff6c009221"
+        },
+        {
           "path": "assets/models/guns/attachments/sights/sight_red_dot.glb",
           "size": 9884,
           "sha256": "2a2c682235c9702f5900b497a338e9092f22e2b8a580bb2e0ee78ddff3dc9c3a"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_reflex.glb",
+          "size": 9056,
+          "sha256": "273cd85ce1760da7ed44d4aa7bbc0f859d8bc26e21dec2fa4fa7546a0b6e2ad5"
         },
         {
           "path": "assets/models/guns/attachments/sights/sight_scope.glb",
@@ -359,9 +434,19 @@
           "sha256": "c4677bbb6d8dcb09af0eeecd83ec03ce27951f472d37f691669b50dbfb270dd4"
         },
         {
+          "path": "assets/models/guns/attachments/stocks/stock_minimal.glb",
+          "size": 8448,
+          "sha256": "7d63409cae1b409c79f9059ed1e1ad10b53acef7a1c6fe7680702aba89064deb"
+        },
+        {
           "path": "assets/models/guns/attachments/stocks/stock_skeleton.glb",
           "size": 6900,
           "sha256": "d50eab6920e042cf8b33737fda34f27fb29bff3fc2f9c5600840b945f6776660"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_thumbhole.glb",
+          "size": 9220,
+          "sha256": "5ed378fb5f06c6415df30252083328d7abbfe63c819c959878d454894e96eddc"
         },
         {
           "path": "assets/models/guns/attachments/tanks/tank_co2.glb",
@@ -379,59 +464,284 @@
           "sha256": "5b94dae54a26cecc779e06e09f9b3cff16ee407c8ce70fc03a64f32355650640"
         },
         {
+          "path": "assets/models/guns/attachments/tanks/tank_hpa_mini.glb",
+          "size": 13776,
+          "sha256": "e4543c2e2dc670ac1baab013a07b405e1caf0472a0f61a1bcf61d40a64391fed"
+        },
+        {
           "path": "assets/models/guns/attachments/tanks/tank_hpa_small.glb",
           "size": 15528,
           "sha256": "43f5c63492baa46e78fd2107231948aa06e6aa0d080bb3e6b56851da61443510"
         },
         {
+          "path": "assets/models/guns/attachments/tanks/tank_twin_bottle.glb",
+          "size": 20932,
+          "sha256": "06df6b3dc892074fe183c4916a05d6f1f15ee78889b1ac149b609df1ce7dbdef"
+        },
+        {
           "path": "assets/models/guns/bodies/bulldog.glb",
-          "size": 45004,
-          "sha256": "45d8d04dea452944d05979cc030df976811ab7a02c0b2123f2e4c1195dfd7d46"
+          "size": 59556,
+          "sha256": "c827fefa64d06ae396673ba728c6740d8441d151fbf5a6eacf4c3cdeee708505"
         },
         {
           "path": "assets/models/guns/bodies/phantom.glb",
-          "size": 51256,
-          "sha256": "23d897de27b0b3ca2edfcfb124fcf2676fb3ab310a729d95719065ed621fd57c"
+          "size": 67728,
+          "sha256": "1a0f560594538920c29e01c19b6c8f22adb5a658a01b9f0ecbf598371470ea8e"
         },
         {
           "path": "assets/models/guns/bodies/raptor.glb",
-          "size": 35252,
-          "sha256": "2fadb43841fb1074e71db103bd71f38a3af496cae0babb6f1dae031c2e7a9352"
+          "size": 46492,
+          "sha256": "e65ad6ee6aaa9486a15380552b21677ffaf114cddfe0b2de95757d1758032c58"
+        },
+        {
+          "path": "assets/models/guns/bodies/shotgun.glb",
+          "size": 87656,
+          "sha256": "f28c44fe8182905f7dc0fc8f0f2252b29bf954a7527ab597fbacb5cc65ed8b18"
+        },
+        {
+          "path": "assets/models/guns/bodies/sniper.glb",
+          "size": 69140,
+          "sha256": "aa93de0783e1f7fcb47b934188049fdc6e29ae6f3a64630097cb72984bec84a5"
         },
         {
           "path": "assets/models/guns/bodies/titan.glb",
-          "size": 41028,
-          "sha256": "a85d356db2cead9ec76bfac18c20cd44af63610a9f5164bde8d6d025f8c15dad"
+          "size": 54192,
+          "sha256": "08d564af06cbf5a7154f4cdd1c73c78ba608a45ffe5a56d400b2f6f5c25f5f7b"
         },
         {
           "path": "assets/models/guns/bodies/vanta.glb",
-          "size": 38208,
-          "sha256": "693c35fc428d32c0611170cc26f32204d2fd8ed55dfa06490ea060db83a55d0f"
+          "size": 50456,
+          "sha256": "afb42b1d8f08cefcbcf4405b5ef6ba9fbc109f3192f9aa02b6becc8da01b14f7"
         },
         {
           "path": "assets/models/guns/factory-builds/bulldog_factory.glb",
-          "size": 108044,
-          "sha256": "376c1adb1377ad121382060a98bbec2a989e560799f16a64b635b2f45f9c630f"
+          "size": 143452,
+          "sha256": "7e73322c683e6fe8ae8096c28f9c35c200d3975415c98cc1d2c635b03fac8ce9"
         },
         {
           "path": "assets/models/guns/factory-builds/phantom_factory.glb",
-          "size": 114400,
-          "sha256": "5e90559b1142f318e756922350bbd530a7e33e355bfb8221bf83a7bd9eb2305a"
+          "size": 151580,
+          "sha256": "8ed6f5d57cd5391066f333d722018b59053c72a1361e76e64513551dddb17e2c"
         },
         {
           "path": "assets/models/guns/factory-builds/raptor_factory.glb",
-          "size": 87968,
-          "sha256": "5fafcd1029fd73b5d5daa3dc71e150abdb0718ee6860746624a02d6d20a972f9"
+          "size": 116448,
+          "sha256": "aaa048aa04e1c4817fa51004f5303f2fba237b7d063013241612cb0a8bae05c4"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/shotgun_factory.glb",
+          "size": 166104,
+          "sha256": "f1776b51e625bfb6637efac20fdf206da1c9bae4988b51d205fe9dc996f4db33"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/sniper_factory.glb",
+          "size": 162216,
+          "sha256": "b278fa1572fc9d96a1ba526c2a796792f87c1ad8b08760c3b7a6ce7f9d5c2870"
         },
         {
           "path": "assets/models/guns/factory-builds/titan_factory.glb",
-          "size": 109896,
-          "sha256": "39bfec444c97014fcc2194c355c85447958f77012f70aff376e483618fb05a31"
+          "size": 145736,
+          "sha256": "74d8ae08f4000008a970c97458da6bd1c452b0a50e3faeb44b909f20f16cd10e"
         },
         {
           "path": "assets/models/guns/factory-builds/vanta_factory.glb",
-          "size": 76676,
-          "sha256": "6ec57a37899e9fa67f56069bd302c5835b34894069df901770e2f431c8637df9"
+          "size": 101552,
+          "sha256": "d1ac1298e1b43e6f27dfaf38b694aa92f23c5b5e195dc2db1de48a6921d2c00d"
+        },
+        {
+          "path": "assets/models/map-kit/nature/bush.glb",
+          "size": 16760,
+          "sha256": "e0761760e1eff9526ac7ac69e228419b5480331a94c535c2d04703b32cd382ee"
+        },
+        {
+          "path": "assets/models/map-kit/nature/fallen_log.glb",
+          "size": 10280,
+          "sha256": "8c6504d72c74bab4ea6af4cddd3b77f0c4d318b0add05cf91c3c39004863eaf2"
+        },
+        {
+          "path": "assets/models/map-kit/nature/grass_clump.glb",
+          "size": 8752,
+          "sha256": "471df5afe5a09db93181178616f9994320c6a8f0f001588ae6e62127e6f74f70"
+        },
+        {
+          "path": "assets/models/map-kit/nature/rock_large.glb",
+          "size": 20260,
+          "sha256": "d8604e97c84845daa2029e37ca3f4c618efcff9713d3ccb4f56832d9dcb7fd9b"
+        },
+        {
+          "path": "assets/models/map-kit/nature/rock_medium.glb",
+          "size": 14112,
+          "sha256": "74522970c4f8aa87ee0d55276e789e4f5831ffa22f0cb0101aeb08407b6d128b"
+        },
+        {
+          "path": "assets/models/map-kit/nature/rock_small.glb",
+          "size": 7192,
+          "sha256": "94a800663a975e69d7d4548311b2ab535370d220565c7e45182113510457fd2e"
+        },
+        {
+          "path": "assets/models/map-kit/nature/tree_oak.glb",
+          "size": 30772,
+          "sha256": "420c4640d806a52ffef96785a8da76df2ffd64d1b5f728499e03b8da31fce7eb"
+        },
+        {
+          "path": "assets/models/map-kit/nature/tree_pine_tall.glb",
+          "size": 17536,
+          "sha256": "8f3888f1c4f8fad99a574465f342f13199387a6a4fb0deb65008347aafd687cb"
+        },
+        {
+          "path": "assets/models/map-kit/nature/tree_pine.glb",
+          "size": 14448,
+          "sha256": "e5c065ccbd6af9accd413c01776a2e99ee9a3557293992bc4b840b4e354fd8fc"
+        },
+        {
+          "path": "assets/models/map-kit/nature/tree_stump.glb",
+          "size": 7952,
+          "sha256": "473141abc565eb18eae08ae7defd32c81ff47a7bf4ac5e9045eff0b8dd958b03"
+        },
+        {
+          "path": "assets/models/map-kit/props/boundary_post.glb",
+          "size": 10980,
+          "sha256": "65b510adfd6be5e0f2a2e4729f7b843e2ca91ca4a5caec3aeab5e71fccc0fb8f"
+        },
+        {
+          "path": "assets/models/map-kit/props/cable_spool.glb",
+          "size": 19532,
+          "sha256": "6a1646fbf8e94338f0780d148ba8bf14da28f343dbaa9b03fccef20024870be7"
+        },
+        {
+          "path": "assets/models/map-kit/props/floodlight_pole.glb",
+          "size": 22472,
+          "sha256": "5cb5b27a8daa4250399e66c6c0122fcb76d24b60cdb0643998cbf1ebdcdccd4a"
+        },
+        {
+          "path": "assets/models/map-kit/props/hay_bale.glb",
+          "size": 10912,
+          "sha256": "a5408ae9b6a43c50c8240980b31c52d52f6f6ec9d89aec8d525f274db4ae0d43"
+        },
+        {
+          "path": "assets/models/map-kit/props/log_pile.glb",
+          "size": 39428,
+          "sha256": "3a8a3f200f54c41910fc89c7ed085ab7f155143bbe530a6a9499b1f929cd8eed"
+        },
+        {
+          "path": "assets/models/map-kit/props/pallet_stack.glb",
+          "size": 43220,
+          "sha256": "6aaa2d38f9d6f1f0eb1c606a327a831a418752fbaf97d3d08e52373c655e5e11"
+        },
+        {
+          "path": "assets/models/map-kit/props/pallet.glb",
+          "size": 17804,
+          "sha256": "b952e445a61b67795e10db2f5f52ee2e5914ff963a5a63dc7f7c8be8befa401d"
+        },
+        {
+          "path": "assets/models/map-kit/props/sign_post.glb",
+          "size": 11616,
+          "sha256": "b9559bbd71639d21dbdef81aed5d9e5f34ade0ce19084635cc99be5329803b96"
+        },
+        {
+          "path": "assets/models/map-kit/props/tire_stack.glb",
+          "size": 57136,
+          "sha256": "d8a7824ee518f6f0e4d1b4f07e402aaf661528378f66e2d059e79447085005ac"
+        },
+        {
+          "path": "assets/models/map-kit/structures/bridge_4m.glb",
+          "size": 38468,
+          "sha256": "ade8152dc2ca6b312a1345cdd58f6c5700086b654fa775765fe489f9c93288b7"
+        },
+        {
+          "path": "assets/models/map-kit/structures/fence_wood_2m.glb",
+          "size": 18612,
+          "sha256": "b4461b75f3592740176483816bad84b72f76e45e9ab9962197d4a91be1cdacbf"
+        },
+        {
+          "path": "assets/models/map-kit/structures/field_shack.glb",
+          "size": 16924,
+          "sha256": "d6d64fe1ff7c1d6c128a6c8d1665449d9580e82f3e3f404dfca955be38dfeda9"
+        },
+        {
+          "path": "assets/models/map-kit/structures/gate_2m.glb",
+          "size": 23184,
+          "sha256": "28325ba00d506f3f48e840f833ec15b247cfdbbb323daaf763b0a10863a23ff2"
+        },
+        {
+          "path": "assets/models/map-kit/structures/platform_2x2.glb",
+          "size": 19396,
+          "sha256": "305beeebb65bc9cce3963e5598fcd306b0e201d3456ff2bb7d9412b79ea59832"
+        },
+        {
+          "path": "assets/models/map-kit/structures/ramp_2m.glb",
+          "size": 10916,
+          "sha256": "fa390be201f4dd53e995dc01ba2b9e33425a6f17a664da95b971d4afd58f0cbe"
+        },
+        {
+          "path": "assets/models/map-kit/structures/scoreboard_stand.glb",
+          "size": 20216,
+          "sha256": "f701cb9dd46ad0ba476ed633d69ce905562e8da31245ad365ce4984041182088"
+        },
+        {
+          "path": "assets/models/map-kit/structures/shipping_container_blue.glb",
+          "size": 83988,
+          "sha256": "0c8fd11ec79a16bd573f2ddf876a384ed990e7c2005f0980a7b5a291cbd1f20a"
+        },
+        {
+          "path": "assets/models/map-kit/structures/shipping_container_green.glb",
+          "size": 83988,
+          "sha256": "b30e5c3bb0e45067a431b56ca5d01a00a8ce80bd6bcaba7a92128a54672c1a27"
+        },
+        {
+          "path": "assets/models/map-kit/structures/shipping_container_rust.glb",
+          "size": 83984,
+          "sha256": "1eb2a16a95d6b80b496fb3394af0de6e1bda888d8d2c6ec84194ff3d1447d940"
+        },
+        {
+          "path": "assets/models/map-kit/structures/stairs_1m.glb",
+          "size": 40840,
+          "sha256": "1cdf0eb2ae42bc30b02ff728642c38c91cb841de5ab0cff870c88d910c86b2c1"
+        },
+        {
+          "path": "assets/models/map-kit/structures/watch_tower.glb",
+          "size": 49900,
+          "sha256": "3a16d70595360174b76558988408aa952624d5665e887ef2cc561f0c99144abd"
+        },
+        {
+          "path": "assets/models/map-kit/walls/concrete_wall_2m.glb",
+          "size": 11644,
+          "sha256": "a4cb50f96a931f8fdfb4ff6dfb02e8a8a2a33bcd638fd4d762dafe80e40d6ab6"
+        },
+        {
+          "path": "assets/models/map-kit/walls/jersey_barrier.glb",
+          "size": 5524,
+          "sha256": "2cf86afed968bcd028823006533c12277f5a906e5759d3e6a650d48297fb5a8f"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_1m.glb",
+          "size": 26252,
+          "sha256": "e32facd1986dcfbf320acba5ec4ddc5dfdbb81bcde4611010f977ea61f5d0303"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_2m.glb",
+          "size": 27784,
+          "sha256": "496339d84767c7731f43258d9b036bef6d39c4601c3be01aa2fd968594cdcd44"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_corner.glb",
+          "size": 9352,
+          "sha256": "14d9503b40b8a5def858ba1cfe179c60f50e50f5ec86f9b4e5ec137f9cb68bf3"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_doorway.glb",
+          "size": 27816,
+          "sha256": "c0259fdf10ddcbb77b5fbc6aeb263541f2f311eb7bf5aac58efdd05ffce2fca6"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_low_cover.glb",
+          "size": 26276,
+          "sha256": "87fa71b09ef6a51d631d73e8b662971674026b8ce6be43ab74e7630c02b36814"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_window.glb",
+          "size": 29336,
+          "sha256": "bb9eaef994ea8ac97d98833da40438e1f7dc8bf82797f8901c8241316d0351ec"
         },
         {
           "path": "assets/models/pickups/air_refill_station.glb",
@@ -450,13 +760,13 @@
         },
         {
           "path": "assets/models/players/blue_player_rigged.glb",
-          "size": 506048,
-          "sha256": "bd0f696b151b2e7a6ca00421953b86cf77698feb92def5ccc80037f0af547ce5"
+          "size": 595588,
+          "sha256": "3fa9d5980014e6369a77b5d27d513947b231168927877543d31b8d6d76abbcbd"
         },
         {
           "path": "assets/models/players/orange_player_rigged.glb",
-          "size": 491084,
-          "sha256": "6327c9b818b8019472c68da7ec6cd3bdd134b5dd142b2117524980eaeee846a8"
+          "size": 580624,
+          "sha256": "978cdf4d5fb6b78c7b7265e086e606a8c103912e110605570a20329e7374ae4a"
         },
         {
           "path": "assets/models/projectiles/paintball_blue.glb",
@@ -549,6 +859,61 @@
           "sha256": "26d3590956fe603281b41a1b39636af0269860817b9568805772e1dcb2e67dc0"
         },
         {
+          "path": "assets/models/weapons/gadgets/deployable_barricade.glb",
+          "size": 20208,
+          "sha256": "07d671959351d385cac83bea468b3b4c847e3c82669590b8d8a614eb70afeffc"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/grenade_crate.glb",
+          "size": 29360,
+          "sha256": "e655d833c44845b61b62600e7099c2808133d27f53171adcd0aaebd3dd2fdd8e"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/paint_grenade_blue.glb",
+          "size": 34084,
+          "sha256": "8015c94b06f950c19764879c0451ff729516a950a9765cd970d9bc508c55bc2c"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/paint_grenade_orange.glb",
+          "size": 34096,
+          "sha256": "57c012173a6428f67b60d832bd925cc87aa157f38bc37a8ec5d5a5c161c126d2"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/paint_grenade_yellow.glb",
+          "size": 34096,
+          "sha256": "1d1bc14da4fe3e008fb31c64fc66e1ac9e3c2334fc33c69a8827e6689a3839b9"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/paint_mine.glb",
+          "size": 27616,
+          "sha256": "a4003d8d89692d5ae772d2a11f30268775fe90fc7cbf0089425b3e09d8d63a4a"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/riot_shield.glb",
+          "size": 13896,
+          "sha256": "a91b13f84bda8da4132011b011b47539c902d4b722f20695f48fd183151e88a2"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/smoke_grenade.glb",
+          "size": 30980,
+          "sha256": "834e752166097adfa8bdb5d91586b5029c4c1de243d9e20cf16dff69d80f37aa"
+        },
+        {
+          "path": "assets/models/weapons/launchers/paint_grenade_launcher.glb",
+          "size": 48616,
+          "sha256": "8daefc45cbb6511f21b72fffaefd6c8251070eade2aaa12cb1fb056ca0517d58"
+        },
+        {
+          "path": "assets/models/weapons/pistols/pistol_compact.glb",
+          "size": 25864,
+          "sha256": "7862c62f1137e968f39fa62b62f8ce6c09f0521a4585e2bebc341d2b87c268f4"
+        },
+        {
+          "path": "assets/models/weapons/pistols/pistol_magfed.glb",
+          "size": 33172,
+          "sha256": "80a25c0b4111567590221fdfc092915a7650e79961f90cbc1b4439e2c43b94c5"
+        },
+        {
           "path": "assets/music/Menu_Palms_at_Midnight.ogg",
           "size": 2815501,
           "sha256": "ceb5995678724e409a11dd1413619081508fbea2f14311f1aad015426e7d6d86"
@@ -634,6 +999,46 @@
           "sha256": "659b8bf109d97b6f9f09fd18d7bcd884a2a56c384cbabf7fb149b01e068c481c"
         },
         {
+          "path": "assets/textures/skins/camo_arctic.png",
+          "size": 133514,
+          "sha256": "7361e5d1a23cb488fa0f27b6e84b5fc457e2f12185126f7f11767f308898c485"
+        },
+        {
+          "path": "assets/textures/skins/camo_desert.png",
+          "size": 139885,
+          "sha256": "c952718385b7ae5bdb1cfafe8483855def52f339d33b3afeb5eb7425569c80b8"
+        },
+        {
+          "path": "assets/textures/skins/camo_digital.png",
+          "size": 123267,
+          "sha256": "f96f839ece3aa4edcfb970bacbdfbed4f6d7f6104eed788704a08ed97874ce2b"
+        },
+        {
+          "path": "assets/textures/skins/camo_tiger.png",
+          "size": 136696,
+          "sha256": "f23cb1e1bff819e07dd54d6f4cd981a99f5819bf83ffc57e416b97a6db944615"
+        },
+        {
+          "path": "assets/textures/skins/camo_urban.png",
+          "size": 142522,
+          "sha256": "49d4e01a5e183ca94cb025e425bab72e9e61964656603476f84711c6df345a7b"
+        },
+        {
+          "path": "assets/textures/skins/camo_woodland.png",
+          "size": 143642,
+          "sha256": "3ce480e78d63ec363178a85da8b1be4647f46238505a89da7b0f9b81c3058d80"
+        },
+        {
+          "path": "assets/textures/skins/skin_carbon_fiber.png",
+          "size": 184367,
+          "sha256": "6af3e6bcd0b3cc05f994b7e7d926d921e9f5ed19a1da6062779b27715940cc5d"
+        },
+        {
+          "path": "assets/textures/skins/skin_paint_splatter.png",
+          "size": 301532,
+          "sha256": "18eeef6921470c36e98af7834deea2ad0d9edb8234d4b0bfce847136d1f8d3a4"
+        },
+        {
           "path": "assets/textures/splats/drip_01.png",
           "size": 39151,
           "sha256": "6235ee8be5e8a31a5ece2c02518932919bb4adbba3df11eef74f980f14f7b954"
@@ -697,6 +1102,771 @@
           "path": "assets/textures/splats/splat_atlas_4x3.png",
           "size": 733293,
           "sha256": "4ea64ffeb2d9f7a716865274a1e906abbefb6f84f69865750d4f2fc42b6e243e"
+        },
+        {
+          "path": "assets/textures/ui-kit/backgrounds/loading_background_1920x1080.png",
+          "size": 317297,
+          "sha256": "201242a7448116117ab1cad1f083f0ccadf2a0df3fc2324ebab783c4f9517eef"
+        },
+        {
+          "path": "assets/textures/ui-kit/backgrounds/menu_background_1920x1080.png",
+          "size": 297237,
+          "sha256": "18f0194b5d3f106a16604d9e4c52719af8fbc3486838726253c12ae896d8c772"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/avatar_frame_blue.png",
+          "size": 9696,
+          "sha256": "31c02929d71ccf94df8476c41584e89719bbc6395619387b6e60c8a1dba39b92"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/avatar_frame_neutral.png",
+          "size": 9433,
+          "sha256": "1fc49a521b567f5d2aba3c8cd296258a632e8b77191f39fbb794e1ff718bf75a"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/avatar_frame_orange.png",
+          "size": 9673,
+          "sha256": "de28ee19a2a13db7aa30499f2caa5b237800f0875840ec76294c0246a00a66e0"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/avatar_placeholder.png",
+          "size": 10673,
+          "sha256": "62a0e1b886d440272297b77da431ceda2911ce9c826ee3a11a48c7124a8c52c3"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/coin_paint.png",
+          "size": 9350,
+          "sha256": "bc45bd1e3d8ca467a86e4fbdc0614b8415bca3f9db6a4b0e81bf5d3205b28b83"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/gem.png",
+          "size": 8196,
+          "sha256": "4207d5d634dd23879e4ba9c4b58489a36f918993f16907c99028c38b343b5805"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/medal_bronze.png",
+          "size": 9901,
+          "sha256": "6d719b4190c2e20ed37e4746612246ce1ba500bd160f428a43b463a2e2a10373"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/medal_gold.png",
+          "size": 9865,
+          "sha256": "03ec5691053a40dc22dfaf56977c37cc956c0766633794e22733e64c5a89a2db"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/medal_silver.png",
+          "size": 10059,
+          "sha256": "c4250e2a0585ba7cf1206358dbf841bd7e8f7801c9e9dd0968ce09e88e31974e"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_bronze.png",
+          "size": 13482,
+          "sha256": "d36137d4b73775655087abc810894da0570be4e1c1b4da92a1320af7eaeec396"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_champion.png",
+          "size": 16750,
+          "sha256": "b0d76200682929d2e28e485450d58a9d60e3bc7d709b1f21939b6e4c0f4be41d"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_diamond.png",
+          "size": 14688,
+          "sha256": "769815835d18247eaea820ffb4874db9fcf2e33c6f3c46e9c36bd4bb84411e95"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_gold.png",
+          "size": 14530,
+          "sha256": "386b6deed61fdab608512117db8946464f51212e315dbe690dd181613a5c322a"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_platinum.png",
+          "size": 14686,
+          "sha256": "803eeafb2485f0fe8439a3ed0b44203f72737aa4074b72397290a98433d88afb"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_silver.png",
+          "size": 14046,
+          "sha256": "67ac218ab261e216d77bcf6fa85ede41b76559ff46641e9fae39667fd577a493"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/star_empty.png",
+          "size": 7549,
+          "sha256": "ce4cd6967fb74751f88653750ce61090ce4111685162f4b835726d7b61db7ed2"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/star_full.png",
+          "size": 7613,
+          "sha256": "08b5eabfac4354608f9dd7e22d53ba53688e7511e968f45c3562644263b487dd"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/star_half.png",
+          "size": 7720,
+          "sha256": "e32f9e7e83be3263a037eaa15e6c836cece93e16b65a193de9d286302c739320"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_blue.png",
+          "size": 36860,
+          "sha256": "ca8ad363a785f2c72303dc39067764d9e78bd1a2ba2b050ddb5343ba6b45991d"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_grey.png",
+          "size": 36329,
+          "sha256": "bf9e3eca2ddf5df7363fea4ca9e750b040059dcb8b5fe8e9055f086ac4057e0b"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_orange.png",
+          "size": 37059,
+          "sha256": "98d2bb63ba063390deb48ece96373d64033195a5b39a19645941512a48706077"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_red.png",
+          "size": 36695,
+          "sha256": "e556af2bbb9fe9eafaf4e4ae3c03f6a480736b24f3297a272d76593056b9122b"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_yellow.png",
+          "size": 38272,
+          "sha256": "56e200292c6179d7f14db0d65205f6b35626185f249ee380d3c84b63748b622d"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blue_wins.png",
+          "size": 53597,
+          "sha256": "4ea64489323cf8a71301a7e4865810f3983b6bd026234e069f1270a7b77884b0"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_defeat.png",
+          "size": 44602,
+          "sha256": "7edd036d6d5b85f61895a076d9866c4c88881e638e7532421a9d4f76d5377a14"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_draw.png",
+          "size": 48375,
+          "sha256": "2b5ecad98dc71e133f04991a8869f65d47e52f585d7e1f01f89eb4fc66802262"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_eliminated.png",
+          "size": 44941,
+          "sha256": "3b82ddb8d40f5d7732449cc353db37f056359b8540cdd2ffa981f86bb625412d"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_flag_captured.png",
+          "size": 50829,
+          "sha256": "e37032234f466b49376d464caf52d0d82d036566ce0fe6136c77895681aec0eb"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_get_ready.png",
+          "size": 52516,
+          "sha256": "b0d1a30a2b1e0d5f1e867081005b9a6a9eb0a0fd1740b2a663e705f0b0719e00"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_match_point.png",
+          "size": 49083,
+          "sha256": "dbaad31d09027e9aa49b43a65fb50e55d6264ba2438039e382380e54d5ef8db2"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_orange_wins.png",
+          "size": 54924,
+          "sha256": "1216a8ce924439c92de78e4d3d51e3b73bd4883eaec752855a59ff9b814af354"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_overtime.png",
+          "size": 47306,
+          "sha256": "31069e5ff5da54bb6fe13c09f7cd82afac6e86bb46f7979fe5cd229e5065bbc9"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_victory.png",
+          "size": 50970,
+          "sha256": "3df1bf3e50226489aeb239d2702c677b9234dc5822824e4868b3470e26ccf7b9"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_blue_disabled.png",
+          "size": 6715,
+          "sha256": "e91ca8c7c2692b621f7b9bfa9c4d20b4f7c4096d9eb7a497344a969f237b6901"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_blue_hover.png",
+          "size": 6928,
+          "sha256": "74937c52f944ca5fb26a09e3be45451727e689b5be045c1845a43335dabd058e"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_blue_normal.png",
+          "size": 6966,
+          "sha256": "9baa1cd08e1d464d6709c9e3c0d5ff248210ba3af6dbbeb65f825ecb7cad9a23"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_blue_pressed.png",
+          "size": 6705,
+          "sha256": "213b9f1400d023d1c2ea4c98fdbf53e1aa4f1897c099eea593a85500933da3d2"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_danger_disabled.png",
+          "size": 6715,
+          "sha256": "236c2830f18fd1db4fcba6209c97fdaa88cb088a539e49ad27924351531372eb"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_danger_hover.png",
+          "size": 6877,
+          "sha256": "66947c45583fbf2c631afdf75946820d6653d5212a922e830dc340dd6b794262"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_danger_normal.png",
+          "size": 6929,
+          "sha256": "105077747a68c883cae02f511bc1c700c95d97cd4363722819c7879f37df367b"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_danger_pressed.png",
+          "size": 6682,
+          "sha256": "e6102e6eb97784c28dab59bdadb895d686527b525e1e440ec95b4afba79331d5"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_ghost_disabled.png",
+          "size": 6586,
+          "sha256": "2ceb9bd23b1c8ded5ecb9deb09e5e0350e837006d0ce04b3d419b07d38312a79"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_ghost_hover.png",
+          "size": 6644,
+          "sha256": "5d4dc45a1a8445b706eca29809561c95c2ba2d39506d936167c62be8d2dd8c87"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_ghost_normal.png",
+          "size": 6618,
+          "sha256": "f8cdfc8200f9adc37e98a8f20b50129181a2e73eed66d832bc9398a42c4311bb"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_ghost_pressed.png",
+          "size": 6659,
+          "sha256": "bbd99ccd1656fb8655098ffffe31ecc469e8b3738eb2cae3564aecced1a0d231"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_orange_disabled.png",
+          "size": 6715,
+          "sha256": "9f89d22673cee56960660e68a4af5642657a6b8594f03af589e0904205f2b645"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_orange_hover.png",
+          "size": 6956,
+          "sha256": "0fa98cfce1af2882f0da70393ead5bec3dbf863eddd98c8ed647a219c159fe4c"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_orange_normal.png",
+          "size": 6970,
+          "sha256": "942a8f8dae6839f2c5f8fe05d5c9c03f853cc8b568e7f158da372572101371f2"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_orange_pressed.png",
+          "size": 6701,
+          "sha256": "d4fac1aaabf175510858ab5eaf8f9f7d75ae1f4f8ea1b9753187cd00d46f4e16"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_primary_disabled.png",
+          "size": 6715,
+          "sha256": "6d3f1fb08b6fc65e4b4c4931c49ec58cc035ee4f10df44ffd1d763a77623d39d"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_primary_hover.png",
+          "size": 6941,
+          "sha256": "1db6b34aaf5ddf1ecd4898d51067a5a98290724d001fef6fe71e636e54456e16"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_primary_normal.png",
+          "size": 6959,
+          "sha256": "b1bc56aaff8d597db49b828409ffb4fb44a50274dd128c12c016ddf1bb415b2d"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_primary_pressed.png",
+          "size": 6710,
+          "sha256": "f7c5a7db9b360d664160219dfe2a62937449e1f3f39c7d743b130a7935f51221"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_secondary_disabled.png",
+          "size": 6715,
+          "sha256": "0d8d8c9ddd5af1e534b6117c7b6b11e60a3815b7dd18bb683aa6736b5e770289"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_secondary_hover.png",
+          "size": 7052,
+          "sha256": "f5ec81d9635a37d4ef47f2ba19b978e3818f223873cac7599bbeddee9548fea0"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_secondary_normal.png",
+          "size": 6835,
+          "sha256": "52b5294ff210b9247911131faac817fee3ebfdd26897d628511fa3f85f8ef091"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_secondary_pressed.png",
+          "size": 6705,
+          "sha256": "99b8d58fcd494902cca32c6c8fde5b81dc390995bd4582c4b44965ad2a7cac8b"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_success_disabled.png",
+          "size": 6715,
+          "sha256": "b20bb6dc226e618aa7853a9db120e55e8005a8a1d8eadf795bd6a3a8479d6be1"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_success_hover.png",
+          "size": 6898,
+          "sha256": "1857c5e490d3e4cbe75560ca202837d8efb17ddcfa88a10ada1565a8c4a462b0"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_success_normal.png",
+          "size": 6996,
+          "sha256": "1d801b7717d599cb9f573cb4583d04bdbae4d41da4c5eca47aa5781ce6fad35a"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_success_pressed.png",
+          "size": 6732,
+          "sha256": "0225b6fdd2b71403ea66d39b2de371a425a16811f18c2a69de48292b17e23f36"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/icon_button_hover.png",
+          "size": 6957,
+          "sha256": "63da2def4d4a09b398b9e73c783bdc1d2d76131bdaba1d212dd868763ae46d5e"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/icon_button_normal.png",
+          "size": 6779,
+          "sha256": "7b1e68b9e45192f32197582a4eaf0f2a501c87273fbbfbdd5fd9a4fb600a345f"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/icon_button_pressed.png",
+          "size": 6612,
+          "sha256": "d135aeefecc78bfc7709cf630c5b5e4698b390e63e7cbc7336dcdbc619cf905a"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/pip_blue.png",
+          "size": 6711,
+          "sha256": "1ab8de83a4cb34bbccabd5f46c0ab551b751238a05f87f6d0d404e30d1b6240c"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/pip_empty.png",
+          "size": 6809,
+          "sha256": "527d79974022074f7f7c866e99a0989609a44cd4289c89da0bfdc263a332d48f"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/pip_full.png",
+          "size": 6747,
+          "sha256": "cabc5b2d4bd7dd016368063179e3f063b5b08c8d95cf57e9e1ad48b7d59d3db1"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/pip_orange.png",
+          "size": 6709,
+          "sha256": "e7f24c386d680990b54c95af4e1e9d2e30013b6103376fae25d25fa5bddc9ee3"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_blue.png",
+          "size": 6586,
+          "sha256": "622cba98b415047ed8cece2b5aaf4e97aa531f637dfdc0ec715db69ecd994bdf"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_green.png",
+          "size": 6570,
+          "sha256": "a629419a2039faac02509ce1e79a9e6711aabce34d19945494d1bb5f36cd0cb3"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_orange.png",
+          "size": 6571,
+          "sha256": "e2759231496013b53a75c36afccd4a08e6649f90b163da27dcfeb04fc0c56d07"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_red.png",
+          "size": 6603,
+          "sha256": "ecfbe9b958a7c2d9350bb80e3c57d1d86b5af4044194b222ae094c63b56355b5"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_yellow.png",
+          "size": 6572,
+          "sha256": "16046677bf0cfc2fe261347eff076737b2c1e44fddf5136ee65ddc5503385886"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_frame.png",
+          "size": 6422,
+          "sha256": "6b83f6ab5c66447e823bac319e5d35230f8f9805db229a20a5af1d01a6bb8b89"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/tab_active.png",
+          "size": 6326,
+          "sha256": "b8e9cfd9de0b3cbaa1d83efa8d11125230bc2c05367f229026c241d5d35258ce"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/tab_hover.png",
+          "size": 6326,
+          "sha256": "590e46017c40ecac4db9441486aeb9ce6620066eec43c46de5b6710fabc894f5"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/tab_inactive.png",
+          "size": 6265,
+          "sha256": "6634b664bfacac92d406c47bf45d54fe0058ba82840de7c154768999c063d9f3"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/air_gauge_needle.png",
+          "size": 7243,
+          "sha256": "eae6cfad408e5c7394d8751b3b8817cd9a5a6f608577f4daf4a251d787f25eee"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/air_gauge.png",
+          "size": 13815,
+          "sha256": "747352912b8992abd1290b8b9dc263e1712b1961cc942d81944fdc3fbc1c916b"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/ammo_counter_frame.png",
+          "size": 11056,
+          "sha256": "ad4c4e6d2e05bc9113c465b7ebe8fcd6946da6d98644124bfc81024043c6a98a"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/capture_ring_segments.png",
+          "size": 11134,
+          "sha256": "f61d1f5ebcb3716494eed15b35e5f8bc5d9f9a615e4e685614315e768c9eba1a"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/compass_center_marker.png",
+          "size": 6315,
+          "sha256": "8ec4bac5c303801dc6f01283c35c3f06516fb8740382b74f3d180ec60631049c"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/compass_strip.png",
+          "size": 10126,
+          "sha256": "b31a8372da3e9ab4b7db4613b4db16dffee1f8acb4843f207a101a7143e0f2b6"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/elimination_strip.png",
+          "size": 10072,
+          "sha256": "247f42d0c433f203989a16024b656625788503a6cfcead06928c4d9df6ec4130"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/hit_direction_arc.png",
+          "size": 9141,
+          "sha256": "79078998cc6fd6c199c17826e7661017872bef2ae3f8d51fd9aa17ad56668d18"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/hopper_meter_fill.png",
+          "size": 6457,
+          "sha256": "51fac18546487a0ea2bbc9a99222906dfc13fc46aeccd8219926de97cdd62a4a"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/hopper_meter_frame.png",
+          "size": 7275,
+          "sha256": "533af00a1436395d2538d50a22c0437b8408b6aa665d5e9454411f9f162b5c91"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_dot_blue.png",
+          "size": 7383,
+          "sha256": "1d25408195223aeb6875309666d4638f39749b068a775e01f9b5a74fcc437485"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_dot_neutral.png",
+          "size": 7466,
+          "sha256": "1a4205469b44b4084de5aa1a67fc74e647781b8fbc61e9a2303d445fac8a3ab6"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_dot_orange.png",
+          "size": 7398,
+          "sha256": "9f6232c14065a346515358124c158137882c973b0a405b542ce9b093574feb63"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_frame.png",
+          "size": 10569,
+          "sha256": "a4aed0edf5d3294954425290bc09ed53c34135f5ba068088a76eff79caff5d12"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_mask.png",
+          "size": 7372,
+          "sha256": "30c8c83c9343d29262edf7590b96c3fd911d673bee55c35010e7dd959c05c5a8"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_player_arrow.png",
+          "size": 6740,
+          "sha256": "5f284426095049c481eae7894562f4e671cb62f67aebcd12f3ca68ff97cd2d25"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/notification_toast.png",
+          "size": 6457,
+          "sha256": "3cf74e3d19880d6f8823b05151df813cfed68ce7d38ba2392ec50dd45f30c600"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/objective_marker_blue.png",
+          "size": 8755,
+          "sha256": "91cde2990d37653cdf2b4c44ab2add2ee263b52bb7387a1c2c7b4ef358bc41c1"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/objective_marker_neutral.png",
+          "size": 8748,
+          "sha256": "30b7239de5495fa5ad80bd05f95664e28bd66eead4385db91e3410cd4775d286"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/objective_marker_orange.png",
+          "size": 8787,
+          "sha256": "990f344813500ac4218ecf052ae2b1893bb7f87bd7d3ef6b0e27e5778d00969a"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/score_header.png",
+          "size": 7905,
+          "sha256": "b6806d1f285f1360e3708747a06975967f2cda76c0a71ba30770bb96c54691b0"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/status_light_bad.png",
+          "size": 8066,
+          "sha256": "3281e8d7a10a4fd2da222ca39bde7fdd143092885c7b4fd54adae62e3af059ba"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/status_light_good.png",
+          "size": 8112,
+          "sha256": "5dbfea27c157ad967d7de38701bdefc6cf96395b21eeee21270141491c35ad31"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/status_light_warn.png",
+          "size": 8189,
+          "sha256": "6ae44b30f3c9f6ab144b009a74d946c96bfee5bb27c5158d6ff6fe707b44dd79"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/timer_frame.png",
+          "size": 6359,
+          "sha256": "dd317fb19c8349f95e12132b96d2283a84d8af745522b803aa4a369d91fbbad6"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/air_tank.png",
+          "size": 6554,
+          "sha256": "75d29d6cb1cd44781dec46598962554fa75cee2f025c95fe60257d26ffa06420"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/back.png",
+          "size": 6209,
+          "sha256": "12feea970b78519b2c5b263c24fa237da59499c4d546f580f9d926772fb13577"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/check.png",
+          "size": 6536,
+          "sha256": "4a9874cfc47fdf2d67e06eed1a18f584b9d52e053c51f32df6281a4ac3ce4ee8"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/clock.png",
+          "size": 7861,
+          "sha256": "7adb9fd82c974d55a9ef4634912318c87862c1e51fb86bb25eda51e56be8b8df"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/close.png",
+          "size": 6425,
+          "sha256": "8b6ca5eac05685608c6a20ad51178b81085c6124257e22ec8d34db2443c4df10"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/crown.png",
+          "size": 6443,
+          "sha256": "bd360994d6f8f0cc490234bf692ee36b2f95b1cde91b74c6472e3d232603288a"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/exit.png",
+          "size": 6737,
+          "sha256": "279c94e1d3fc6249a09ad39aa5a9ac4f80622c6060a1e26412826792822751ae"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/forward.png",
+          "size": 6188,
+          "sha256": "e9f9d2cde168cdbd60a34ca5a4c921982d4a0dd4ba3c07e1fa06bc95a2d4585d"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/home.png",
+          "size": 6526,
+          "sha256": "5927e8e9d0b093594adac6a9c05ba75fa70c9b4b94d08e10b7c58994769f8830"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/hopper.png",
+          "size": 6684,
+          "sha256": "61666e383904af5364de825859996a7ada4714f45ae37ded902656002107eee3"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/info.png",
+          "size": 7818,
+          "sha256": "0db01a03deaa0969572da2494c67e02a8ab75341a2465a04d821c4fac94a7f22"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/lock.png",
+          "size": 6811,
+          "sha256": "d854a7b287092c19148b94ad61d7c3b59f507b136b8d26b9cb168ac3d86657d2"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/map.png",
+          "size": 6616,
+          "sha256": "baeac1fa087b8d6be9246839e96d02e381a46995bb62daa487b6cde5078a81a1"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/paintball_gun.png",
+          "size": 6757,
+          "sha256": "4f98827a3a35902d01703a4e701ef4e8f10d049b84380c28e8a2dbb4984c6977"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/play.png",
+          "size": 6365,
+          "sha256": "c3ab83627984c95d1a9c7aa049f2eb9cd61fb3804ab6042d30e997c8a5bb8861"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/refresh.png",
+          "size": 7261,
+          "sha256": "0229580b51f3002a6b2b094402182832c98b5cca74304260829f5a6d2fc5dd97"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/settings.png",
+          "size": 7236,
+          "sha256": "a24483c01dcc39e7495f657864b65091b392fe167aaadc6992380dfdfa9d8074"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/shield.png",
+          "size": 6802,
+          "sha256": "865ee1c5f356e35b36d5cdca4fb8d6779d5c0ec08654c4515e2e1c426513a348"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/splat.png",
+          "size": 8363,
+          "sha256": "bf416cc8108bec4be34e967744b6cd5b067ff6e350a973b22da632eeb28b025b"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/star.png",
+          "size": 6950,
+          "sha256": "d6cbc5e9cfcfbc934a56714cd7ba74797c358960abb31fdd276133f443cb813d"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/target.png",
+          "size": 8286,
+          "sha256": "38e3a1e85207a484954e45b9d8525a332bf524b8e5c7dc54996e0a95da52f8fd"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/team.png",
+          "size": 7342,
+          "sha256": "258dafbd167867e4e32759f83a0c87f80974269d8900e7ce69831c38327fe94c"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/trophy.png",
+          "size": 7321,
+          "sha256": "f775a091433ece1d43728ce0e59a8c09e1492b204303314bc5de8f48e07bfd8d"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/user.png",
+          "size": 6953,
+          "sha256": "afabd89ed66807178c724c30bf0623b4a41eda28b7d36f6c0261a523ef02de81"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/volume.png",
+          "size": 7100,
+          "sha256": "3baaae586fc47091ff339446d42872050b367ea09ae665031f28948dcc774d71"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/warning.png",
+          "size": 7061,
+          "sha256": "dc577ab1c7c9f1da289523c0ab69c645dcd270fba562f1c6d3c040601efc4833"
+        },
+        {
+          "path": "assets/textures/ui-kit/keys/key_esc.png",
+          "size": 8480,
+          "sha256": "0546f06cfc30b964d448b6e03d5ea0b794add7003da37ac0e6b96bd6d7444f95"
+        },
+        {
+          "path": "assets/textures/ui-kit/keys/key_r.png",
+          "size": 7594,
+          "sha256": "4a073be28fec8b1a9ffe61c5d45e38f8c69685906ebcf9df19babdcb77149eb6"
+        },
+        {
+          "path": "assets/textures/ui-kit/keys/key_tab.png",
+          "size": 8255,
+          "sha256": "eaf9942d39503af6a807e02e51071c9b53ffd38ccebbf31fd35f091d42f6dfa9"
+        },
+        {
+          "path": "assets/textures/ui-kit/misc/loading_spinner_8f.png",
+          "size": 24302,
+          "sha256": "3f7243f6a3d933bc6e8823952377f8c9d856088a32a053ab1f68b943e5ef2cc8"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/card_blue.png",
+          "size": 8609,
+          "sha256": "f2a3ab00ff0bd8d2c3e9d34d7dad8b1be2c3345cc8e85ac4ccf2f303f46e523c"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/card_neutral.png",
+          "size": 8652,
+          "sha256": "faf78e82bd6b8d5a12bf8a51eed02a275c327325aa8938f7cc72e6a524aac18b"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/card_orange.png",
+          "size": 8596,
+          "sha256": "9b7f636652079fe850a9b335f0b6e88966ed73de2e368f39ba3908134d2e5930"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/dialog.png",
+          "size": 9730,
+          "sha256": "9d7582554ab182f5a5626c1710a7deb52615d7735857d4529800b52ee0f82bbe"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_accent.png",
+          "size": 9230,
+          "sha256": "abccc532bcfd9e0600ba119f4553efe644eaf9af2b3cba36538d0947be6050e4"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_blue.png",
+          "size": 9139,
+          "sha256": "f0fbb72b726624016bd157d71e7dfca700638bc1a61d84d59f1274b038e23b5b"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_glass.png",
+          "size": 7390,
+          "sha256": "455b8eab1d7cb267881013aa8369da7f1a149b4ac342e8f0af3001115e5af408"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_inset.png",
+          "size": 8708,
+          "sha256": "819e80172d6c55a28278ce93f629acff3911bfd2bdfa7c0ec1ec2b71821d7686"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_orange.png",
+          "size": 9140,
+          "sha256": "21ac152ead74b578eea89770a20caf515ce144e86c266050b0f9b8eb983cb75b"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel.png",
+          "size": 9001,
+          "sha256": "d03a357f36865659850a9d25604c88c7ee0dbbdf4b9132efea9a15da11971288"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/tooltip.png",
+          "size": 6996,
+          "sha256": "037483d8b9c7755508e93b5fb4791b9e2a158b3756b05f41a57d9507e65c3d4f"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/killfeed_row_self.png",
+          "size": 6305,
+          "sha256": "56c6b94a4e2e5a07b8fbafef2b43c4106a2be6c12eca960fcad263251088f1e9"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/killfeed_row.png",
+          "size": 6139,
+          "sha256": "57e300032e64975777a04b2c2bbb534d53556f86122a06aa73414f259e80d1a0"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/list_row_selected.png",
+          "size": 6433,
+          "sha256": "b4a0a70ecc4f297779addec6e65bb3bc53ed044389735a30b44234ab49178978"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/list_row.png",
+          "size": 6338,
+          "sha256": "3098b2f340203759d808b3ef39a91afc52bb4715f462cc8ca5f4e0d3f267a135"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/scoreboard_row_blue.png",
+          "size": 6461,
+          "sha256": "8014cb303b90d05e61894993452a1de42d3b1de1dcba65429738a0d000f73ee4"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/scoreboard_row_orange.png",
+          "size": 6453,
+          "sha256": "47bd418919f155ae05290e1f9e0529a193d94d27596e3a97f4059ffee21d8834"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/scoreboard_row_self.png",
+          "size": 6444,
+          "sha256": "9793cb4321d8c7cf816df5c79e6b58e00ef123a2c46cb983a2abb0208bcee85d"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/scoreboard_row.png",
+          "size": 6341,
+          "sha256": "fd9bbb34534fd1694e572e63b7cbb426da5a48ca62f4525d0ae01a2ff80936d1"
         },
         {
           "path": "assets/textures/ui/ammo_ball.png",
@@ -770,20 +1940,20 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 98125312,
-          "sha256": "c56bf907da14f8ae59c36f2a752c26f04f5a44f19c6c971c92b3713fdbf3db5f"
+          "size": 99301888,
+          "sha256": "9d4b51d31b7a4ba290e692e8cdb9429bc54fdb31f53ed0fb482bee67372d3450"
         }
       ]
     },
     "stable": {
-      "version": "0.2.1",
-      "published": "2026-11-24T10:53:37Z",
-      "notes": "**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.2.0...v0.2.1",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.2.1",
+      "version": "0.3.0",
+      "published": "2026-11-24T20:18:37Z",
+      "notes": "## What's Changed\n* Paintball gameplay with LowPoly Armory assets, loadouts and menus (0.2.1) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/4\n* Fix multiplayer hit desync, add audio Options menu, and document physics/shooting by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/5\n* Add maps, game modes, ranked, UI kit menus and HUD by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/6\n* Release 0.3.0 by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/7\n\n## New Contributors\n* @Sawman24 made their first contribution in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/4\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.2.1...v0.3.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.3.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.2.1/Ink-cognito-windows-x64.zip",
-        "size": 46324158,
-        "sha256": "8a89ef11f3714eb5361f58e49e88b1aba7e95da8526d757621db39cd309ac25b"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.3.0/Ink-cognito-windows-x64.zip",
+        "size": 50206327,
+        "sha256": "a2e0653a3297c67865f7e88a1583bc9bde8202af3af4218a5bddd43256f9e7b8"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -988,6 +2158,26 @@
           "sha256": "abd092d548a2566a5b66b423af09402ef5e46f349849907bf396bbc9ed19a8bc"
         },
         {
+          "path": "assets/fonts/Anton-OFL.txt",
+          "size": 4484,
+          "sha256": "ee67e6ee22790b7929f1a3769ca2801d565c64b5a9096942c1adf5596de9c9e4"
+        },
+        {
+          "path": "assets/fonts/Anton-Regular.ttf",
+          "size": 170812,
+          "sha256": "a4ba3a92350ebb031da0cb47630ac49eb265082ca1bc0450442f4a83ab947cab"
+        },
+        {
+          "path": "assets/fonts/ArchivoBlack-OFL.txt",
+          "size": 4492,
+          "sha256": "3173acd82f8c6159b5b1037b539fcbd4edff68e65c2ea8b9412b5a5ca97b08ff"
+        },
+        {
+          "path": "assets/fonts/ArchivoBlack-Regular.ttf",
+          "size": 90988,
+          "sha256": "dd9a89a019b4849f66ab75455fe7bdf931311042cbb0f0f97acc061539703180"
+        },
+        {
           "path": "assets/models/bunkers/brick.glb",
           "size": 7180,
           "sha256": "e07f7eaed28438ec2158436255d22347150fcdbea5b6568e6dbd883f0b5c8e89"
@@ -1048,6 +2238,11 @@
           "sha256": "3b58042c47237c07d59784ef0034b26ede6a8b4d84aa2d5fbdfef8b186e5d111"
         },
         {
+          "path": "assets/models/guns/attachments/barrels/barrel_sawed_off.glb",
+          "size": 14308,
+          "sha256": "7eb25eabccdb99ea3aaaa915a7b7ea61531c69ca1a7c8560251976acb6df405e"
+        },
+        {
           "path": "assets/models/guns/attachments/barrels/barrel_shrouded.glb",
           "size": 18256,
           "sha256": "d9f0b9dc29f96745da3a05dbdff31289a3fcf680c84f951b25174719d6d4e16d"
@@ -1056,6 +2251,16 @@
           "path": "assets/models/guns/attachments/barrels/barrel_stub.glb",
           "size": 12016,
           "sha256": "5df8569752b3c00acc19540693ec5cede0a5dc20e46d2417db41c053ada638ea"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_suppressor.glb",
+          "size": 21848,
+          "sha256": "656bdf8310b368963910a12742899db94639f6bfc43817f891e0fc69a2d284f9"
+        },
+        {
+          "path": "assets/models/guns/attachments/barrels/barrel_twin.glb",
+          "size": 17120,
+          "sha256": "135f45730206fdff6c42f50270023f9e3e3733e19bca78af13ca73c42a74cd27"
         },
         {
           "path": "assets/models/guns/attachments/foregrips/grip_angled.glb",
@@ -1068,9 +2273,24 @@
           "sha256": "93c2bf063d9f0ad71b477a268026304c7014cbae55a5c6dc3a73cef86afa4d83"
         },
         {
+          "path": "assets/models/guns/attachments/foregrips/grip_handstop.glb",
+          "size": 6952,
+          "sha256": "1b6a77e7b5fdab67f96493d0a81c77a694471d6b2e3411241de52c360b17f955"
+        },
+        {
+          "path": "assets/models/guns/attachments/foregrips/grip_stubby.glb",
+          "size": 9540,
+          "sha256": "42dae1bd3a24af5d3d7933eecb9db5f8d9d290551f1c5fb745fedc18c9e18892"
+        },
+        {
           "path": "assets/models/guns/attachments/foregrips/grip_vertical.glb",
           "size": 8172,
           "sha256": "eecf78191e8c3a2fbb5ecd23ecf6ab3260f5e6c7a863ad9abd8bb2fb826145b8"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_box.glb",
+          "size": 7808,
+          "sha256": "9893888a13750b2d89e61a27ba1530b07fca3bdeb5148cfdf50669c925db219b"
         },
         {
           "path": "assets/models/guns/attachments/hoppers/hopper_drum.glb",
@@ -1098,6 +2318,16 @@
           "sha256": "58d7e7a5dc47c9cc41bcdf8c131316b5ca15077397095a89f68dd88d7b718fc4"
         },
         {
+          "path": "assets/models/guns/attachments/hoppers/hopper_speedfeed.glb",
+          "size": 18060,
+          "sha256": "5cb62b4d3a458818d78d9f679e4bb979f3e02bfd31c304d82cb65c9e47b6575f"
+        },
+        {
+          "path": "assets/models/guns/attachments/hoppers/hopper_stick_mag.glb",
+          "size": 6936,
+          "sha256": "7ea69fac70262654e4a598ab8cbbf99534926631a508cb620d4dcb048018020e"
+        },
+        {
           "path": "assets/models/guns/attachments/sights/sight_holo.glb",
           "size": 13148,
           "sha256": "11347d7bd4b06e054e034147333f8d9b055dc4b6416404b23b13646fcb0b0645"
@@ -1108,9 +2338,24 @@
           "sha256": "9cc2025b926239e55feb2fcf79adb69997c5e1a378bad712dd1544968c54b55e"
         },
         {
+          "path": "assets/models/guns/attachments/sights/sight_laser.glb",
+          "size": 9872,
+          "sha256": "bf7f678154e250a23d977e3f6095af32bc37b8ada5d77e25e34f8cb8572d46f6"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_prism.glb",
+          "size": 13688,
+          "sha256": "d16563c2844bf6da67e65a66c5ff18975acd7e36e835c069f13430ff6c009221"
+        },
+        {
           "path": "assets/models/guns/attachments/sights/sight_red_dot.glb",
           "size": 9884,
           "sha256": "2a2c682235c9702f5900b497a338e9092f22e2b8a580bb2e0ee78ddff3dc9c3a"
+        },
+        {
+          "path": "assets/models/guns/attachments/sights/sight_reflex.glb",
+          "size": 9056,
+          "sha256": "273cd85ce1760da7ed44d4aa7bbc0f859d8bc26e21dec2fa4fa7546a0b6e2ad5"
         },
         {
           "path": "assets/models/guns/attachments/sights/sight_scope.glb",
@@ -1133,9 +2378,19 @@
           "sha256": "c4677bbb6d8dcb09af0eeecd83ec03ce27951f472d37f691669b50dbfb270dd4"
         },
         {
+          "path": "assets/models/guns/attachments/stocks/stock_minimal.glb",
+          "size": 8448,
+          "sha256": "7d63409cae1b409c79f9059ed1e1ad10b53acef7a1c6fe7680702aba89064deb"
+        },
+        {
           "path": "assets/models/guns/attachments/stocks/stock_skeleton.glb",
           "size": 6900,
           "sha256": "d50eab6920e042cf8b33737fda34f27fb29bff3fc2f9c5600840b945f6776660"
+        },
+        {
+          "path": "assets/models/guns/attachments/stocks/stock_thumbhole.glb",
+          "size": 9220,
+          "sha256": "5ed378fb5f06c6415df30252083328d7abbfe63c819c959878d454894e96eddc"
         },
         {
           "path": "assets/models/guns/attachments/tanks/tank_co2.glb",
@@ -1153,59 +2408,284 @@
           "sha256": "5b94dae54a26cecc779e06e09f9b3cff16ee407c8ce70fc03a64f32355650640"
         },
         {
+          "path": "assets/models/guns/attachments/tanks/tank_hpa_mini.glb",
+          "size": 13776,
+          "sha256": "e4543c2e2dc670ac1baab013a07b405e1caf0472a0f61a1bcf61d40a64391fed"
+        },
+        {
           "path": "assets/models/guns/attachments/tanks/tank_hpa_small.glb",
           "size": 15528,
           "sha256": "43f5c63492baa46e78fd2107231948aa06e6aa0d080bb3e6b56851da61443510"
         },
         {
+          "path": "assets/models/guns/attachments/tanks/tank_twin_bottle.glb",
+          "size": 20932,
+          "sha256": "06df6b3dc892074fe183c4916a05d6f1f15ee78889b1ac149b609df1ce7dbdef"
+        },
+        {
           "path": "assets/models/guns/bodies/bulldog.glb",
-          "size": 45004,
-          "sha256": "45d8d04dea452944d05979cc030df976811ab7a02c0b2123f2e4c1195dfd7d46"
+          "size": 59556,
+          "sha256": "c827fefa64d06ae396673ba728c6740d8441d151fbf5a6eacf4c3cdeee708505"
         },
         {
           "path": "assets/models/guns/bodies/phantom.glb",
-          "size": 51256,
-          "sha256": "23d897de27b0b3ca2edfcfb124fcf2676fb3ab310a729d95719065ed621fd57c"
+          "size": 67728,
+          "sha256": "1a0f560594538920c29e01c19b6c8f22adb5a658a01b9f0ecbf598371470ea8e"
         },
         {
           "path": "assets/models/guns/bodies/raptor.glb",
-          "size": 35252,
-          "sha256": "2fadb43841fb1074e71db103bd71f38a3af496cae0babb6f1dae031c2e7a9352"
+          "size": 46492,
+          "sha256": "e65ad6ee6aaa9486a15380552b21677ffaf114cddfe0b2de95757d1758032c58"
+        },
+        {
+          "path": "assets/models/guns/bodies/shotgun.glb",
+          "size": 87656,
+          "sha256": "f28c44fe8182905f7dc0fc8f0f2252b29bf954a7527ab597fbacb5cc65ed8b18"
+        },
+        {
+          "path": "assets/models/guns/bodies/sniper.glb",
+          "size": 69140,
+          "sha256": "aa93de0783e1f7fcb47b934188049fdc6e29ae6f3a64630097cb72984bec84a5"
         },
         {
           "path": "assets/models/guns/bodies/titan.glb",
-          "size": 41028,
-          "sha256": "a85d356db2cead9ec76bfac18c20cd44af63610a9f5164bde8d6d025f8c15dad"
+          "size": 54192,
+          "sha256": "08d564af06cbf5a7154f4cdd1c73c78ba608a45ffe5a56d400b2f6f5c25f5f7b"
         },
         {
           "path": "assets/models/guns/bodies/vanta.glb",
-          "size": 38208,
-          "sha256": "693c35fc428d32c0611170cc26f32204d2fd8ed55dfa06490ea060db83a55d0f"
+          "size": 50456,
+          "sha256": "afb42b1d8f08cefcbcf4405b5ef6ba9fbc109f3192f9aa02b6becc8da01b14f7"
         },
         {
           "path": "assets/models/guns/factory-builds/bulldog_factory.glb",
-          "size": 108044,
-          "sha256": "376c1adb1377ad121382060a98bbec2a989e560799f16a64b635b2f45f9c630f"
+          "size": 143452,
+          "sha256": "7e73322c683e6fe8ae8096c28f9c35c200d3975415c98cc1d2c635b03fac8ce9"
         },
         {
           "path": "assets/models/guns/factory-builds/phantom_factory.glb",
-          "size": 114400,
-          "sha256": "5e90559b1142f318e756922350bbd530a7e33e355bfb8221bf83a7bd9eb2305a"
+          "size": 151580,
+          "sha256": "8ed6f5d57cd5391066f333d722018b59053c72a1361e76e64513551dddb17e2c"
         },
         {
           "path": "assets/models/guns/factory-builds/raptor_factory.glb",
-          "size": 87968,
-          "sha256": "5fafcd1029fd73b5d5daa3dc71e150abdb0718ee6860746624a02d6d20a972f9"
+          "size": 116448,
+          "sha256": "aaa048aa04e1c4817fa51004f5303f2fba237b7d063013241612cb0a8bae05c4"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/shotgun_factory.glb",
+          "size": 166104,
+          "sha256": "f1776b51e625bfb6637efac20fdf206da1c9bae4988b51d205fe9dc996f4db33"
+        },
+        {
+          "path": "assets/models/guns/factory-builds/sniper_factory.glb",
+          "size": 162216,
+          "sha256": "b278fa1572fc9d96a1ba526c2a796792f87c1ad8b08760c3b7a6ce7f9d5c2870"
         },
         {
           "path": "assets/models/guns/factory-builds/titan_factory.glb",
-          "size": 109896,
-          "sha256": "39bfec444c97014fcc2194c355c85447958f77012f70aff376e483618fb05a31"
+          "size": 145736,
+          "sha256": "74d8ae08f4000008a970c97458da6bd1c452b0a50e3faeb44b909f20f16cd10e"
         },
         {
           "path": "assets/models/guns/factory-builds/vanta_factory.glb",
-          "size": 76676,
-          "sha256": "6ec57a37899e9fa67f56069bd302c5835b34894069df901770e2f431c8637df9"
+          "size": 101552,
+          "sha256": "d1ac1298e1b43e6f27dfaf38b694aa92f23c5b5e195dc2db1de48a6921d2c00d"
+        },
+        {
+          "path": "assets/models/map-kit/nature/bush.glb",
+          "size": 16760,
+          "sha256": "e0761760e1eff9526ac7ac69e228419b5480331a94c535c2d04703b32cd382ee"
+        },
+        {
+          "path": "assets/models/map-kit/nature/fallen_log.glb",
+          "size": 10280,
+          "sha256": "8c6504d72c74bab4ea6af4cddd3b77f0c4d318b0add05cf91c3c39004863eaf2"
+        },
+        {
+          "path": "assets/models/map-kit/nature/grass_clump.glb",
+          "size": 8752,
+          "sha256": "471df5afe5a09db93181178616f9994320c6a8f0f001588ae6e62127e6f74f70"
+        },
+        {
+          "path": "assets/models/map-kit/nature/rock_large.glb",
+          "size": 20260,
+          "sha256": "d8604e97c84845daa2029e37ca3f4c618efcff9713d3ccb4f56832d9dcb7fd9b"
+        },
+        {
+          "path": "assets/models/map-kit/nature/rock_medium.glb",
+          "size": 14112,
+          "sha256": "74522970c4f8aa87ee0d55276e789e4f5831ffa22f0cb0101aeb08407b6d128b"
+        },
+        {
+          "path": "assets/models/map-kit/nature/rock_small.glb",
+          "size": 7192,
+          "sha256": "94a800663a975e69d7d4548311b2ab535370d220565c7e45182113510457fd2e"
+        },
+        {
+          "path": "assets/models/map-kit/nature/tree_oak.glb",
+          "size": 30772,
+          "sha256": "420c4640d806a52ffef96785a8da76df2ffd64d1b5f728499e03b8da31fce7eb"
+        },
+        {
+          "path": "assets/models/map-kit/nature/tree_pine_tall.glb",
+          "size": 17536,
+          "sha256": "8f3888f1c4f8fad99a574465f342f13199387a6a4fb0deb65008347aafd687cb"
+        },
+        {
+          "path": "assets/models/map-kit/nature/tree_pine.glb",
+          "size": 14448,
+          "sha256": "e5c065ccbd6af9accd413c01776a2e99ee9a3557293992bc4b840b4e354fd8fc"
+        },
+        {
+          "path": "assets/models/map-kit/nature/tree_stump.glb",
+          "size": 7952,
+          "sha256": "473141abc565eb18eae08ae7defd32c81ff47a7bf4ac5e9045eff0b8dd958b03"
+        },
+        {
+          "path": "assets/models/map-kit/props/boundary_post.glb",
+          "size": 10980,
+          "sha256": "65b510adfd6be5e0f2a2e4729f7b843e2ca91ca4a5caec3aeab5e71fccc0fb8f"
+        },
+        {
+          "path": "assets/models/map-kit/props/cable_spool.glb",
+          "size": 19532,
+          "sha256": "6a1646fbf8e94338f0780d148ba8bf14da28f343dbaa9b03fccef20024870be7"
+        },
+        {
+          "path": "assets/models/map-kit/props/floodlight_pole.glb",
+          "size": 22472,
+          "sha256": "5cb5b27a8daa4250399e66c6c0122fcb76d24b60cdb0643998cbf1ebdcdccd4a"
+        },
+        {
+          "path": "assets/models/map-kit/props/hay_bale.glb",
+          "size": 10912,
+          "sha256": "a5408ae9b6a43c50c8240980b31c52d52f6f6ec9d89aec8d525f274db4ae0d43"
+        },
+        {
+          "path": "assets/models/map-kit/props/log_pile.glb",
+          "size": 39428,
+          "sha256": "3a8a3f200f54c41910fc89c7ed085ab7f155143bbe530a6a9499b1f929cd8eed"
+        },
+        {
+          "path": "assets/models/map-kit/props/pallet_stack.glb",
+          "size": 43220,
+          "sha256": "6aaa2d38f9d6f1f0eb1c606a327a831a418752fbaf97d3d08e52373c655e5e11"
+        },
+        {
+          "path": "assets/models/map-kit/props/pallet.glb",
+          "size": 17804,
+          "sha256": "b952e445a61b67795e10db2f5f52ee2e5914ff963a5a63dc7f7c8be8befa401d"
+        },
+        {
+          "path": "assets/models/map-kit/props/sign_post.glb",
+          "size": 11616,
+          "sha256": "b9559bbd71639d21dbdef81aed5d9e5f34ade0ce19084635cc99be5329803b96"
+        },
+        {
+          "path": "assets/models/map-kit/props/tire_stack.glb",
+          "size": 57136,
+          "sha256": "d8a7824ee518f6f0e4d1b4f07e402aaf661528378f66e2d059e79447085005ac"
+        },
+        {
+          "path": "assets/models/map-kit/structures/bridge_4m.glb",
+          "size": 38468,
+          "sha256": "ade8152dc2ca6b312a1345cdd58f6c5700086b654fa775765fe489f9c93288b7"
+        },
+        {
+          "path": "assets/models/map-kit/structures/fence_wood_2m.glb",
+          "size": 18612,
+          "sha256": "b4461b75f3592740176483816bad84b72f76e45e9ab9962197d4a91be1cdacbf"
+        },
+        {
+          "path": "assets/models/map-kit/structures/field_shack.glb",
+          "size": 16924,
+          "sha256": "d6d64fe1ff7c1d6c128a6c8d1665449d9580e82f3e3f404dfca955be38dfeda9"
+        },
+        {
+          "path": "assets/models/map-kit/structures/gate_2m.glb",
+          "size": 23184,
+          "sha256": "28325ba00d506f3f48e840f833ec15b247cfdbbb323daaf763b0a10863a23ff2"
+        },
+        {
+          "path": "assets/models/map-kit/structures/platform_2x2.glb",
+          "size": 19396,
+          "sha256": "305beeebb65bc9cce3963e5598fcd306b0e201d3456ff2bb7d9412b79ea59832"
+        },
+        {
+          "path": "assets/models/map-kit/structures/ramp_2m.glb",
+          "size": 10916,
+          "sha256": "fa390be201f4dd53e995dc01ba2b9e33425a6f17a664da95b971d4afd58f0cbe"
+        },
+        {
+          "path": "assets/models/map-kit/structures/scoreboard_stand.glb",
+          "size": 20216,
+          "sha256": "f701cb9dd46ad0ba476ed633d69ce905562e8da31245ad365ce4984041182088"
+        },
+        {
+          "path": "assets/models/map-kit/structures/shipping_container_blue.glb",
+          "size": 83988,
+          "sha256": "0c8fd11ec79a16bd573f2ddf876a384ed990e7c2005f0980a7b5a291cbd1f20a"
+        },
+        {
+          "path": "assets/models/map-kit/structures/shipping_container_green.glb",
+          "size": 83988,
+          "sha256": "b30e5c3bb0e45067a431b56ca5d01a00a8ce80bd6bcaba7a92128a54672c1a27"
+        },
+        {
+          "path": "assets/models/map-kit/structures/shipping_container_rust.glb",
+          "size": 83984,
+          "sha256": "1eb2a16a95d6b80b496fb3394af0de6e1bda888d8d2c6ec84194ff3d1447d940"
+        },
+        {
+          "path": "assets/models/map-kit/structures/stairs_1m.glb",
+          "size": 40840,
+          "sha256": "1cdf0eb2ae42bc30b02ff728642c38c91cb841de5ab0cff870c88d910c86b2c1"
+        },
+        {
+          "path": "assets/models/map-kit/structures/watch_tower.glb",
+          "size": 49900,
+          "sha256": "3a16d70595360174b76558988408aa952624d5665e887ef2cc561f0c99144abd"
+        },
+        {
+          "path": "assets/models/map-kit/walls/concrete_wall_2m.glb",
+          "size": 11644,
+          "sha256": "a4cb50f96a931f8fdfb4ff6dfb02e8a8a2a33bcd638fd4d762dafe80e40d6ab6"
+        },
+        {
+          "path": "assets/models/map-kit/walls/jersey_barrier.glb",
+          "size": 5524,
+          "sha256": "2cf86afed968bcd028823006533c12277f5a906e5759d3e6a650d48297fb5a8f"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_1m.glb",
+          "size": 26252,
+          "sha256": "e32facd1986dcfbf320acba5ec4ddc5dfdbb81bcde4611010f977ea61f5d0303"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_2m.glb",
+          "size": 27784,
+          "sha256": "496339d84767c7731f43258d9b036bef6d39c4601c3be01aa2fd968594cdcd44"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_corner.glb",
+          "size": 9352,
+          "sha256": "14d9503b40b8a5def858ba1cfe179c60f50e50f5ec86f9b4e5ec137f9cb68bf3"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_doorway.glb",
+          "size": 27816,
+          "sha256": "c0259fdf10ddcbb77b5fbc6aeb263541f2f311eb7bf5aac58efdd05ffce2fca6"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_low_cover.glb",
+          "size": 26276,
+          "sha256": "87fa71b09ef6a51d631d73e8b662971674026b8ce6be43ab74e7630c02b36814"
+        },
+        {
+          "path": "assets/models/map-kit/walls/wall_window.glb",
+          "size": 29336,
+          "sha256": "bb9eaef994ea8ac97d98833da40438e1f7dc8bf82797f8901c8241316d0351ec"
         },
         {
           "path": "assets/models/pickups/air_refill_station.glb",
@@ -1224,13 +2704,13 @@
         },
         {
           "path": "assets/models/players/blue_player_rigged.glb",
-          "size": 506048,
-          "sha256": "bd0f696b151b2e7a6ca00421953b86cf77698feb92def5ccc80037f0af547ce5"
+          "size": 595588,
+          "sha256": "3fa9d5980014e6369a77b5d27d513947b231168927877543d31b8d6d76abbcbd"
         },
         {
           "path": "assets/models/players/orange_player_rigged.glb",
-          "size": 491084,
-          "sha256": "6327c9b818b8019472c68da7ec6cd3bdd134b5dd142b2117524980eaeee846a8"
+          "size": 580624,
+          "sha256": "978cdf4d5fb6b78c7b7265e086e606a8c103912e110605570a20329e7374ae4a"
         },
         {
           "path": "assets/models/projectiles/paintball_blue.glb",
@@ -1323,6 +2803,61 @@
           "sha256": "26d3590956fe603281b41a1b39636af0269860817b9568805772e1dcb2e67dc0"
         },
         {
+          "path": "assets/models/weapons/gadgets/deployable_barricade.glb",
+          "size": 20208,
+          "sha256": "07d671959351d385cac83bea468b3b4c847e3c82669590b8d8a614eb70afeffc"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/grenade_crate.glb",
+          "size": 29360,
+          "sha256": "e655d833c44845b61b62600e7099c2808133d27f53171adcd0aaebd3dd2fdd8e"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/paint_grenade_blue.glb",
+          "size": 34084,
+          "sha256": "8015c94b06f950c19764879c0451ff729516a950a9765cd970d9bc508c55bc2c"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/paint_grenade_orange.glb",
+          "size": 34096,
+          "sha256": "57c012173a6428f67b60d832bd925cc87aa157f38bc37a8ec5d5a5c161c126d2"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/paint_grenade_yellow.glb",
+          "size": 34096,
+          "sha256": "1d1bc14da4fe3e008fb31c64fc66e1ac9e3c2334fc33c69a8827e6689a3839b9"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/paint_mine.glb",
+          "size": 27616,
+          "sha256": "a4003d8d89692d5ae772d2a11f30268775fe90fc7cbf0089425b3e09d8d63a4a"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/riot_shield.glb",
+          "size": 13896,
+          "sha256": "a91b13f84bda8da4132011b011b47539c902d4b722f20695f48fd183151e88a2"
+        },
+        {
+          "path": "assets/models/weapons/gadgets/smoke_grenade.glb",
+          "size": 30980,
+          "sha256": "834e752166097adfa8bdb5d91586b5029c4c1de243d9e20cf16dff69d80f37aa"
+        },
+        {
+          "path": "assets/models/weapons/launchers/paint_grenade_launcher.glb",
+          "size": 48616,
+          "sha256": "8daefc45cbb6511f21b72fffaefd6c8251070eade2aaa12cb1fb056ca0517d58"
+        },
+        {
+          "path": "assets/models/weapons/pistols/pistol_compact.glb",
+          "size": 25864,
+          "sha256": "7862c62f1137e968f39fa62b62f8ce6c09f0521a4585e2bebc341d2b87c268f4"
+        },
+        {
+          "path": "assets/models/weapons/pistols/pistol_magfed.glb",
+          "size": 33172,
+          "sha256": "80a25c0b4111567590221fdfc092915a7650e79961f90cbc1b4439e2c43b94c5"
+        },
+        {
           "path": "assets/music/Menu_Palms_at_Midnight.ogg",
           "size": 2815501,
           "sha256": "ceb5995678724e409a11dd1413619081508fbea2f14311f1aad015426e7d6d86"
@@ -1408,6 +2943,46 @@
           "sha256": "659b8bf109d97b6f9f09fd18d7bcd884a2a56c384cbabf7fb149b01e068c481c"
         },
         {
+          "path": "assets/textures/skins/camo_arctic.png",
+          "size": 133514,
+          "sha256": "7361e5d1a23cb488fa0f27b6e84b5fc457e2f12185126f7f11767f308898c485"
+        },
+        {
+          "path": "assets/textures/skins/camo_desert.png",
+          "size": 139885,
+          "sha256": "c952718385b7ae5bdb1cfafe8483855def52f339d33b3afeb5eb7425569c80b8"
+        },
+        {
+          "path": "assets/textures/skins/camo_digital.png",
+          "size": 123267,
+          "sha256": "f96f839ece3aa4edcfb970bacbdfbed4f6d7f6104eed788704a08ed97874ce2b"
+        },
+        {
+          "path": "assets/textures/skins/camo_tiger.png",
+          "size": 136696,
+          "sha256": "f23cb1e1bff819e07dd54d6f4cd981a99f5819bf83ffc57e416b97a6db944615"
+        },
+        {
+          "path": "assets/textures/skins/camo_urban.png",
+          "size": 142522,
+          "sha256": "49d4e01a5e183ca94cb025e425bab72e9e61964656603476f84711c6df345a7b"
+        },
+        {
+          "path": "assets/textures/skins/camo_woodland.png",
+          "size": 143642,
+          "sha256": "3ce480e78d63ec363178a85da8b1be4647f46238505a89da7b0f9b81c3058d80"
+        },
+        {
+          "path": "assets/textures/skins/skin_carbon_fiber.png",
+          "size": 184367,
+          "sha256": "6af3e6bcd0b3cc05f994b7e7d926d921e9f5ed19a1da6062779b27715940cc5d"
+        },
+        {
+          "path": "assets/textures/skins/skin_paint_splatter.png",
+          "size": 301532,
+          "sha256": "18eeef6921470c36e98af7834deea2ad0d9edb8234d4b0bfce847136d1f8d3a4"
+        },
+        {
           "path": "assets/textures/splats/drip_01.png",
           "size": 39151,
           "sha256": "6235ee8be5e8a31a5ece2c02518932919bb4adbba3df11eef74f980f14f7b954"
@@ -1471,6 +3046,771 @@
           "path": "assets/textures/splats/splat_atlas_4x3.png",
           "size": 733293,
           "sha256": "4ea64ffeb2d9f7a716865274a1e906abbefb6f84f69865750d4f2fc42b6e243e"
+        },
+        {
+          "path": "assets/textures/ui-kit/backgrounds/loading_background_1920x1080.png",
+          "size": 317297,
+          "sha256": "201242a7448116117ab1cad1f083f0ccadf2a0df3fc2324ebab783c4f9517eef"
+        },
+        {
+          "path": "assets/textures/ui-kit/backgrounds/menu_background_1920x1080.png",
+          "size": 297237,
+          "sha256": "18f0194b5d3f106a16604d9e4c52719af8fbc3486838726253c12ae896d8c772"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/avatar_frame_blue.png",
+          "size": 9696,
+          "sha256": "31c02929d71ccf94df8476c41584e89719bbc6395619387b6e60c8a1dba39b92"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/avatar_frame_neutral.png",
+          "size": 9433,
+          "sha256": "1fc49a521b567f5d2aba3c8cd296258a632e8b77191f39fbb794e1ff718bf75a"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/avatar_frame_orange.png",
+          "size": 9673,
+          "sha256": "de28ee19a2a13db7aa30499f2caa5b237800f0875840ec76294c0246a00a66e0"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/avatar_placeholder.png",
+          "size": 10673,
+          "sha256": "62a0e1b886d440272297b77da431ceda2911ce9c826ee3a11a48c7124a8c52c3"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/coin_paint.png",
+          "size": 9350,
+          "sha256": "bc45bd1e3d8ca467a86e4fbdc0614b8415bca3f9db6a4b0e81bf5d3205b28b83"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/gem.png",
+          "size": 8196,
+          "sha256": "4207d5d634dd23879e4ba9c4b58489a36f918993f16907c99028c38b343b5805"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/medal_bronze.png",
+          "size": 9901,
+          "sha256": "6d719b4190c2e20ed37e4746612246ce1ba500bd160f428a43b463a2e2a10373"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/medal_gold.png",
+          "size": 9865,
+          "sha256": "03ec5691053a40dc22dfaf56977c37cc956c0766633794e22733e64c5a89a2db"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/medal_silver.png",
+          "size": 10059,
+          "sha256": "c4250e2a0585ba7cf1206358dbf841bd7e8f7801c9e9dd0968ce09e88e31974e"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_bronze.png",
+          "size": 13482,
+          "sha256": "d36137d4b73775655087abc810894da0570be4e1c1b4da92a1320af7eaeec396"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_champion.png",
+          "size": 16750,
+          "sha256": "b0d76200682929d2e28e485450d58a9d60e3bc7d709b1f21939b6e4c0f4be41d"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_diamond.png",
+          "size": 14688,
+          "sha256": "769815835d18247eaea820ffb4874db9fcf2e33c6f3c46e9c36bd4bb84411e95"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_gold.png",
+          "size": 14530,
+          "sha256": "386b6deed61fdab608512117db8946464f51212e315dbe690dd181613a5c322a"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_platinum.png",
+          "size": 14686,
+          "sha256": "803eeafb2485f0fe8439a3ed0b44203f72737aa4074b72397290a98433d88afb"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/rank_silver.png",
+          "size": 14046,
+          "sha256": "67ac218ab261e216d77bcf6fa85ede41b76559ff46641e9fae39667fd577a493"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/star_empty.png",
+          "size": 7549,
+          "sha256": "ce4cd6967fb74751f88653750ce61090ce4111685162f4b835726d7b61db7ed2"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/star_full.png",
+          "size": 7613,
+          "sha256": "08b5eabfac4354608f9dd7e22d53ba53688e7511e968f45c3562644263b487dd"
+        },
+        {
+          "path": "assets/textures/ui-kit/badges/star_half.png",
+          "size": 7720,
+          "sha256": "e32f9e7e83be3263a037eaa15e6c836cece93e16b65a193de9d286302c739320"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_blue.png",
+          "size": 36860,
+          "sha256": "ca8ad363a785f2c72303dc39067764d9e78bd1a2ba2b050ddb5343ba6b45991d"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_grey.png",
+          "size": 36329,
+          "sha256": "bf9e3eca2ddf5df7363fea4ca9e750b040059dcb8b5fe8e9055f086ac4057e0b"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_orange.png",
+          "size": 37059,
+          "sha256": "98d2bb63ba063390deb48ece96373d64033195a5b39a19645941512a48706077"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_red.png",
+          "size": 36695,
+          "sha256": "e556af2bbb9fe9eafaf4e4ae3c03f6a480736b24f3297a272d76593056b9122b"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blank_yellow.png",
+          "size": 38272,
+          "sha256": "56e200292c6179d7f14db0d65205f6b35626185f249ee380d3c84b63748b622d"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_blue_wins.png",
+          "size": 53597,
+          "sha256": "4ea64489323cf8a71301a7e4865810f3983b6bd026234e069f1270a7b77884b0"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_defeat.png",
+          "size": 44602,
+          "sha256": "7edd036d6d5b85f61895a076d9866c4c88881e638e7532421a9d4f76d5377a14"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_draw.png",
+          "size": 48375,
+          "sha256": "2b5ecad98dc71e133f04991a8869f65d47e52f585d7e1f01f89eb4fc66802262"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_eliminated.png",
+          "size": 44941,
+          "sha256": "3b82ddb8d40f5d7732449cc353db37f056359b8540cdd2ffa981f86bb625412d"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_flag_captured.png",
+          "size": 50829,
+          "sha256": "e37032234f466b49376d464caf52d0d82d036566ce0fe6136c77895681aec0eb"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_get_ready.png",
+          "size": 52516,
+          "sha256": "b0d1a30a2b1e0d5f1e867081005b9a6a9eb0a0fd1740b2a663e705f0b0719e00"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_match_point.png",
+          "size": 49083,
+          "sha256": "dbaad31d09027e9aa49b43a65fb50e55d6264ba2438039e382380e54d5ef8db2"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_orange_wins.png",
+          "size": 54924,
+          "sha256": "1216a8ce924439c92de78e4d3d51e3b73bd4883eaec752855a59ff9b814af354"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_overtime.png",
+          "size": 47306,
+          "sha256": "31069e5ff5da54bb6fe13c09f7cd82afac6e86bb46f7979fe5cd229e5065bbc9"
+        },
+        {
+          "path": "assets/textures/ui-kit/banners/banner_victory.png",
+          "size": 50970,
+          "sha256": "3df1bf3e50226489aeb239d2702c677b9234dc5822824e4868b3470e26ccf7b9"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_blue_disabled.png",
+          "size": 6715,
+          "sha256": "e91ca8c7c2692b621f7b9bfa9c4d20b4f7c4096d9eb7a497344a969f237b6901"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_blue_hover.png",
+          "size": 6928,
+          "sha256": "74937c52f944ca5fb26a09e3be45451727e689b5be045c1845a43335dabd058e"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_blue_normal.png",
+          "size": 6966,
+          "sha256": "9baa1cd08e1d464d6709c9e3c0d5ff248210ba3af6dbbeb65f825ecb7cad9a23"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_blue_pressed.png",
+          "size": 6705,
+          "sha256": "213b9f1400d023d1c2ea4c98fdbf53e1aa4f1897c099eea593a85500933da3d2"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_danger_disabled.png",
+          "size": 6715,
+          "sha256": "236c2830f18fd1db4fcba6209c97fdaa88cb088a539e49ad27924351531372eb"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_danger_hover.png",
+          "size": 6877,
+          "sha256": "66947c45583fbf2c631afdf75946820d6653d5212a922e830dc340dd6b794262"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_danger_normal.png",
+          "size": 6929,
+          "sha256": "105077747a68c883cae02f511bc1c700c95d97cd4363722819c7879f37df367b"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_danger_pressed.png",
+          "size": 6682,
+          "sha256": "e6102e6eb97784c28dab59bdadb895d686527b525e1e440ec95b4afba79331d5"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_ghost_disabled.png",
+          "size": 6586,
+          "sha256": "2ceb9bd23b1c8ded5ecb9deb09e5e0350e837006d0ce04b3d419b07d38312a79"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_ghost_hover.png",
+          "size": 6644,
+          "sha256": "5d4dc45a1a8445b706eca29809561c95c2ba2d39506d936167c62be8d2dd8c87"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_ghost_normal.png",
+          "size": 6618,
+          "sha256": "f8cdfc8200f9adc37e98a8f20b50129181a2e73eed66d832bc9398a42c4311bb"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_ghost_pressed.png",
+          "size": 6659,
+          "sha256": "bbd99ccd1656fb8655098ffffe31ecc469e8b3738eb2cae3564aecced1a0d231"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_orange_disabled.png",
+          "size": 6715,
+          "sha256": "9f89d22673cee56960660e68a4af5642657a6b8594f03af589e0904205f2b645"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_orange_hover.png",
+          "size": 6956,
+          "sha256": "0fa98cfce1af2882f0da70393ead5bec3dbf863eddd98c8ed647a219c159fe4c"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_orange_normal.png",
+          "size": 6970,
+          "sha256": "942a8f8dae6839f2c5f8fe05d5c9c03f853cc8b568e7f158da372572101371f2"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_orange_pressed.png",
+          "size": 6701,
+          "sha256": "d4fac1aaabf175510858ab5eaf8f9f7d75ae1f4f8ea1b9753187cd00d46f4e16"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_primary_disabled.png",
+          "size": 6715,
+          "sha256": "6d3f1fb08b6fc65e4b4c4931c49ec58cc035ee4f10df44ffd1d763a77623d39d"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_primary_hover.png",
+          "size": 6941,
+          "sha256": "1db6b34aaf5ddf1ecd4898d51067a5a98290724d001fef6fe71e636e54456e16"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_primary_normal.png",
+          "size": 6959,
+          "sha256": "b1bc56aaff8d597db49b828409ffb4fb44a50274dd128c12c016ddf1bb415b2d"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_primary_pressed.png",
+          "size": 6710,
+          "sha256": "f7c5a7db9b360d664160219dfe2a62937449e1f3f39c7d743b130a7935f51221"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_secondary_disabled.png",
+          "size": 6715,
+          "sha256": "0d8d8c9ddd5af1e534b6117c7b6b11e60a3815b7dd18bb683aa6736b5e770289"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_secondary_hover.png",
+          "size": 7052,
+          "sha256": "f5ec81d9635a37d4ef47f2ba19b978e3818f223873cac7599bbeddee9548fea0"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_secondary_normal.png",
+          "size": 6835,
+          "sha256": "52b5294ff210b9247911131faac817fee3ebfdd26897d628511fa3f85f8ef091"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_secondary_pressed.png",
+          "size": 6705,
+          "sha256": "99b8d58fcd494902cca32c6c8fde5b81dc390995bd4582c4b44965ad2a7cac8b"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_success_disabled.png",
+          "size": 6715,
+          "sha256": "b20bb6dc226e618aa7853a9db120e55e8005a8a1d8eadf795bd6a3a8479d6be1"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_success_hover.png",
+          "size": 6898,
+          "sha256": "1857c5e490d3e4cbe75560ca202837d8efb17ddcfa88a10ada1565a8c4a462b0"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_success_normal.png",
+          "size": 6996,
+          "sha256": "1d801b7717d599cb9f573cb4583d04bdbae4d41da4c5eca47aa5781ce6fad35a"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/button_success_pressed.png",
+          "size": 6732,
+          "sha256": "0225b6fdd2b71403ea66d39b2de371a425a16811f18c2a69de48292b17e23f36"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/icon_button_hover.png",
+          "size": 6957,
+          "sha256": "63da2def4d4a09b398b9e73c783bdc1d2d76131bdaba1d212dd868763ae46d5e"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/icon_button_normal.png",
+          "size": 6779,
+          "sha256": "7b1e68b9e45192f32197582a4eaf0f2a501c87273fbbfbdd5fd9a4fb600a345f"
+        },
+        {
+          "path": "assets/textures/ui-kit/buttons/icon_button_pressed.png",
+          "size": 6612,
+          "sha256": "d135aeefecc78bfc7709cf630c5b5e4698b390e63e7cbc7336dcdbc619cf905a"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/pip_blue.png",
+          "size": 6711,
+          "sha256": "1ab8de83a4cb34bbccabd5f46c0ab551b751238a05f87f6d0d404e30d1b6240c"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/pip_empty.png",
+          "size": 6809,
+          "sha256": "527d79974022074f7f7c866e99a0989609a44cd4289c89da0bfdc263a332d48f"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/pip_full.png",
+          "size": 6747,
+          "sha256": "cabc5b2d4bd7dd016368063179e3f063b5b08c8d95cf57e9e1ad48b7d59d3db1"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/pip_orange.png",
+          "size": 6709,
+          "sha256": "e7f24c386d680990b54c95af4e1e9d2e30013b6103376fae25d25fa5bddc9ee3"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_blue.png",
+          "size": 6586,
+          "sha256": "622cba98b415047ed8cece2b5aaf4e97aa531f637dfdc0ec715db69ecd994bdf"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_green.png",
+          "size": 6570,
+          "sha256": "a629419a2039faac02509ce1e79a9e6711aabce34d19945494d1bb5f36cd0cb3"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_orange.png",
+          "size": 6571,
+          "sha256": "e2759231496013b53a75c36afccd4a08e6649f90b163da27dcfeb04fc0c56d07"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_red.png",
+          "size": 6603,
+          "sha256": "ecfbe9b958a7c2d9350bb80e3c57d1d86b5af4044194b222ae094c63b56355b5"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_fill_yellow.png",
+          "size": 6572,
+          "sha256": "16046677bf0cfc2fe261347eff076737b2c1e44fddf5136ee65ddc5503385886"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/progress_frame.png",
+          "size": 6422,
+          "sha256": "6b83f6ab5c66447e823bac319e5d35230f8f9805db229a20a5af1d01a6bb8b89"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/tab_active.png",
+          "size": 6326,
+          "sha256": "b8e9cfd9de0b3cbaa1d83efa8d11125230bc2c05367f229026c241d5d35258ce"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/tab_hover.png",
+          "size": 6326,
+          "sha256": "590e46017c40ecac4db9441486aeb9ce6620066eec43c46de5b6710fabc894f5"
+        },
+        {
+          "path": "assets/textures/ui-kit/controls/tab_inactive.png",
+          "size": 6265,
+          "sha256": "6634b664bfacac92d406c47bf45d54fe0058ba82840de7c154768999c063d9f3"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/air_gauge_needle.png",
+          "size": 7243,
+          "sha256": "eae6cfad408e5c7394d8751b3b8817cd9a5a6f608577f4daf4a251d787f25eee"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/air_gauge.png",
+          "size": 13815,
+          "sha256": "747352912b8992abd1290b8b9dc263e1712b1961cc942d81944fdc3fbc1c916b"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/ammo_counter_frame.png",
+          "size": 11056,
+          "sha256": "ad4c4e6d2e05bc9113c465b7ebe8fcd6946da6d98644124bfc81024043c6a98a"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/capture_ring_segments.png",
+          "size": 11134,
+          "sha256": "f61d1f5ebcb3716494eed15b35e5f8bc5d9f9a615e4e685614315e768c9eba1a"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/compass_center_marker.png",
+          "size": 6315,
+          "sha256": "8ec4bac5c303801dc6f01283c35c3f06516fb8740382b74f3d180ec60631049c"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/compass_strip.png",
+          "size": 10126,
+          "sha256": "b31a8372da3e9ab4b7db4613b4db16dffee1f8acb4843f207a101a7143e0f2b6"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/elimination_strip.png",
+          "size": 10072,
+          "sha256": "247f42d0c433f203989a16024b656625788503a6cfcead06928c4d9df6ec4130"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/hit_direction_arc.png",
+          "size": 9141,
+          "sha256": "79078998cc6fd6c199c17826e7661017872bef2ae3f8d51fd9aa17ad56668d18"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/hopper_meter_fill.png",
+          "size": 6457,
+          "sha256": "51fac18546487a0ea2bbc9a99222906dfc13fc46aeccd8219926de97cdd62a4a"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/hopper_meter_frame.png",
+          "size": 7275,
+          "sha256": "533af00a1436395d2538d50a22c0437b8408b6aa665d5e9454411f9f162b5c91"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_dot_blue.png",
+          "size": 7383,
+          "sha256": "1d25408195223aeb6875309666d4638f39749b068a775e01f9b5a74fcc437485"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_dot_neutral.png",
+          "size": 7466,
+          "sha256": "1a4205469b44b4084de5aa1a67fc74e647781b8fbc61e9a2303d445fac8a3ab6"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_dot_orange.png",
+          "size": 7398,
+          "sha256": "9f6232c14065a346515358124c158137882c973b0a405b542ce9b093574feb63"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_frame.png",
+          "size": 10569,
+          "sha256": "a4aed0edf5d3294954425290bc09ed53c34135f5ba068088a76eff79caff5d12"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_mask.png",
+          "size": 7372,
+          "sha256": "30c8c83c9343d29262edf7590b96c3fd911d673bee55c35010e7dd959c05c5a8"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/minimap_player_arrow.png",
+          "size": 6740,
+          "sha256": "5f284426095049c481eae7894562f4e671cb62f67aebcd12f3ca68ff97cd2d25"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/notification_toast.png",
+          "size": 6457,
+          "sha256": "3cf74e3d19880d6f8823b05151df813cfed68ce7d38ba2392ec50dd45f30c600"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/objective_marker_blue.png",
+          "size": 8755,
+          "sha256": "91cde2990d37653cdf2b4c44ab2add2ee263b52bb7387a1c2c7b4ef358bc41c1"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/objective_marker_neutral.png",
+          "size": 8748,
+          "sha256": "30b7239de5495fa5ad80bd05f95664e28bd66eead4385db91e3410cd4775d286"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/objective_marker_orange.png",
+          "size": 8787,
+          "sha256": "990f344813500ac4218ecf052ae2b1893bb7f87bd7d3ef6b0e27e5778d00969a"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/score_header.png",
+          "size": 7905,
+          "sha256": "b6806d1f285f1360e3708747a06975967f2cda76c0a71ba30770bb96c54691b0"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/status_light_bad.png",
+          "size": 8066,
+          "sha256": "3281e8d7a10a4fd2da222ca39bde7fdd143092885c7b4fd54adae62e3af059ba"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/status_light_good.png",
+          "size": 8112,
+          "sha256": "5dbfea27c157ad967d7de38701bdefc6cf96395b21eeee21270141491c35ad31"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/status_light_warn.png",
+          "size": 8189,
+          "sha256": "6ae44b30f3c9f6ab144b009a74d946c96bfee5bb27c5158d6ff6fe707b44dd79"
+        },
+        {
+          "path": "assets/textures/ui-kit/hud/timer_frame.png",
+          "size": 6359,
+          "sha256": "dd317fb19c8349f95e12132b96d2283a84d8af745522b803aa4a369d91fbbad6"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/air_tank.png",
+          "size": 6554,
+          "sha256": "75d29d6cb1cd44781dec46598962554fa75cee2f025c95fe60257d26ffa06420"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/back.png",
+          "size": 6209,
+          "sha256": "12feea970b78519b2c5b263c24fa237da59499c4d546f580f9d926772fb13577"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/check.png",
+          "size": 6536,
+          "sha256": "4a9874cfc47fdf2d67e06eed1a18f584b9d52e053c51f32df6281a4ac3ce4ee8"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/clock.png",
+          "size": 7861,
+          "sha256": "7adb9fd82c974d55a9ef4634912318c87862c1e51fb86bb25eda51e56be8b8df"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/close.png",
+          "size": 6425,
+          "sha256": "8b6ca5eac05685608c6a20ad51178b81085c6124257e22ec8d34db2443c4df10"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/crown.png",
+          "size": 6443,
+          "sha256": "bd360994d6f8f0cc490234bf692ee36b2f95b1cde91b74c6472e3d232603288a"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/exit.png",
+          "size": 6737,
+          "sha256": "279c94e1d3fc6249a09ad39aa5a9ac4f80622c6060a1e26412826792822751ae"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/forward.png",
+          "size": 6188,
+          "sha256": "e9f9d2cde168cdbd60a34ca5a4c921982d4a0dd4ba3c07e1fa06bc95a2d4585d"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/home.png",
+          "size": 6526,
+          "sha256": "5927e8e9d0b093594adac6a9c05ba75fa70c9b4b94d08e10b7c58994769f8830"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/hopper.png",
+          "size": 6684,
+          "sha256": "61666e383904af5364de825859996a7ada4714f45ae37ded902656002107eee3"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/info.png",
+          "size": 7818,
+          "sha256": "0db01a03deaa0969572da2494c67e02a8ab75341a2465a04d821c4fac94a7f22"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/lock.png",
+          "size": 6811,
+          "sha256": "d854a7b287092c19148b94ad61d7c3b59f507b136b8d26b9cb168ac3d86657d2"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/map.png",
+          "size": 6616,
+          "sha256": "baeac1fa087b8d6be9246839e96d02e381a46995bb62daa487b6cde5078a81a1"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/paintball_gun.png",
+          "size": 6757,
+          "sha256": "4f98827a3a35902d01703a4e701ef4e8f10d049b84380c28e8a2dbb4984c6977"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/play.png",
+          "size": 6365,
+          "sha256": "c3ab83627984c95d1a9c7aa049f2eb9cd61fb3804ab6042d30e997c8a5bb8861"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/refresh.png",
+          "size": 7261,
+          "sha256": "0229580b51f3002a6b2b094402182832c98b5cca74304260829f5a6d2fc5dd97"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/settings.png",
+          "size": 7236,
+          "sha256": "a24483c01dcc39e7495f657864b65091b392fe167aaadc6992380dfdfa9d8074"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/shield.png",
+          "size": 6802,
+          "sha256": "865ee1c5f356e35b36d5cdca4fb8d6779d5c0ec08654c4515e2e1c426513a348"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/splat.png",
+          "size": 8363,
+          "sha256": "bf416cc8108bec4be34e967744b6cd5b067ff6e350a973b22da632eeb28b025b"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/star.png",
+          "size": 6950,
+          "sha256": "d6cbc5e9cfcfbc934a56714cd7ba74797c358960abb31fdd276133f443cb813d"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/target.png",
+          "size": 8286,
+          "sha256": "38e3a1e85207a484954e45b9d8525a332bf524b8e5c7dc54996e0a95da52f8fd"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/team.png",
+          "size": 7342,
+          "sha256": "258dafbd167867e4e32759f83a0c87f80974269d8900e7ce69831c38327fe94c"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/trophy.png",
+          "size": 7321,
+          "sha256": "f775a091433ece1d43728ce0e59a8c09e1492b204303314bc5de8f48e07bfd8d"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/user.png",
+          "size": 6953,
+          "sha256": "afabd89ed66807178c724c30bf0623b4a41eda28b7d36f6c0261a523ef02de81"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/volume.png",
+          "size": 7100,
+          "sha256": "3baaae586fc47091ff339446d42872050b367ea09ae665031f28948dcc774d71"
+        },
+        {
+          "path": "assets/textures/ui-kit/icons/warning.png",
+          "size": 7061,
+          "sha256": "dc577ab1c7c9f1da289523c0ab69c645dcd270fba562f1c6d3c040601efc4833"
+        },
+        {
+          "path": "assets/textures/ui-kit/keys/key_esc.png",
+          "size": 8480,
+          "sha256": "0546f06cfc30b964d448b6e03d5ea0b794add7003da37ac0e6b96bd6d7444f95"
+        },
+        {
+          "path": "assets/textures/ui-kit/keys/key_r.png",
+          "size": 7594,
+          "sha256": "4a073be28fec8b1a9ffe61c5d45e38f8c69685906ebcf9df19babdcb77149eb6"
+        },
+        {
+          "path": "assets/textures/ui-kit/keys/key_tab.png",
+          "size": 8255,
+          "sha256": "eaf9942d39503af6a807e02e51071c9b53ffd38ccebbf31fd35f091d42f6dfa9"
+        },
+        {
+          "path": "assets/textures/ui-kit/misc/loading_spinner_8f.png",
+          "size": 24302,
+          "sha256": "3f7243f6a3d933bc6e8823952377f8c9d856088a32a053ab1f68b943e5ef2cc8"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/card_blue.png",
+          "size": 8609,
+          "sha256": "f2a3ab00ff0bd8d2c3e9d34d7dad8b1be2c3345cc8e85ac4ccf2f303f46e523c"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/card_neutral.png",
+          "size": 8652,
+          "sha256": "faf78e82bd6b8d5a12bf8a51eed02a275c327325aa8938f7cc72e6a524aac18b"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/card_orange.png",
+          "size": 8596,
+          "sha256": "9b7f636652079fe850a9b335f0b6e88966ed73de2e368f39ba3908134d2e5930"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/dialog.png",
+          "size": 9730,
+          "sha256": "9d7582554ab182f5a5626c1710a7deb52615d7735857d4529800b52ee0f82bbe"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_accent.png",
+          "size": 9230,
+          "sha256": "abccc532bcfd9e0600ba119f4553efe644eaf9af2b3cba36538d0947be6050e4"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_blue.png",
+          "size": 9139,
+          "sha256": "f0fbb72b726624016bd157d71e7dfca700638bc1a61d84d59f1274b038e23b5b"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_glass.png",
+          "size": 7390,
+          "sha256": "455b8eab1d7cb267881013aa8369da7f1a149b4ac342e8f0af3001115e5af408"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_inset.png",
+          "size": 8708,
+          "sha256": "819e80172d6c55a28278ce93f629acff3911bfd2bdfa7c0ec1ec2b71821d7686"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel_orange.png",
+          "size": 9140,
+          "sha256": "21ac152ead74b578eea89770a20caf515ce144e86c266050b0f9b8eb983cb75b"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/panel.png",
+          "size": 9001,
+          "sha256": "d03a357f36865659850a9d25604c88c7ee0dbbdf4b9132efea9a15da11971288"
+        },
+        {
+          "path": "assets/textures/ui-kit/panels/tooltip.png",
+          "size": 6996,
+          "sha256": "037483d8b9c7755508e93b5fb4791b9e2a158b3756b05f41a57d9507e65c3d4f"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/killfeed_row_self.png",
+          "size": 6305,
+          "sha256": "56c6b94a4e2e5a07b8fbafef2b43c4106a2be6c12eca960fcad263251088f1e9"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/killfeed_row.png",
+          "size": 6139,
+          "sha256": "57e300032e64975777a04b2c2bbb534d53556f86122a06aa73414f259e80d1a0"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/list_row_selected.png",
+          "size": 6433,
+          "sha256": "b4a0a70ecc4f297779addec6e65bb3bc53ed044389735a30b44234ab49178978"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/list_row.png",
+          "size": 6338,
+          "sha256": "3098b2f340203759d808b3ef39a91afc52bb4715f462cc8ca5f4e0d3f267a135"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/scoreboard_row_blue.png",
+          "size": 6461,
+          "sha256": "8014cb303b90d05e61894993452a1de42d3b1de1dcba65429738a0d000f73ee4"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/scoreboard_row_orange.png",
+          "size": 6453,
+          "sha256": "47bd418919f155ae05290e1f9e0529a193d94d27596e3a97f4059ffee21d8834"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/scoreboard_row_self.png",
+          "size": 6444,
+          "sha256": "9793cb4321d8c7cf816df5c79e6b58e00ef123a2c46cb983a2abb0208bcee85d"
+        },
+        {
+          "path": "assets/textures/ui-kit/rows/scoreboard_row.png",
+          "size": 6341,
+          "sha256": "fd9bbb34534fd1694e572e63b7cbb426da5a48ca62f4525d0ae01a2ff80936d1"
         },
         {
           "path": "assets/textures/ui/ammo_ball.png",
@@ -1544,8 +3884,8 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 98125312,
-          "sha256": "c56bf907da14f8ae59c36f2a752c26f04f5a44f19c6c971c92b3713fdbf3db5f"
+          "size": 99301888,
+          "sha256": "9d4b51d31b7a4ba290e692e8cdb9429bc54fdb31f53ed0fb482bee67372d3450"
         }
       ]
     }
