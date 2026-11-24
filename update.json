@@ -2,40 +2,40 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.1.0",
-      "published": "2026-11-24T09:05:49Z",
-      "notes": "## What's Changed\n* Rewrite README as UTF-8 and remove readme.txt by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/1\n* Build launchable Windows and macOS packages on release by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/2\n\n## New Contributors\n* @JavacrafterDevelopment made their first contribution in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/1\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/commits/v0.1.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.1.0",
+      "version": "0.2.0",
+      "published": "2026-11-24T09:37:19Z",
+      "notes": "## What's Changed\n* Play through Portside hubs, first person, reliable leave/quit detection (0.2.0) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/3\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.1.0...v0.2.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.2.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.1.0/Ink-cognito-windows-x64.zip",
-        "size": 32190227,
-        "sha256": "aba0a56a89ffd9aa96d2b85b0938a014614076e06f6df96c095f49f1aa6c6ade"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.2.0/Ink-cognito-windows-x64.zip",
+        "size": 32424447,
+        "sha256": "78809df3825bbf74f68521fdd8bf9b7204dcfdc325b681c5349448db378133f4"
       },
       "exe": "ink-cognito.exe",
       "files": [
         {
           "path": "ink-cognito.exe",
-          "size": 96284160,
-          "sha256": "3fa0743f96205cd55eb7d5426b20b54a8b13525feddc4c2a314a1cb3686623ba"
+          "size": 97013760,
+          "sha256": "579797e230568f4ede94cb4c65f9c660dc967274abec60171f3c61f94f1c61ee"
         }
       ]
     },
     "stable": {
-      "version": "0.1.0",
-      "published": "2026-11-24T09:05:49Z",
-      "notes": "## What's Changed\n* Rewrite README as UTF-8 and remove readme.txt by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/1\n* Build launchable Windows and macOS packages on release by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/2\n\n## New Contributors\n* @JavacrafterDevelopment made their first contribution in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/1\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/commits/v0.1.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.1.0",
+      "version": "0.2.0",
+      "published": "2026-11-24T09:37:19Z",
+      "notes": "## What's Changed\n* Play through Portside hubs, first person, reliable leave/quit detection (0.2.0) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/3\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.1.0...v0.2.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.2.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.1.0/Ink-cognito-windows-x64.zip",
-        "size": 32190227,
-        "sha256": "aba0a56a89ffd9aa96d2b85b0938a014614076e06f6df96c095f49f1aa6c6ade"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.2.0/Ink-cognito-windows-x64.zip",
+        "size": 32424447,
+        "sha256": "78809df3825bbf74f68521fdd8bf9b7204dcfdc325b681c5349448db378133f4"
       },
       "exe": "ink-cognito.exe",
       "files": [
         {
           "path": "ink-cognito.exe",
-          "size": 96284160,
-          "sha256": "3fa0743f96205cd55eb7d5426b20b54a8b13525feddc4c2a314a1cb3686623ba"
+          "size": 97013760,
+          "sha256": "579797e230568f4ede94cb4c65f9c660dc967274abec60171f3c61f94f1c61ee"
         }
       ]
     }
