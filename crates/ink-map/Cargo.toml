@@ -1,0 +1,11 @@
+[package]
+name = "ink-map"
+version = "0.1.0"
+edition = "2024"
+description = "Ink-cognito map files: the format, the catalog of placeable pieces, and turning a map file into models and colliders. Shared by the game and the map editor."
+publish = false
+
+[dependencies]
+bevy_math = "0.20"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

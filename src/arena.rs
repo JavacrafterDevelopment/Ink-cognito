@@ -3,51 +3,8 @@
 
 use bevy::prelude::*;
 
-/// A solid thing on the field.
-#[derive(Debug, Clone, Copy)]
-pub enum Shape {
-    Box {
-        min: Vec3,
-        max: Vec3,
-    },
-    /// Upright cylinder standing on `base`.
-    Cylinder {
-        base: Vec3,
-        radius: f32,
-        height: f32,
-    },
-    /// A slope to walk up: `min.y` at one end, `max.y` at the other. `rise`
-    /// points (on the ground plane) from the low end to the high end.
-    Ramp {
-        min: Vec3,
-        max: Vec3,
-        rise: Vec2,
-    },
-}
-
-impl Shape {
-    /// The footprint on the ground (x, z), for the minimap.
-    pub fn footprint(&self) -> Rect {
-        match *self {
-            Shape::Box { min, max } | Shape::Ramp { min, max, .. } => {
-                Rect::new(min.x, min.z, max.x, max.z)
-            }
-            Shape::Cylinder { base, radius, .. } => Rect::new(
-                base.x - radius,
-                base.z - radius,
-                base.x + radius,
-                base.z + radius,
-            ),
-        }
-    }
-
-    pub fn height(&self) -> f32 {
-        match *self {
-            Shape::Box { max, .. } | Shape::Ramp { max, .. } => max.y,
-            Shape::Cylinder { base, height, .. } => base.y + height,
-        }
-    }
-}
+/// A solid thing on the field (shared with the map editor).
+pub use ink_map::Shape;
 
 /// Height of a ramp's surface over `(x, z)`, if that's on it.
 fn ramp_height(min: Vec3, max: Vec3, rise: Vec2, x: f32, z: f32) -> Option<f32> {

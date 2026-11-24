@@ -4555,14 +4555,32 @@ checksum = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
 
 [[package]]
 name = "ink-cognito"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "arboard",
  "bevy",
+ "ink-map",
  "serde",
  "serde_json",
  "tailcat",
  "tokio",
+]
+
+[[package]]
+name = "ink-map"
+version = "0.1.0"
+dependencies = [
+ "bevy_math",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ink-map-editor"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ink-map",
 ]
 
 [[package]]

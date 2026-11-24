@@ -1393,6 +1393,7 @@ fn update_scoreboard(
     keys: Res<ButtonInput<KeyCode>>,
     overlay: Res<Overlay>,
     net: Res<NetworkState>,
+    library: Res<crate::maps::MapLibrary>,
     mut board_q: Query<&mut Node, With<Scoreboard>>,
     mut title_q: Query<&mut Text, With<ScoreboardTitle>>,
     rows_q: Query<Entity, With<ScoreboardRows>>,
@@ -1414,7 +1415,7 @@ fn update_scoreboard(
             "{}{}  |  {}",
             if ms.settings.ranked { "RANKED " } else { "" },
             ms.settings.mode.name().to_uppercase(),
-            crate::maps::meta(ms.settings.map).name.to_uppercase()
+            library.meta(ms.settings.map).name.to_uppercase()
         );
         if t.0 != s {
             t.0 = s;

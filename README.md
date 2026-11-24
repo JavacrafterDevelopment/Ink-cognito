@@ -38,6 +38,39 @@ and Diamond (three divisions of 100 RP each, from 0, 300, 600, 900 and 1200 RP) 
 | Three Lanes | A middle lane and two flanks (the Yard and the Woods), linked by connectors. |
 | Pine Hollow | Woods with a raised skybridge in the middle and perches to hold. |
 
+Custom maps made with the map editor show up in the map picker after these. Everyone in a
+match needs the host's map file; a player without it plays Splat Park's layout in its place.
+
+## Map editor
+
+The map editor is a separate program, `ink-map-editor.exe`, in the same folder as the game
+(from source: `cargo run --release -p ink-map-editor`). It edits map files (JSON): place
+bunkers, walls, structures, props and nature from the palette, set each team's spawns, and
+change the field's size, edge, sky and ground.
+
+| Action | Keys |
+| --- | --- |
+| Fly | Hold right mouse, then W A S D (Q / E down / up, Shift faster) |
+| Zoom | Mouse wheel |
+| Place | Pick a piece or spawn on the left, click in the field (Shift+click stacks it on top of what's there) |
+| Select / move | Select tool, click a piece or spawn, drag it |
+| Turn | R / Shift+R (step set on the left: 90, 45 or 15 degrees) |
+| Raise / lower | Page Up / Page Down |
+| Mirror | M: a copy turned round the middle, for the other team's half |
+| Delete | Delete |
+| Undo / redo | Ctrl+Z / Ctrl+Y |
+| Duplicate | Ctrl+D |
+| Save / save copy | Ctrl+S / Ctrl+Shift+S |
+
+**Save copy** writes to the custom maps folder (`%APPDATA%\Ink-cognito\maps` on Windows,
+`~/Library/Application Support/Ink-cognito/maps` on macOS, `~/.config/Ink-cognito/maps` on
+Linux), where the game reads custom maps when it starts. Open lists those and the built-in
+maps; **Save** on a built-in map writes its file in `assets/maps`, which is how the built-in
+maps are changed in the source (the game compiles them in, so rebuild it to play the change).
+Pieces marked scenery have nothing to collide with; turn any placed piece into scenery with
+the **Solid** button. Collision shapes are boxes lined up with the field, so pieces turned by
+45 or 15 degrees collide as the box around them.
+
 ## How to play
 
 1. Start the game. The main menu has **Play**, **Join by Address**, **Loadout**, **Options**
@@ -95,6 +128,17 @@ sudo apt install pkg-config libasound2-dev libudev-dev libx11-dev libxkbcommon-x
 
 ## Project layout
 
+The repository is a Cargo workspace: the game is the root package, and two more crates sit in
+`crates/`:
+
+| Crate | What it is |
+| --- | --- |
+| `crates/ink-map` | The map file format, the catalog of placeable pieces and their collision shapes, and turning a map file into models and colliders. Shared by the game and the editor. |
+| `crates/map-editor` | The map editor (`ink-map-editor`). |
+
+`cargo run` and `cargo build` at the root still mean the game; add `--workspace` to build
+everything, or `-p ink-map-editor` for the editor.
+
 | File | What it does |
 | --- | --- |
 | `src/main.rs` | App setup, window, and the menu / in-game states |
@@ -104,7 +148,7 @@ sudo apt install pkg-config libasound2-dev libudev-dev libx11-dev libxkbcommon-x
 | `src/pause.rs` | The Esc menu |
 | `src/loadout.rs` | Guns, attachments, water guns and their stats |
 | `src/loadout_ui.rs` | The loadout screen with a 3D preview |
-| `src/maps.rs` | The five maps: models, collision shapes, spawns and minimap shapes |
+| `src/maps.rs` | Loads the map files (built-in ones from `assets/maps`, compiled in; custom ones from the maps folder) and builds the picked one |
 | `src/arena.rs` | Collision shapes (boxes, cylinders, ramps) and how players and paint hit them |
 | `src/game_mode.rs` | Match rules: phases, clock, scores, rounds, respawns (run by the host) |
 | `src/ranked.rs` | Rank points, tiers and the ranked save file |
