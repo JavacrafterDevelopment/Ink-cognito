@@ -1,5 +1,5 @@
 use crate::{
-    AppState,
+    AppState, Overlay,
     hub::{self, HubPlay},
     net::{NetRole, NetworkState, Transport},
     portside::{Portside, Session, Status},
@@ -13,25 +13,25 @@ use bevy::{
     prelude::*,
 };
 
-const BG_CARD: Color = Color::srgba(0.07, 0.10, 0.15, 0.88);
-const BORDER_SUBTLE: Color = Color::srgba(0.32, 0.42, 0.56, 0.55);
+pub const BG_CARD: Color = Color::srgba(0.07, 0.10, 0.15, 0.88);
+pub const BORDER_SUBTLE: Color = Color::srgba(0.32, 0.42, 0.56, 0.55);
 
-const BTN_PRIMARY: Color = Color::srgb(0.18, 0.52, 0.90);
-const BTN_PRIMARY_HOVER: Color = Color::srgb(0.24, 0.60, 0.98);
-const BTN_PRIMARY_PRESS: Color = Color::srgb(0.13, 0.42, 0.76);
+pub const BTN_PRIMARY: Color = Color::srgb(0.18, 0.52, 0.90);
+pub const BTN_PRIMARY_HOVER: Color = Color::srgb(0.24, 0.60, 0.98);
+pub const BTN_PRIMARY_PRESS: Color = Color::srgb(0.13, 0.42, 0.76);
 
-const BTN_SECONDARY: Color = Color::srgb(0.17, 0.22, 0.30);
-const BTN_SECONDARY_HOVER: Color = Color::srgb(0.23, 0.29, 0.39);
-const BTN_SECONDARY_PRESS: Color = Color::srgb(0.13, 0.17, 0.24);
+pub const BTN_SECONDARY: Color = Color::srgb(0.17, 0.22, 0.30);
+pub const BTN_SECONDARY_HOVER: Color = Color::srgb(0.23, 0.29, 0.39);
+pub const BTN_SECONDARY_PRESS: Color = Color::srgb(0.13, 0.17, 0.24);
 
-const BTN_DANGER: Color = Color::srgb(0.68, 0.20, 0.24);
-const BTN_DANGER_HOVER: Color = Color::srgb(0.80, 0.25, 0.30);
-const BTN_DANGER_PRESS: Color = Color::srgb(0.54, 0.15, 0.18);
+pub const BTN_DANGER: Color = Color::srgb(0.68, 0.20, 0.24);
+pub const BTN_DANGER_HOVER: Color = Color::srgb(0.80, 0.25, 0.30);
+pub const BTN_DANGER_PRESS: Color = Color::srgb(0.54, 0.15, 0.18);
 
-const TEXT_PRIMARY: Color = Color::srgb(0.95, 0.97, 1.0);
-const TEXT_MUTED: Color = Color::srgb(0.68, 0.75, 0.84);
-const TEXT_STATUS: Color = Color::srgb(0.45, 0.82, 1.0);
-const TEXT_ERROR: Color = Color::srgb(1.0, 0.45, 0.45);
+pub const TEXT_PRIMARY: Color = Color::srgb(0.95, 0.97, 1.0);
+pub const TEXT_MUTED: Color = Color::srgb(0.68, 0.75, 0.84);
+pub const TEXT_STATUS: Color = Color::srgb(0.45, 0.82, 1.0);
+pub const TEXT_ERROR: Color = Color::srgb(1.0, 0.45, 0.45);
 
 pub struct MenuPlugin;
 
@@ -39,6 +39,7 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MenuState>()
             .init_resource::<HudState>()
+            .add_systems(Startup, load_ui_sounds)
             .add_observer(on_button_over)
             .add_observer(on_button_out)
             .add_observer(on_button_press)
@@ -83,6 +84,7 @@ struct HudState {
 enum MenuAction {
     CreateGame,
     OpenJoin,
+    OpenLoadout,
     PasteAddress,
     ClearAddress,
     ConnectJoin,
@@ -92,16 +94,57 @@ enum MenuAction {
 }
 
 #[derive(Component, Clone, Copy)]
-enum HudAction {
+pub enum HudAction {
     CopyAddress,
     LeaveGame,
 }
 
 #[derive(Component, Clone, Copy)]
-struct ButtonStyle {
-    normal: Color,
-    hover: Color,
-    press: Color,
+pub struct ButtonStyle {
+    pub normal: Color,
+    pub hover: Color,
+    pub press: Color,
+}
+
+impl ButtonStyle {
+    pub const PRIMARY: ButtonStyle = ButtonStyle {
+        normal: BTN_PRIMARY,
+        hover: BTN_PRIMARY_HOVER,
+        press: BTN_PRIMARY_PRESS,
+    };
+    pub const SECONDARY: ButtonStyle = ButtonStyle {
+        normal: BTN_SECONDARY,
+        hover: BTN_SECONDARY_HOVER,
+        press: BTN_SECONDARY_PRESS,
+    };
+    pub const DANGER: ButtonStyle = ButtonStyle {
+        normal: BTN_DANGER,
+        hover: BTN_DANGER_HOVER,
+        press: BTN_DANGER_PRESS,
+    };
+}
+
+/// The pack's UI sounds, for every button.
+#[derive(Resource)]
+pub struct UiSounds {
+    pub hover: Handle<AudioSource>,
+    pub click: Handle<AudioSource>,
+    pub confirm: Handle<AudioSource>,
+}
+
+fn load_ui_sounds(mut commands: Commands, assets: Res<AssetServer>) {
+    commands.insert_resource(UiSounds {
+        hover: assets.load("audio/ui/ui_hover.ogg"),
+        click: assets.load("audio/ui/ui_click.ogg"),
+        confirm: assets.load("audio/ui/ui_confirm.ogg"),
+    });
+}
+
+fn ui_sound(commands: &mut Commands, sound: &Handle<AudioSource>, volume: f32) {
+    commands.spawn((
+        AudioPlayer::new(sound.clone()),
+        PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+    ));
 }
 
 #[derive(Component)]
@@ -126,7 +169,7 @@ struct HudInfoText;
 struct HudAddrText;
 
 #[derive(Component)]
-struct HudCopyBtnText;
+pub struct HudCopyBtnText;
 
 /// A Join button for a game in the Portside hub.
 #[derive(Component, Clone)]
@@ -157,9 +200,17 @@ struct HubToast;
 #[derive(Component)]
 struct HubToastText;
 
-fn on_button_over(over: On<PointerOver>, mut q: Query<(&ButtonStyle, &mut BackgroundColor)>) {
+fn on_button_over(
+    over: On<PointerOver>,
+    mut commands: Commands,
+    sounds: Option<Res<UiSounds>>,
+    mut q: Query<(&ButtonStyle, &mut BackgroundColor)>,
+) {
     if let Ok((style, mut bg)) = q.get_mut(over.entity) {
         *bg = BackgroundColor(style.hover);
+        if let Some(sounds) = sounds {
+            ui_sound(&mut commands, &sounds.hover, 0.35);
+        }
     }
 }
 
@@ -169,12 +220,20 @@ fn on_button_out(out: On<PointerOut>, mut q: Query<(&ButtonStyle, &mut Backgroun
     }
 }
 
-fn on_button_press(press: On<PointerPress>, mut q: Query<(&ButtonStyle, &mut BackgroundColor)>) {
+fn on_button_press(
+    press: On<PointerPress>,
+    mut commands: Commands,
+    sounds: Option<Res<UiSounds>>,
+    mut q: Query<(&ButtonStyle, &mut BackgroundColor)>,
+) {
     if press.button != PointerButton::Primary {
         return;
     }
     if let Ok((style, mut bg)) = q.get_mut(press.entity) {
         *bg = BackgroundColor(style.press);
+        if let Some(sounds) = sounds {
+            ui_sound(&mut commands, &sounds.click, 0.6);
+        }
     }
 }
 
@@ -190,12 +249,16 @@ fn on_button_release(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn on_menu_click(
     click: On<PointerClick>,
     actions: Query<&MenuAction>,
     mut menu: ResMut<MenuState>,
     mut net: ResMut<NetworkState>,
+    mut overlay: ResMut<Overlay>,
     portside: Res<Portside>,
+    mut commands: Commands,
+    sounds: Option<Res<UiSounds>>,
 ) {
     if click.button != PointerButton::Primary {
         return;
@@ -207,7 +270,15 @@ fn on_menu_click(
     match *action {
         MenuAction::CreateGame => {
             if !net.is_connecting {
+                if let Some(sounds) = sounds {
+                    ui_sound(&mut commands, &sounds.confirm, 0.7);
+                }
                 net.start_host();
+            }
+        }
+        MenuAction::OpenLoadout => {
+            if !net.is_connecting {
+                overlay.loadout = true;
             }
         }
         MenuAction::OpenJoin => {
@@ -290,6 +361,7 @@ fn on_hud_click(
     actions: Query<&HudAction>,
     mut net: ResMut<NetworkState>,
     mut hud_state: ResMut<HudState>,
+    mut overlay: ResMut<Overlay>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if click.button != PointerButton::Primary {
@@ -309,6 +381,7 @@ fn on_hud_click(
             }
         }
         HudAction::LeaveGame => {
+            *overlay = Overlay::default();
             net.disconnect();
             net.error_text = None;
             next_state.set(AppState::MainMenu);
@@ -316,16 +389,62 @@ fn on_hud_click(
     }
 }
 
-fn spawn_main_menu(mut commands: Commands, mut menu: ResMut<MenuState>) {
+fn spawn_main_menu(
+    mut commands: Commands,
+    mut menu: ResMut<MenuState>,
+    mut overlay: ResMut<Overlay>,
+    assets: Res<AssetServer>,
+) {
     menu.screen = MenuScreen::Home;
+    *overlay = Overlay::default();
+
+    // Full-screen key art behind the menu, darkened on the left for the card.
+    commands.spawn((
+        ImageNode::new(assets.load("branding/menu_background.png")),
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        Pickable::IGNORE,
+        GlobalZIndex(-10),
+        DespawnOnExit(AppState::MainMenu),
+    ));
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.35)),
+        Pickable::IGNORE,
+        GlobalZIndex(-9),
+        DespawnOnExit(AppState::MainMenu),
+    ));
+    commands.spawn((
+        Text::new(format!("v{}", env!("CARGO_PKG_VERSION"))),
+        TextFont::from_font_size(13.0),
+        TextColor(TEXT_MUTED),
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(14.0),
+            bottom: Val::Px(10.0),
+            ..default()
+        },
+        Pickable::IGNORE,
+        DespawnOnExit(AppState::MainMenu),
+    ));
 
     commands
         .spawn((
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
+                justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::Center,
+                padding: UiRect::left(Val::Percent(4.0)),
                 ..default()
             },
             Pickable::IGNORE,
@@ -334,7 +453,9 @@ fn spawn_main_menu(mut commands: Commands, mut menu: ResMut<MenuState>) {
         .with_children(|root| {
             root.spawn((
                 Node {
-                    width: Val::Px(460.0),
+                    width: Val::Px(440.0),
+                    max_height: Val::Percent(96.0),
+                    overflow: Overflow::clip_y(),
                     padding: UiRect::all(Val::Px(32.0)),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Stretch,
@@ -357,12 +478,16 @@ fn spawn_main_menu(mut commands: Commands, mut menu: ResMut<MenuState>) {
                 })
                 .with_children(|header| {
                     header.spawn((
-                        Text::new("INK-COGNITO"),
-                        TextFont::from_font_size(38.0),
-                        TextColor(TEXT_PRIMARY),
+                        ImageNode::new(assets.load("branding/logo.png")),
+                        Node {
+                            width: Val::Px(376.0),
+                            height: Val::Px(205.0),
+                            border_radius: BorderRadius::all(Val::Px(10.0)),
+                            ..default()
+                        },
                     ));
                     header.spawn((
-                        Text::new("3D Multiplayer  |  Portside  |  Tailcat"),
+                        Text::new("Paintball  |  Portside  |  Tailcat"),
                         TextFont::from_font_size(15.0),
                         TextColor(TEXT_MUTED),
                     ));
@@ -403,6 +528,15 @@ fn spawn_main_menu(mut commands: Commands, mut menu: ResMut<MenuState>) {
                         },
                         52.0,
                         20.0,
+                        false,
+                    );
+                    spawn_menu_button(
+                        home,
+                        "Loadout",
+                        MenuAction::OpenLoadout,
+                        ButtonStyle::SECONDARY,
+                        46.0,
+                        18.0,
                         false,
                     );
                 });
@@ -627,6 +761,19 @@ fn spawn_menu_button(
     font_size: f32,
     flex_grow: bool,
 ) {
+    spawn_button(parent, label, action, style, height, font_size, flex_grow);
+}
+
+/// A rounded button with hover / press colours and the UI sounds.
+pub fn spawn_button(
+    parent: &mut ChildSpawnerCommands,
+    label: &str,
+    marker: impl Bundle,
+    style: ButtonStyle,
+    height: f32,
+    font_size: f32,
+    flex_grow: bool,
+) {
     parent
         .spawn((
             Node {
@@ -638,7 +785,7 @@ fn spawn_menu_button(
                 ..default()
             },
             BackgroundColor(style.normal),
-            action,
+            marker,
             style,
         ))
         .with_children(|btn| {
@@ -1031,92 +1178,40 @@ fn spawn_in_game_hud(
                     HudHubText,
                 ));
 
-                panel
-                    .spawn(Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(8.0),
-                        margin: UiRect::top(Val::Px(2.0)),
-                        ..default()
-                    })
-                    .with_children(|row| {
-                        if is_host {
-                            let style = ButtonStyle {
-                                normal: BTN_PRIMARY,
-                                hover: BTN_PRIMARY_HOVER,
-                                press: BTN_PRIMARY_PRESS,
-                            };
-                            row.spawn((
-                                Node {
-                                    padding: UiRect::axes(Val::Px(12.0), Val::Px(7.0)),
-                                    justify_content: JustifyContent::Center,
-                                    align_items: AlignItems::Center,
-                                    border_radius: BorderRadius::all(Val::Px(8.0)),
-                                    ..default()
-                                },
-                                BackgroundColor(style.normal),
-                                HudAction::CopyAddress,
-                                style,
-                            ))
-                            .with_children(|btn| {
-                                btn.spawn((
-                                    Text::new("Copy Tailcat Address"),
-                                    TextFont::from_font_size(13.0),
-                                    TextColor(TEXT_PRIMARY),
-                                    Pickable::IGNORE,
-                                    HudCopyBtnText,
-                                ));
-                            });
-                        }
-
-                        let leave_style = ButtonStyle {
-                            normal: BTN_DANGER,
-                            hover: BTN_DANGER_HOVER,
-                            press: BTN_DANGER_PRESS,
-                        };
-                        row.spawn((
-                            Node {
-                                padding: UiRect::axes(Val::Px(12.0), Val::Px(7.0)),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                border_radius: BorderRadius::all(Val::Px(8.0)),
-                                ..default()
-                            },
-                            BackgroundColor(leave_style.normal),
-                            HudAction::LeaveGame,
-                            leave_style,
-                        ))
-                        .with_children(|btn| {
-                            btn.spawn((
-                                Text::new("Leave Game"),
-                                TextFont::from_font_size(13.0),
-                                TextColor(TEXT_PRIMARY),
-                                Pickable::IGNORE,
-                            ));
-                        });
-                    });
             });
 
-            // Bottom-left controls hint
+            // Controls hint, bottom center (above the health and ammo panels).
             root.spawn((
                 Node {
-                    padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
-                    border: UiRect::all(Val::Px(1.0)),
-                    border_radius: BorderRadius::all(Val::Px(10.0)),
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    bottom: Val::Px(100.0),
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BackgroundColor(Color::srgba(0.07, 0.10, 0.15, 0.72)),
-                BorderColor::all(BORDER_SUBTLE),
                 Pickable::IGNORE,
             ))
-            .with_children(|hint| {
-                hint.spawn((
-                    Text::new(
-                        "WASD / Arrows: Move  |  Mouse: Look  |  Space: Jump  |  Shift: Sprint  |  Q/E: Turn  |  Esc: Free mouse",
-                    ),
-                    TextFont::from_font_size(13.0),
-                    TextColor(TEXT_MUTED),
+            .with_children(|wrap| {
+                wrap.spawn((
+                    Node {
+                        padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                        border_radius: BorderRadius::all(Val::Px(8.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.07, 0.10, 0.15, 0.55)),
                     Pickable::IGNORE,
-                ));
+                ))
+                .with_children(|hint| {
+                    hint.spawn((
+                        Text::new(
+                            "WASD: Move  |  Shift: Sprint  |  Space: Jump  |  LMB: Shoot  |  RMB: Aim  |  R: Reload  |  Esc: Menu",
+                        ),
+                        TextFont::from_font_size(12.0),
+                        TextColor(TEXT_MUTED),
+                        Pickable::IGNORE,
+                    ));
+                });
             });
 
             // Pop-up: someone in the hub started a game

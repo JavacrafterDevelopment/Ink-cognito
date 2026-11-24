@@ -22,6 +22,81 @@ pub struct PlayerSnapshot {
     pub position: [f32; 3],
     pub yaw: f32,
     pub color: [f32; 3],
+    #[serde(default)]
+    pub state: PlayerState,
+}
+
+/// Everything about a player besides where they are: health, what they carry,
+/// and counters others watch to see shots and eliminations happen.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlayerState {
+    /// Where they look up (+) or down (-), radians.
+    pub pitch: f32,
+    /// 0..=100. At 0 the player is eliminated until they respawn.
+    pub health: f32,
+    /// The packed loadout (see `loadout::Loadout::pack`).
+    pub loadout: u32,
+    /// Counts every shot fired: others fire one ball per step it goes up.
+    pub shots: u32,
+    /// Counts eliminations of this player: others show a ragdoll per step.
+    pub deaths: u32,
+    /// Who made the last elimination.
+    pub killer: PlayerId,
+}
+
+impl Default for PlayerState {
+    fn default() -> Self {
+        Self {
+            pitch: 0.0,
+            health: MAX_HEALTH,
+            loadout: 0,
+            shots: 0,
+            deaths: 0,
+            killer: 0,
+        }
+    }
+}
+
+pub const MAX_HEALTH: f32 = 100.0;
+
+/// Players alternate teams by id: even ids are blue, odd ids are orange.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Team {
+    Blue,
+    Orange,
+}
+
+impl Team {
+    pub fn of(id: PlayerId) -> Self {
+        if id.is_multiple_of(2) {
+            Team::Blue
+        } else {
+            Team::Orange
+        }
+    }
+
+    pub fn srgb(self) -> [f32; 3] {
+        match self {
+            Team::Blue => [
+                0x2f as f32 / 255.0,
+                0x6f as f32 / 255.0,
+                0xd6 as f32 / 255.0,
+            ],
+            Team::Orange => [
+                0xe2 as f32 / 255.0,
+                0x70 as f32 / 255.0,
+                0x2a as f32 / 255.0,
+            ],
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Team::Blue => "Blue",
+            Team::Orange => "Orange",
+        }
+    }
 }
 
 /// Messages sent from a joining client to the host.
@@ -30,6 +105,8 @@ pub enum ClientMessage {
     UpdateTransform {
         position: [f32; 3],
         yaw: f32,
+        #[serde(default)]
+        state: PlayerState,
     },
     /// "Still here", every couple of seconds, so a host notices a player that vanished.
     Ping,
@@ -108,7 +185,7 @@ pub fn encode_server_datagrams(msg: &ServerMessage) -> Vec<Vec<u8>> {
     }
     let ids = players.iter().map(|p| p.id).collect();
     out.extend(serde_json::to_vec(&ServerDatagram::Roster { ids }));
-    for chunk in players.chunks(6) {
+    for chunk in players.chunks(4) {
         out.extend(serde_json::to_vec(&ServerDatagram::Players {
             players: chunk.to_vec(),
         }));
@@ -131,15 +208,21 @@ pub fn player_color(id: PlayerId) -> [f32; 3] {
     PALETTE[(id as usize) % PALETTE.len()]
 }
 
-/// Computes a slightly offset spawn position around the center pad so players do not overlap.
+/// Where a player (re)spawns: on their team's pad at one end of the field,
+/// spread out a little so teammates don't overlap.
 pub fn spawn_position(id: PlayerId) -> [f32; 3] {
-    if id == 0 {
-        return [0.0, 1.0, 0.0];
-    }
-    let angle = (id as f32) * 1.1;
-    let radius = 3.0 + ((id / 6) as f32) * 1.5;
-    [angle.cos() * radius, 1.0, angle.sin() * radius]
+    let side = match Team::of(id) {
+        Team::Blue => 1.0,
+        Team::Orange => -1.0,
+    };
+    let slot = (id / 2) as f32;
+    let x = (slot % 5.0 - 2.0) * 1.6;
+    let z = side * (SPAWN_PAD_Z + (slot / 5.0).floor() * 1.4);
+    [x, 1.0, z]
 }
+
+/// How far from the middle the two spawn pads sit (blue +Z, orange -Z).
+pub const SPAWN_PAD_Z: f32 = 24.0;
 
 /// Writes a length-prefixed JSON frame onto an async stream.
 pub async fn write_frame<W, T>(writer: &mut W, msg: &T) -> io::Result<()>
@@ -200,6 +283,14 @@ mod tests {
                 position: [123.456, 1.0, -98.765],
                 yaw: 2.71,
                 color: player_color(id),
+                state: PlayerState {
+                    pitch: -0.123_456_7,
+                    health: 87.654_32,
+                    loadout: u32::MAX,
+                    shots: 123_456,
+                    deaths: 1234,
+                    killer: 39,
+                },
             })
             .collect();
         let small = encode_server_datagrams(&ServerMessage::WorldState {
