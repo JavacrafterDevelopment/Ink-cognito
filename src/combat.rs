@@ -1,10 +1,10 @@
 //! Shooting, health and eliminations.
 //!
-//! Every player's shots are simulated on every screen: a player's `shots`
-//! counter going up means one more ball left their gun, aimed where they were
-//! looking. Each player checks the balls flying at *them* and takes the
-//! damage, so health and eliminations are decided by the one getting hit and
-//! everyone else sees it through their `health` / `deaths` counters.
+//! Every player's shots are simulated visually on every screen via their
+//! `shots` counter, while damage is confirmed by the shooter (`HitEvent`):
+//! when your paintball hits an enemy on your screen and shows a hitmarker,
+//! the hit is reliably relayed to the victim (deduplicated per shot) so
+//! moving targets always take damage that matches what the shooter saw.
 
 use crate::{
     AppState, Overlay,
@@ -12,15 +12,19 @@ use crate::{
     loadout::{GunAssets, GunKind, GunModel, Loadout, WeaponStats, spawn_gun_parts},
     net::NetworkState,
     player_model::{PlayerModelAssets, Rig},
-    protocol::{MAX_HEALTH, PlayerId, PlayerState, Team},
+    protocol::{HitEvent, MAX_HEALTH, PlayerId, PlayerState, Team},
     ragdoll::{RagdollStart, spawn_ragdoll},
+    settings::{AudioSettings, SfxAudio},
     world::{
         CameraRig, EYE_OFFSET, LocalPlayer, MainCamera, PLAYER_GROUND_Y, RemotePlayer,
         WorldSystems, spawn_point, spawn_yaw,
     },
 };
 use bevy::prelude::*;
-use std::{collections::HashMap, f32::consts::TAU};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    f32::consts::TAU,
+};
 
 pub struct CombatPlugin;
 
@@ -28,11 +32,16 @@ impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LocalState>()
             .init_resource::<Combat>()
+            .init_resource::<HitBookkeeping>()
             .init_resource::<Killfeed>()
             .add_systems(Startup, load_fx)
             // After the camera exists.
             .add_systems(PostStartup, spawn_viewmodel)
-            .add_systems(OnExit(AppState::InGame), (hide_viewmodel, clear_killfeed))
+            .add_systems(OnEnter(AppState::InGame), reset_hit_bookkeeping)
+            .add_systems(
+                OnExit(AppState::InGame),
+                (hide_viewmodel, clear_killfeed, reset_hit_bookkeeping),
+            )
             .add_systems(
                 Update,
                 (
@@ -41,6 +50,7 @@ impl Plugin for CombatPlugin {
                     fire_local,
                     fire_remote,
                     move_projectiles,
+                    process_incoming_hits,
                     remote_eliminations,
                     regen_and_respawn,
                     update_viewmodel,
@@ -64,8 +74,43 @@ pub const REGEN_DELAY: f32 = 7.0;
 pub const REGEN_RATE: f32 = 14.0;
 /// Seconds from elimination to respawn.
 pub const RESPAWN_TIME: f32 = 5.0;
-const PLAYER_HIT_RADIUS: f32 = 0.36;
+const PLAYER_HIT_RADIUS: f32 = 0.44;
 const MAX_DECALS: usize = 350;
+
+/// Tracks outbound hit IDs and deduplicates inbound UDP hit retries on the client.
+#[derive(Resource, Default)]
+struct HitBookkeeping {
+    next_hit_id: u32,
+    seen: HashSet<(PlayerId, u32)>,
+    order: VecDeque<(PlayerId, u32)>,
+}
+
+impl HitBookkeeping {
+    const CAPACITY: usize = 512;
+
+    fn alloc_id(&mut self) -> u32 {
+        self.next_hit_id = self.next_hit_id.wrapping_add(1).max(1);
+        self.next_hit_id
+    }
+
+    fn record_incoming(&mut self, attacker: PlayerId, hit_id: u32) -> bool {
+        let key = (attacker, hit_id);
+        if !self.seen.insert(key) {
+            return false;
+        }
+        self.order.push_back(key);
+        while self.order.len() > Self::CAPACITY {
+            if let Some(old) = self.order.pop_front() {
+                self.seen.remove(&old);
+            }
+        }
+        true
+    }
+}
+
+fn reset_hit_bookkeeping(mut hits: ResMut<HitBookkeeping>) {
+    *hits = HitBookkeeping::default();
+}
 
 /// What we send others about ourselves (health, gun, counters).
 #[derive(Resource, Default)]
@@ -312,13 +357,20 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
     });
 }
 
-pub fn play(commands: &mut Commands, sound: &Handle<AudioSource>, volume: f32) {
-    if volume <= 0.01 {
+pub fn play_sfx(
+    commands: &mut Commands,
+    sound: &Handle<AudioSource>,
+    base_volume: f32,
+    settings: &AudioSettings,
+) {
+    let volume = base_volume * settings.effective_sfx();
+    if volume <= 0.005 {
         return;
     }
     commands.spawn((
         AudioPlayer::new(sound.clone()),
         PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+        SfxAudio(base_volume),
     ));
 }
 
@@ -433,6 +485,7 @@ fn aim_and_reload(
     mouse: Res<ButtonInput<MouseButton>>,
     overlay: Res<Overlay>,
     fx: Res<Fx>,
+    settings: Res<AudioSettings>,
     local_state: Res<LocalState>,
     mut combat: ResMut<Combat>,
 ) {
@@ -457,18 +510,18 @@ fn aim_and_reload(
             combat.reloading = Some(left);
         }
     } else if can_act && keys.just_pressed(KeyCode::KeyR) && combat.ammo < combat.stats.capacity {
-        start_reload(&mut commands, &fx, &mut combat);
+        start_reload(&mut commands, &fx, &settings, &mut combat);
     }
 }
 
-fn start_reload(commands: &mut Commands, fx: &Fx, combat: &mut Combat) {
+fn start_reload(commands: &mut Commands, fx: &Fx, settings: &AudioSettings, combat: &mut Combat) {
     combat.reloading = Some(combat.stats.reload);
     let sound = if combat.stats.water {
         &fx.sounds.water_pump
     } else {
         &fx.sounds.pod_reload
     };
-    play(commands, sound, 0.7);
+    play_sfx(commands, sound, 0.7, settings);
 }
 
 /// A shot's direction: where the shooter looks, nudged inside the spread
@@ -494,6 +547,7 @@ fn fire_local(
     mouse: Res<ButtonInput<MouseButton>>,
     overlay: Res<Overlay>,
     net: Res<NetworkState>,
+    settings: Res<AudioSettings>,
     mut fx: ResMut<Fx>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut combat: ResMut<Combat>,
@@ -518,8 +572,8 @@ fn fire_local(
     if combat.ammo == 0 {
         if !combat.dry_fired {
             combat.dry_fired = true;
-            play(&mut commands, &fx.sounds.dry_fire, 0.7);
-            start_reload(&mut commands, &fx, &mut combat);
+            play_sfx(&mut commands, &fx.sounds.dry_fire, 0.7, &settings);
+            start_reload(&mut commands, &fx, &settings, &mut combat);
         }
         return;
     }
@@ -563,18 +617,32 @@ fn fire_local(
         team,
         stats.water,
     );
-    shot_sound(&mut commands, &mut fx, &stats, 1.0, time.elapsed_secs());
+    shot_sound(
+        &mut commands,
+        &mut fx,
+        &settings,
+        &stats,
+        1.0,
+        time.elapsed_secs(),
+    );
 }
 
-fn shot_sound(commands: &mut Commands, fx: &mut Fx, stats: &WeaponStats, volume: f32, _now: f32) {
+fn shot_sound(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    settings: &AudioSettings,
+    stats: &WeaponStats,
+    volume: f32,
+    _now: f32,
+) {
     if stats.water {
         let s = fx.sounds.water_squirt.clone();
-        play(commands, &s, 0.35 * volume * stats.loudness);
+        play_sfx(commands, &s, 0.35 * volume * stats.loudness, settings);
     } else {
         let n = fx.sounds.shots.len();
         let i = fx.pick(n);
         let s = fx.sounds.shots[i].clone();
-        play(commands, &s, 0.8 * volume * stats.loudness);
+        play_sfx(commands, &s, 0.8 * volume * stats.loudness, settings);
     }
 }
 
@@ -674,6 +742,7 @@ fn spawn_particle(
 fn fire_remote(
     mut commands: Commands,
     time: Res<Time>,
+    settings: Res<AudioSettings>,
     mut fx: ResMut<Fx>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     camera_q: Query<&GlobalTransform, With<MainCamera>>,
@@ -683,7 +752,7 @@ fn fire_remote(
         .single()
         .map(|g| g.translation())
         .unwrap_or_default();
-    for (transform, mut remote) in &mut remote_q {
+    for (_transform, mut remote) in &mut remote_q {
         let shots = remote.state.shots;
         let new = shots.wrapping_sub(remote.seen_shots);
         // Way out of order (or a wrapped counter): just catch up.
@@ -699,8 +768,8 @@ fn fire_remote(
         let stats = Loadout::unpack(remote.state.loadout).stats();
         let rot = look_rotation(remote.target_yaw, remote.state.pitch);
         let forward = rot * Vec3::NEG_Z;
-        let eye = transform.translation + Vec3::Y * EYE_OFFSET;
-        let origin = eye + forward * 0.45 + rot * Vec3::new(0.06, -0.08, 0.0);
+        let eye = remote.target_pos + Vec3::Y * EYE_OFFSET;
+        let origin = eye + forward * 0.45 + rot * Vec3::new(0.06, -0.05, 0.0);
         let team = Team::of(remote.id);
         for i in 0..new.min(8) {
             let shot = first.wrapping_add(i);
@@ -726,7 +795,14 @@ fn fire_remote(
             stats.water,
         );
         let volume = falloff(listener, origin);
-        shot_sound(&mut commands, &mut fx, &stats, volume, time.elapsed_secs());
+        shot_sound(
+            &mut commands,
+            &mut fx,
+            &settings,
+            &stats,
+            volume,
+            time.elapsed_secs(),
+        );
     }
 }
 
@@ -785,7 +861,7 @@ fn hits_player(from: Vec3, to: Vec3, center: Vec3) -> Option<f32> {
 
 enum Target {
     Local,
-    Remote,
+    Remote(PlayerId),
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -793,12 +869,13 @@ fn move_projectiles(
     mut commands: Commands,
     time: Res<Time>,
     colliders: Res<Colliders>,
-    player_assets: Res<PlayerModelAssets>,
+    net: Res<NetworkState>,
+    settings: Res<AudioSettings>,
     mut fx: ResMut<Fx>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut combat: ResMut<Combat>,
-    mut local_state: ResMut<LocalState>,
-    mut feed: ResMut<Killfeed>,
+    mut hits: ResMut<HitBookkeeping>,
+    local_state: Res<LocalState>,
     camera_q: Query<&GlobalTransform, With<MainCamera>>,
     local_q: Query<(&Transform, &LocalPlayer), Without<Projectile>>,
     remote_q: Query<(&Transform, &RemotePlayer), Without<Projectile>>,
@@ -850,7 +927,7 @@ fn move_projectiles(
                 && t < best_t
             {
                 best_t = t;
-                target = Some(Target::Remote);
+                target = Some(Target::Remote(remote.id));
             }
         }
 
@@ -861,40 +938,31 @@ fn move_projectiles(
         };
         match target {
             Some(Target::Local) => {
-                let point = from.lerp(to, best_t);
-                let normal = -ball.velocity.normalize_or(Vec3::Z);
-                player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
-                let s = fx.sounds.player_hit.clone();
-                play(&mut commands, &s, 0.9);
-                if let Some((lt, lp)) = local {
-                    take_damage(
-                        &mut commands,
-                        &mut fx,
-                        &player_assets,
-                        &mut combat,
-                        &mut local_state,
-                        &mut feed,
-                        lt,
-                        lp,
-                        ball.owner,
-                        ball.damage,
-                        ball.velocity,
-                        now,
-                    );
-                }
+                // Visual cleanup only: damage is applied from shooter-confirmed HitEvents
+                // in `process_incoming_hits` so moving players never miss hits or take double damage.
                 commands.entity(entity).despawn();
             }
-            Some(Target::Remote) => {
+            Some(Target::Remote(victim_id)) => {
                 let point = from.lerp(to, best_t);
                 let normal = -ball.velocity.normalize_or(Vec3::Z);
                 player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
                 if Some(ball.owner) == local_id {
                     combat.hitmarker = 0.25;
                     let s = fx.sounds.hit_tick.clone();
-                    play(&mut commands, &s, 0.8);
+                    play_sfx(&mut commands, &s, 0.8, &settings);
+                    let hit_id = hits.alloc_id();
+                    net.send_hit(HitEvent {
+                        hit_id,
+                        attacker: ball.owner,
+                        victim: victim_id,
+                        damage: ball.damage,
+                        velocity: ball.velocity.to_array(),
+                        point: point.to_array(),
+                        water: ball.water,
+                    });
                 }
                 let s = fx.sounds.player_hit.clone();
-                play(&mut commands, &s, 0.6 * falloff(listener, point));
+                play_sfx(&mut commands, &s, 0.6 * falloff(listener, point), &settings);
                 commands.entity(entity).despawn();
             }
             None => {
@@ -903,6 +971,7 @@ fn move_projectiles(
                         &mut commands,
                         &mut fx,
                         &mut materials,
+                        &settings,
                         now,
                         hit.point,
                         hit.normal,
@@ -919,11 +988,81 @@ fn move_projectiles(
     }
 }
 
+/// Applies shooter-confirmed hits relayed over the network to the local player.
+#[allow(clippy::too_many_arguments)]
+fn process_incoming_hits(
+    mut commands: Commands,
+    time: Res<Time>,
+    player_assets: Res<PlayerModelAssets>,
+    settings: Res<AudioSettings>,
+    mut net: ResMut<NetworkState>,
+    mut fx: ResMut<Fx>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut combat: ResMut<Combat>,
+    mut hits: ResMut<HitBookkeeping>,
+    mut local_state: ResMut<LocalState>,
+    mut feed: ResMut<Killfeed>,
+    local_q: Query<(&Transform, &LocalPlayer)>,
+) {
+    if net.pending_hits.is_empty() {
+        return;
+    }
+    let incoming = std::mem::take(&mut net.pending_hits);
+    let Ok((lt, lp)) = local_q.single() else {
+        return;
+    };
+    let now = time.elapsed_secs();
+
+    for hit in incoming {
+        if hit.victim != lp.id
+            || hit.attacker == lp.id
+            || Team::of(hit.attacker) == Team::of(lp.id)
+            || !hit.damage.is_finite()
+            || hit.damage <= 0.0
+        {
+            continue;
+        }
+        if !hits.record_incoming(hit.attacker, hit.hit_id) {
+            continue;
+        }
+        if local_state.0.health <= 0.0 {
+            continue;
+        }
+        let velocity = Vec3::from_array(hit.velocity);
+        let normal = -velocity.normalize_or(Vec3::Z);
+        let point = lt.translation + Vec3::Y * 0.2;
+        let paint = if hit.water {
+            Paint::Water
+        } else {
+            Paint::Team(Team::of(hit.attacker))
+        };
+        player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+        let s = fx.sounds.player_hit.clone();
+        play_sfx(&mut commands, &s, 0.9, &settings);
+        take_damage(
+            &mut commands,
+            &mut fx,
+            &player_assets,
+            &settings,
+            &mut combat,
+            &mut local_state,
+            &mut feed,
+            lt,
+            lp,
+            hit.attacker,
+            hit.damage.min(150.0),
+            velocity,
+            now,
+        );
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn take_damage(
     commands: &mut Commands,
     fx: &mut Fx,
     player_assets: &PlayerModelAssets,
+    settings: &AudioSettings,
     combat: &mut Combat,
     local_state: &mut LocalState,
     feed: &mut Killfeed,
@@ -953,7 +1092,7 @@ fn take_damage(
     combat.death_cam = Some(feet);
     feed.entries.push((from, player.id, now));
     let s = fx.sounds.eliminated.clone();
-    play(commands, &s, 0.8);
+    play_sfx(commands, &s, 0.8, settings);
     let model = Transform::from_translation(feet)
         .with_rotation(Quat::from_rotation_y(player.yaw + std::f32::consts::PI));
     spawn_ragdoll(
@@ -974,6 +1113,7 @@ fn remote_eliminations(
     time: Res<Time>,
     player_assets: Res<PlayerModelAssets>,
     fx: Res<Fx>,
+    settings: Res<AudioSettings>,
     net: Res<NetworkState>,
     mut feed: ResMut<Killfeed>,
     mut remote_q: Query<(&Transform, &mut RemotePlayer)>,
@@ -998,7 +1138,7 @@ fn remote_eliminations(
                 let killer = remote.state.killer;
                 feed.entries.push((killer, remote.id, time.elapsed_secs()));
                 if Some(killer) == local_id {
-                    play(&mut commands, &fx.sounds.confirm, 0.6);
+                    play_sfx(&mut commands, &fx.sounds.confirm, 0.6, &settings);
                 }
                 let start = match rig {
                     Some(rig) => RagdollStart::from_rig(rig, model_tf, &bones),
@@ -1040,6 +1180,7 @@ fn regen_and_respawn(
     mut commands: Commands,
     time: Res<Time>,
     fx: Res<Fx>,
+    settings: Res<AudioSettings>,
     loadout: Res<Loadout>,
     mut combat: ResMut<Combat>,
     mut local_state: ResMut<LocalState>,
@@ -1075,7 +1216,7 @@ fn regen_and_respawn(
     }
     state.health = MAX_HEALTH;
     combat.reset(&loadout.stats());
-    play(&mut commands, &fx.sounds.round_start, 0.35);
+    play_sfx(&mut commands, &fx.sounds.round_start, 0.35, &settings);
 }
 
 fn update_viewmodel(
@@ -1091,7 +1232,7 @@ fn update_viewmodel(
         return;
     };
     let alive = local_state.0.health > 0.0;
-    *vis = if alive && !overlay.loadout {
+    *vis = if alive && !overlay.loadout && !overlay.settings {
         Visibility::Inherited
     } else {
         Visibility::Hidden
@@ -1123,6 +1264,7 @@ fn update_viewmodel(
 fn footsteps(
     mut commands: Commands,
     time: Res<Time>,
+    settings: Res<AudioSettings>,
     mut fx: ResMut<Fx>,
     mut combat: ResMut<Combat>,
     player_q: Query<&LocalPlayer>,
@@ -1140,7 +1282,7 @@ fn footsteps(
         let n = fx.sounds.steps.len();
         let i = fx.pick(n);
         let s = fx.sounds.steps[i].clone();
-        play(&mut commands, &s, 0.25);
+        play_sfx(&mut commands, &s, 0.25, &settings);
     }
 }
 
@@ -1180,6 +1322,7 @@ fn impact_fx(
     commands: &mut Commands,
     fx: &mut Fx,
     materials: &mut Assets<StandardMaterial>,
+    settings: &AudioSettings,
     now: f32,
     point: Vec3,
     normal: Vec3,
@@ -1264,15 +1407,15 @@ fn impact_fx(
 
     if water {
         let s = fx.sounds.water_splash.clone();
-        play(commands, &s, 0.25 * volume);
+        play_sfx(commands, &s, 0.25 * volume, settings);
     } else {
         let count = fx.sounds.splats.len();
         let i = fx.pick(count);
         let s = fx.sounds.splats[i].clone();
-        play(commands, &s, 0.5 * volume);
+        play_sfx(commands, &s, 0.5 * volume, settings);
         if decal && n.y.abs() < 0.9 && fx.rand() < 0.5 {
             let s = fx.sounds.bunker_hit.clone();
-            play(commands, &s, 0.3 * volume);
+            play_sfx(commands, &s, 0.3 * volume, settings);
         }
     }
 }

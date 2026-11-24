@@ -3,6 +3,7 @@ use crate::{
     hub::{self, HubPlay},
     net::{NetRole, NetworkState, Transport},
     portside::{Portside, Session, Status},
+    settings::AudioSettings,
 };
 use bevy::{
     input::{
@@ -85,6 +86,7 @@ enum MenuAction {
     CreateGame,
     OpenJoin,
     OpenLoadout,
+    OpenSettings,
     PasteAddress,
     ClearAddress,
     ConnectJoin,
@@ -140,10 +142,20 @@ fn load_ui_sounds(mut commands: Commands, assets: Res<AssetServer>) {
     });
 }
 
-fn ui_sound(commands: &mut Commands, sound: &Handle<AudioSource>, volume: f32) {
+fn ui_sound(
+    commands: &mut Commands,
+    sound: &Handle<AudioSource>,
+    volume: f32,
+    settings: Option<&AudioSettings>,
+) {
+    let scale = settings.map(|s| s.effective_ui()).unwrap_or(1.0);
+    let final_vol = volume * scale;
+    if final_vol <= 0.005 {
+        return;
+    }
     commands.spawn((
         AudioPlayer::new(sound.clone()),
-        PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
+        PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(final_vol)),
     ));
 }
 
@@ -204,12 +216,13 @@ fn on_button_over(
     over: On<PointerOver>,
     mut commands: Commands,
     sounds: Option<Res<UiSounds>>,
+    settings: Option<Res<AudioSettings>>,
     mut q: Query<(&ButtonStyle, &mut BackgroundColor)>,
 ) {
     if let Ok((style, mut bg)) = q.get_mut(over.entity) {
         *bg = BackgroundColor(style.hover);
         if let Some(sounds) = sounds {
-            ui_sound(&mut commands, &sounds.hover, 0.35);
+            ui_sound(&mut commands, &sounds.hover, 0.35, settings.as_deref());
         }
     }
 }
@@ -224,6 +237,7 @@ fn on_button_press(
     press: On<PointerPress>,
     mut commands: Commands,
     sounds: Option<Res<UiSounds>>,
+    settings: Option<Res<AudioSettings>>,
     mut q: Query<(&ButtonStyle, &mut BackgroundColor)>,
 ) {
     if press.button != PointerButton::Primary {
@@ -232,7 +246,7 @@ fn on_button_press(
     if let Ok((style, mut bg)) = q.get_mut(press.entity) {
         *bg = BackgroundColor(style.press);
         if let Some(sounds) = sounds {
-            ui_sound(&mut commands, &sounds.click, 0.6);
+            ui_sound(&mut commands, &sounds.click, 0.6, settings.as_deref());
         }
     }
 }
@@ -259,6 +273,7 @@ fn on_menu_click(
     portside: Res<Portside>,
     mut commands: Commands,
     sounds: Option<Res<UiSounds>>,
+    settings: Option<Res<AudioSettings>>,
 ) {
     if click.button != PointerButton::Primary {
         return;
@@ -271,7 +286,7 @@ fn on_menu_click(
         MenuAction::CreateGame => {
             if !net.is_connecting {
                 if let Some(sounds) = sounds {
-                    ui_sound(&mut commands, &sounds.confirm, 0.7);
+                    ui_sound(&mut commands, &sounds.confirm, 0.7, settings.as_deref());
                 }
                 net.start_host();
             }
@@ -279,6 +294,11 @@ fn on_menu_click(
         MenuAction::OpenLoadout => {
             if !net.is_connecting {
                 overlay.loadout = true;
+            }
+        }
+        MenuAction::OpenSettings => {
+            if !net.is_connecting {
+                overlay.settings = true;
             }
         }
         MenuAction::OpenJoin => {
@@ -530,15 +550,31 @@ fn spawn_main_menu(
                         20.0,
                         false,
                     );
-                    spawn_menu_button(
-                        home,
-                        "Loadout",
-                        MenuAction::OpenLoadout,
-                        ButtonStyle::SECONDARY,
-                        46.0,
-                        18.0,
-                        false,
-                    );
+                    home.spawn(Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(10.0),
+                        ..default()
+                    })
+                    .with_children(|row| {
+                        spawn_menu_button(
+                            row,
+                            "Loadout",
+                            MenuAction::OpenLoadout,
+                            ButtonStyle::SECONDARY,
+                            46.0,
+                            18.0,
+                            true,
+                        );
+                        spawn_menu_button(
+                            row,
+                            "Options",
+                            MenuAction::OpenSettings,
+                            ButtonStyle::SECONDARY,
+                            46.0,
+                            18.0,
+                            true,
+                        );
+                    });
                 });
 
                 // Games in your Portside hub
