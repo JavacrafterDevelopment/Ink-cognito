@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.4.0",
-      "published": "2026-11-24T21:32:11Z",
-      "notes": "## What's Changed\n* Siege-style menu, end-of-match podium and per-body unlocks (v0.4.0) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/8\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.3.0...v0.4.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.4.0",
+      "version": "0.5.0",
+      "published": "2026-11-24T23:05:42Z",
+      "notes": "## What's Changed\n* Standalone map editor, maps loaded from map files (v0.5.0) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/9\n* Fix v0.5.0 Windows release: map format test fails on CRLF checkouts by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/10\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.4.0...v0.5.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.5.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.4.0/Ink-cognito-windows-x64.zip",
-        "size": 50315647,
-        "sha256": "03e73f15004b8c3a60fef760d8da205b0fcc4972cf85ae3c568560fe37b7b0a4"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.5.0/Ink-cognito-windows-x64.zip",
+        "size": 79689934,
+        "sha256": "0602bd88ded9608d3816c1b4d25d7d926e25d9f4e4e53213a701e007750050dc"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -232,6 +232,31 @@
           "path": "assets/fonts/ArchivoBlack-Regular.ttf",
           "size": 90988,
           "sha256": "dd9a89a019b4849f66ab75455fe7bdf931311042cbb0f0f97acc061539703180"
+        },
+        {
+          "path": "assets/maps/Dockyard.json",
+          "size": 4697,
+          "sha256": "ab92d5bfffb8b312e22e0b6c6086a6edac446055bdef5aff533d521a8f157794"
+        },
+        {
+          "path": "assets/maps/PineHollow.json",
+          "size": 10844,
+          "sha256": "8a7f808e60f3ebcc1ff8ef656898610421705b4e453efef6762fcaf0d767b515"
+        },
+        {
+          "path": "assets/maps/RingRoad.json",
+          "size": 9705,
+          "sha256": "1193fc013ea8c4724aefa30410a2febf6055c508fb1fb79a71cb3cf67fc2eebd"
+        },
+        {
+          "path": "assets/maps/SplatPark.json",
+          "size": 4854,
+          "sha256": "301a879f67f4c2f25bda55b33dab4308f6421bab4368f981f68c23abb3a22ca8"
+        },
+        {
+          "path": "assets/maps/ThreeLanes.json",
+          "size": 9019,
+          "sha256": "583d309cec8654bb4e0261698013852389c1712c2be32ef31853bf897111accc"
         },
         {
           "path": "assets/models/bunkers/brick.glb",
@@ -1940,20 +1965,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99670528,
-          "sha256": "f469f3a9775f10f6c5d9f26c1eeff7b4cfba05f173b54e4d8e617f40fffb706f"
+          "size": 99760128,
+          "sha256": "b4184bed492910fabd7929663849b2633b2cda4a7f67cddb17c396944df8fb7c"
+        },
+        {
+          "path": "ink-map-editor.exe",
+          "size": 89881600,
+          "sha256": "5453482b8c937bdb5cb33d6142352e7f6ee941a10be54584067b1768e4020214"
         }
       ]
     },
     "stable": {
-      "version": "0.4.0",
-      "published": "2026-11-24T21:32:11Z",
-      "notes": "## What's Changed\n* Siege-style menu, end-of-match podium and per-body unlocks (v0.4.0) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/8\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.3.0...v0.4.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.4.0",
+      "version": "0.5.0",
+      "published": "2026-11-24T23:05:42Z",
+      "notes": "## What's Changed\n* Standalone map editor, maps loaded from map files (v0.5.0) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/9\n* Fix v0.5.0 Windows release: map format test fails on CRLF checkouts by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/10\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.4.0...v0.5.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.5.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.4.0/Ink-cognito-windows-x64.zip",
-        "size": 50315647,
-        "sha256": "03e73f15004b8c3a60fef760d8da205b0fcc4972cf85ae3c568560fe37b7b0a4"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.5.0/Ink-cognito-windows-x64.zip",
+        "size": 79689934,
+        "sha256": "0602bd88ded9608d3816c1b4d25d7d926e25d9f4e4e53213a701e007750050dc"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -2176,6 +2206,31 @@
           "path": "assets/fonts/ArchivoBlack-Regular.ttf",
           "size": 90988,
           "sha256": "dd9a89a019b4849f66ab75455fe7bdf931311042cbb0f0f97acc061539703180"
+        },
+        {
+          "path": "assets/maps/Dockyard.json",
+          "size": 4697,
+          "sha256": "ab92d5bfffb8b312e22e0b6c6086a6edac446055bdef5aff533d521a8f157794"
+        },
+        {
+          "path": "assets/maps/PineHollow.json",
+          "size": 10844,
+          "sha256": "8a7f808e60f3ebcc1ff8ef656898610421705b4e453efef6762fcaf0d767b515"
+        },
+        {
+          "path": "assets/maps/RingRoad.json",
+          "size": 9705,
+          "sha256": "1193fc013ea8c4724aefa30410a2febf6055c508fb1fb79a71cb3cf67fc2eebd"
+        },
+        {
+          "path": "assets/maps/SplatPark.json",
+          "size": 4854,
+          "sha256": "301a879f67f4c2f25bda55b33dab4308f6421bab4368f981f68c23abb3a22ca8"
+        },
+        {
+          "path": "assets/maps/ThreeLanes.json",
+          "size": 9019,
+          "sha256": "583d309cec8654bb4e0261698013852389c1712c2be32ef31853bf897111accc"
         },
         {
           "path": "assets/models/bunkers/brick.glb",
@@ -3884,8 +3939,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99670528,
-          "sha256": "f469f3a9775f10f6c5d9f26c1eeff7b4cfba05f173b54e4d8e617f40fffb706f"
+          "size": 99760128,
+          "sha256": "b4184bed492910fabd7929663849b2633b2cda4a7f67cddb17c396944df8fb7c"
+        },
+        {
+          "path": "ink-map-editor.exe",
+          "size": 89881600,
+          "sha256": "5453482b8c937bdb5cb33d6142352e7f6ee941a10be54584067b1768e4020214"
         }
       ]
     }
