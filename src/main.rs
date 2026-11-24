@@ -14,7 +14,9 @@ mod music;
 mod net;
 mod pause;
 mod player_model;
+mod podium;
 mod portside;
+mod progression;
 mod protocol;
 mod ragdoll;
 mod ranked;
@@ -90,6 +92,8 @@ fn main() {
             RankedPlugin,
             MenuPlugin,
             HubPlugin,
+            podium::PodiumPlugin,
+            progression::ProgressionPlugin,
         ))
         .add_plugins((
             PlayerModelPlugin,

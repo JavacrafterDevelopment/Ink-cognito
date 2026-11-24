@@ -6,7 +6,7 @@
 //! hover / pressed art; every card that uses [`BG_CARD`] becomes a kit panel;
 //! every text without a font of its own gets Anton (big) or Archivo Black.
 
-use crate::menu::{BG_CARD, BTN_DANGER, BTN_PRIMARY, ButtonStyle};
+use crate::menu::{BG_CARD, BTN_DANGER, BTN_LOCKED, BTN_PRIMARY, ButtonStyle};
 use bevy::{picking::prelude::*, prelude::*, text::FontSource};
 
 pub const KIT: &str = "textures/ui-kit";
@@ -79,6 +79,8 @@ pub enum Btn {
     Primary,
     Secondary,
     Danger,
+    /// Greyed out: the same art in every state.
+    Disabled,
 }
 
 impl Btn {
@@ -87,6 +89,7 @@ impl Btn {
             Btn::Primary => "primary",
             Btn::Secondary => "secondary",
             Btn::Danger => "danger",
+            Btn::Disabled => "secondary",
         }
     }
 
@@ -103,6 +106,8 @@ impl Btn {
             Btn::Primary
         } else if style.normal == BTN_DANGER {
             Btn::Danger
+        } else if style.normal == BTN_LOCKED {
+            Btn::Disabled
         } else {
             Btn::Secondary
         }
@@ -121,6 +126,15 @@ pub struct KitButton {
 impl KitButton {
     pub fn new(assets: &AssetServer, kind: Btn) -> Self {
         let f = kind.file();
+        if kind == Btn::Disabled {
+            let art = kit(assets, &format!("buttons/button_{f}_disabled.png"));
+            return KitButton {
+                kind,
+                normal: art.clone(),
+                hover: art.clone(),
+                pressed: art,
+            };
+        }
         KitButton {
             kind,
             normal: kit(assets, &format!("buttons/button_{f}_normal.png")),

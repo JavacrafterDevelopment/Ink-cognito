@@ -1152,6 +1152,8 @@ fn remote_eliminations(
     local_q: Query<(&Transform, &LocalPlayer), Without<RemotePlayer>>,
     mut models: Query<(&GlobalTransform, Option<&Rig>, &mut Visibility)>,
     bones: Query<&GlobalTransform>,
+    combat: Res<Combat>,
+    mut splats: MessageWriter<crate::progression::LocalSplat>,
 ) {
     let local_id = net.local_player_id;
     let positions: HashMap<PlayerId, Vec3> = remote_q
@@ -1171,6 +1173,15 @@ fn remote_eliminations(
                 feed.entries.push((killer, remote.id, time.elapsed_secs()));
                 if Some(killer) == local_id {
                     play_sfx(&mut commands, &fx.sounds.confirm, 0.6, &settings);
+                    if enemies(killer, remote.id)
+                        && let Ok((me, player)) = local_q.single()
+                    {
+                        splats.write(crate::progression::LocalSplat {
+                            distance: me.translation.distance(transform.translation),
+                            crouched: player.crouch > 0.5,
+                            aiming: combat.aim_blend > 0.5,
+                        });
+                    }
                 }
                 let start = match rig {
                     Some(rig) => RagdollStart::from_rig(rig, model_tf, &bones),
@@ -1256,7 +1267,9 @@ fn regen_and_respawn(
     play_sfx(&mut commands, &fx.sounds.round_start, 0.35, &settings);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_viewmodel(
+    net: Res<NetworkState>,
     combat: Res<Combat>,
     local_state: Res<LocalState>,
     overlay: Res<Overlay>,
@@ -1269,7 +1282,8 @@ fn update_viewmodel(
         return;
     };
     let alive = local_state.0.health > 0.0;
-    *vis = if alive && !overlay.loadout && !overlay.settings {
+    let podium = net.match_state.phase == crate::protocol::Phase::MatchOver;
+    *vis = if alive && !podium && !overlay.loadout && !overlay.settings {
         Visibility::Inherited
     } else {
         Visibility::Hidden

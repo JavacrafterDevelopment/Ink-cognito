@@ -45,7 +45,7 @@ pub const BODIES: &[Part] = &[
     },
     Part {
         name: "Breacher",
-        blurb: "Paint shotgun: six balls a pull. Brutal up close.",
+        blurb: "Paint shotgun: 6 balls x 13 damage a pull. Brutal up close.",
         model: "models/guns/bodies/shotgun.glb",
     },
     Part {
@@ -390,13 +390,13 @@ pub struct Loadout {
 
 impl Default for Loadout {
     fn default() -> Self {
-        // Close to the Vanta factory build.
+        // The Vanta with the parts everyone starts with.
         Self {
             kind: GunKind::Paintball,
             body: 0,
-            barrel: 1,
+            barrel: 0,
             hopper: 0,
-            sight: 2,
+            sight: 1,
             stock: 1,
             tank: 0,
             foregrip: 0,

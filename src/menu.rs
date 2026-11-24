@@ -34,6 +34,9 @@ pub const BTN_DANGER: Color = Color::srgb(0.68, 0.20, 0.24);
 pub const BTN_DANGER_HOVER: Color = Color::srgb(0.80, 0.25, 0.30);
 pub const BTN_DANGER_PRESS: Color = Color::srgb(0.54, 0.15, 0.18);
 
+/// Something that can't be picked yet (a locked part).
+pub const BTN_LOCKED: Color = Color::srgb(0.08, 0.09, 0.12);
+
 pub const TEXT_PRIMARY: Color = Color::srgb(0.95, 0.97, 1.0);
 pub const TEXT_MUTED: Color = Color::srgb(0.68, 0.75, 0.84);
 pub const TEXT_STATUS: Color = Color::srgb(0.45, 0.82, 1.0);
@@ -53,6 +56,8 @@ impl Plugin for MenuPlugin {
             .add_observer(on_menu_click)
             .add_observer(on_hud_click)
             .add_observer(on_hub_join_click)
+            .add_observer(on_hover_over)
+            .add_observer(on_hover_out)
             .add_systems(OnEnter(AppState::MainMenu), spawn_main_menu)
             .add_systems(
                 Update,
@@ -64,6 +69,8 @@ impl Plugin for MenuPlugin {
                     update_hub_menu,
                     update_play_screen,
                     update_rank_card,
+                    style_tiles_and_tabs,
+                    fit_cover_images,
                 )
                     .run_if(in_state(AppState::MainMenu)),
             )
@@ -98,6 +105,7 @@ struct HudState {
 #[derive(Component, Clone, Copy)]
 enum MenuAction {
     OpenPlay,
+    PlayRanked,
     PickMode(usize),
     PickMap(MapId),
     Quit,
@@ -136,6 +144,11 @@ impl ButtonStyle {
         normal: BTN_SECONDARY,
         hover: BTN_SECONDARY_HOVER,
         press: BTN_SECONDARY_PRESS,
+    };
+    pub const LOCKED: ButtonStyle = ButtonStyle {
+        normal: BTN_LOCKED,
+        hover: BTN_LOCKED,
+        press: BTN_LOCKED,
     };
     pub const DANGER: ButtonStyle = ButtonStyle {
         normal: BTN_DANGER,
@@ -305,6 +318,15 @@ fn on_menu_click(
         MenuAction::OpenPlay => {
             if !net.is_connecting {
                 net.error_text = None;
+                menu.screen = MenuScreen::Play;
+                current_map.0 = setup.0.map;
+            }
+        }
+        MenuAction::PlayRanked => {
+            if !net.is_connecting {
+                net.error_text = None;
+                setup.0.mode = GameMode::Elimination;
+                setup.0.ranked = true;
                 menu.screen = MenuScreen::Play;
                 current_map.0 = setup.0.map;
             }
@@ -511,24 +533,16 @@ enum ShowOn {
     Home,
     Join,
     Play,
-    /// Home or join (the left card).
-    Card,
-    /// Home while not connecting (the player card).
-    HomeIdle,
-    Connecting,
-    /// The key art behind the menu (not on the play screen: the map shows).
+    /// The solid backdrop (not on the play screen: the map shows there).
     Backdrop,
 }
 
 impl ShowOn {
-    fn visible(self, screen: MenuScreen, connecting: bool) -> bool {
+    fn visible(self, screen: MenuScreen) -> bool {
         match self {
-            ShowOn::Home => !connecting && screen == MenuScreen::Home,
-            ShowOn::Join => !connecting && screen == MenuScreen::Join,
-            ShowOn::Play => !connecting && screen == MenuScreen::Play,
-            ShowOn::Card => connecting || screen != MenuScreen::Play,
-            ShowOn::HomeIdle => screen == MenuScreen::Home,
-            ShowOn::Connecting => connecting,
+            ShowOn::Home => screen == MenuScreen::Home,
+            ShowOn::Join => screen == MenuScreen::Join,
+            ShowOn::Play => screen == MenuScreen::Play,
             ShowOn::Backdrop => screen != MenuScreen::Play,
         }
     }
@@ -566,6 +580,45 @@ enum RankCardPart {
     Record,
 }
 
+/// The menu's solid backdrop colours (top and bottom).
+const MENU_BG_TOP: Color = Color::srgb(0.075, 0.094, 0.125);
+const MENU_BG_BOTTOM: Color = Color::srgb(0.035, 0.043, 0.059);
+/// The strip behind the tabs.
+const TOP_BAR_BG: Color = Color::srgba(0.02, 0.025, 0.035, 0.96);
+const TOP_BAR_HEIGHT: f32 = 76.0;
+/// A tile's border at rest and under the mouse.
+const TILE_BORDER: Color = Color::srgba(0.55, 0.62, 0.72, 0.25);
+const TILE_BORDER_HOVER: Color = KIT_YELLOW;
+const TILE_BG: Color = Color::srgb(0.085, 0.105, 0.14);
+
+/// A tab in the top bar. `None` tabs open a window instead of a screen.
+#[derive(Component)]
+struct NavTab(Option<MenuScreen>);
+
+/// The yellow line under the active tab.
+#[derive(Component)]
+struct NavUnderline(MenuScreen);
+
+/// Something that lights up under the mouse (tiles and tabs).
+#[derive(Component, Default)]
+struct Hover(bool);
+
+/// A clickable tile on the home screen.
+#[derive(Component)]
+struct Tile;
+
+/// An image cropped to fill its box without stretching (like CSS `cover`).
+#[derive(Component)]
+struct CoverImage;
+
+/// The bar at the bottom with connection status, errors and Cancel.
+#[derive(Component)]
+struct StatusBar;
+
+/// The Cancel button, only while connecting.
+#[derive(Component)]
+struct CancelWrap;
+
 fn spawn_main_menu(
     mut commands: Commands,
     mut menu: ResMut<MenuState>,
@@ -576,16 +629,23 @@ fn spawn_main_menu(
     menu.screen = MenuScreen::Home;
     *overlay = Overlay::default();
     let k = |p: &str| kit(&assets, p);
+    let fonts = &*kit_fonts;
 
-    // Full-screen key art behind the menu.
+    // A solid backdrop: nothing of the 3D world shows through, at any size.
     commands.spawn((
-        ImageNode::new(k("backgrounds/menu_background_1920x1080.png")),
         Node {
             position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: Val::Px(0.0),
+            bottom: Val::Px(0.0),
             ..default()
         },
+        BackgroundColor(MENU_BG_BOTTOM),
+        BackgroundGradient::from(LinearGradient::to_bottom(vec![
+            ColorStop::auto(MENU_BG_TOP),
+            ColorStop::auto(MENU_BG_BOTTOM),
+        ])),
         Pickable::IGNORE,
         GlobalZIndex(-10),
         ShowOn::Backdrop,
@@ -606,137 +666,163 @@ fn spawn_main_menu(
         DespawnOnExit(AppState::MainMenu),
     ));
 
-    // Left: logo, buttons, hub, join, status.
+    spawn_top_bar(&mut commands, &assets, fonts);
+
+    // Home: a big PLAY tile, ranked, join, loadout and the hub.
     commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Percent(4.0),
-                top: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                left: Val::Px(48.0),
+                right: Val::Px(48.0),
+                top: Val::Px(TOP_BAR_HEIGHT + 28.0),
+                bottom: Val::Px(44.0),
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(20.0),
                 ..default()
             },
             Pickable::IGNORE,
-            ShowOn::Card,
+            ShowOn::Home,
             DespawnOnExit(AppState::MainMenu),
         ))
-        .with_children(|root| {
-            root.spawn((
-                Node {
-                    width: Val::Px(430.0),
-                    max_height: Val::Percent(96.0),
-                    overflow: Overflow::clip_y(),
-                    padding: UiRect::all(Val::Px(28.0)),
+        .with_children(|row| {
+            // The hero tile.
+            row.spawn((
+                tile_node(Node {
+                    flex_grow: 1.8,
+                    flex_basis: Val::Px(0.0),
                     flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Stretch,
-                    row_gap: Val::Px(12.0),
+                    justify_content: JustifyContent::FlexEnd,
+                    overflow: Overflow::clip(),
                     ..default()
-                },
-                sliced(k("panels/panel.png"), 28.0),
+                }),
+                BackgroundColor(TILE_BG),
+                BorderColor::all(TILE_BORDER),
+                Tile,
+                Hover::default(),
+                MenuAction::OpenPlay,
             ))
-            .with_children(|card| {
-                card.spawn(Node {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(4.0)),
-                    ..default()
-                })
-                .with_children(|header| {
-                    header.spawn((
-                        ImageNode::new(assets.load("branding/logo.png")),
-                        Node {
-                            width: Val::Px(330.0),
-                            height: Val::Px(180.0),
-                            ..default()
-                        },
-                    ));
-                });
-
-                // Home: Play / Join / Loadout / Options / Quit.
-                card.spawn((
+            .with_children(|hero| {
+                hero.spawn((
+                    ImageNode::new(assets.load("branding/menu_background.png"))
+                        .with_mode(NodeImageMode::Stretch),
                     Node {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Stretch,
-                        row_gap: Val::Px(10.0),
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(0.0),
+                        right: Val::Px(0.0),
+                        top: Val::Px(0.0),
+                        bottom: Val::Px(0.0),
                         ..default()
                     },
-                    ShowOn::Home,
-                ))
-                .with_children(|home| {
-                    spawn_menu_button(
-                        home,
-                        "PLAY",
-                        MenuAction::OpenPlay,
-                        ButtonStyle::PRIMARY,
-                        58.0,
-                        24.0,
-                        false,
-                    );
-                    spawn_menu_button(
-                        home,
-                        "JOIN BY ADDRESS",
-                        MenuAction::OpenJoin,
-                        ButtonStyle::SECONDARY,
-                        46.0,
-                        17.0,
-                        false,
-                    );
-                    home.spawn(Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(10.0),
+                    CoverImage,
+                    Pickable::IGNORE,
+                ));
+                hero.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(4.0),
+                        padding: UiRect {
+                            left: Val::Px(32.0),
+                            right: Val::Px(32.0),
+                            top: Val::Px(60.0),
+                            bottom: Val::Px(26.0),
+                        },
                         ..default()
-                    })
-                    .with_children(|row| {
-                        spawn_menu_button(
-                            row,
-                            "LOADOUT",
-                            MenuAction::OpenLoadout,
-                            ButtonStyle::SECONDARY,
-                            46.0,
-                            17.0,
-                            true,
-                        );
-                        spawn_menu_button(
-                            row,
-                            "OPTIONS",
-                            MenuAction::OpenSettings,
-                            ButtonStyle::SECONDARY,
-                            46.0,
-                            17.0,
-                            true,
-                        );
-                    });
-                    spawn_menu_button(
-                        home,
-                        "QUIT",
-                        MenuAction::Quit,
-                        ButtonStyle::DANGER,
-                        40.0,
-                        15.0,
-                        false,
+                    },
+                    BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                        ColorStop::auto(Color::NONE),
+                        ColorStop::percent(Color::srgba(0.02, 0.03, 0.04, 0.85), 55.0),
+                        ColorStop::auto(Color::srgba(0.02, 0.03, 0.04, 0.95)),
+                    ])),
+                    Pickable::IGNORE,
+                ))
+                .with_children(|text| {
+                    text.spawn((
+                        Text::new("PLAY"),
+                        fonts.heading(72.0),
+                        TextColor(TEXT_PRIMARY),
+                        Pickable::IGNORE,
+                    ));
+                    text.spawn((
+                        Text::new("TEAM SPLAT  |  FREE-FOR-ALL  |  ELIMINATION  |  5 MAPS"),
+                        TextFont::from_font_size(15.0),
+                        TextColor(KIT_YELLOW),
+                        Pickable::IGNORE,
+                    ));
+                    text.spawn((
+                        Text::new("Host a match and pick the mode and map. Friends join from your hub or your address."),
+                        TextFont::from_font_size(13.0),
+                        TextColor(TEXT_MUTED),
+                        Pickable::IGNORE,
+                    ));
+                });
+            });
+
+            // The column on the right.
+            row.spawn((
+                Node {
+                    flex_grow: 1.0,
+                    flex_basis: Val::Px(0.0),
+                    min_width: Val::Px(340.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(20.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|col| {
+                spawn_ranked_tile(col, &assets, fonts);
+
+                col.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(20.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|small| {
+                    spawn_small_tile(
+                        small,
+                        &assets,
+                        fonts,
+                        "icons/forward.png",
+                        "JOIN",
+                        "By Tailcat address",
+                        MenuAction::OpenJoin,
+                    );
+                    spawn_small_tile(
+                        small,
+                        &assets,
+                        fonts,
+                        "icons/paintball_gun.png",
+                        "LOADOUT",
+                        "Guns, parts and camos",
+                        MenuAction::OpenLoadout,
                     );
                 });
 
                 // Games in your Portside hub.
-                card.spawn((
-                    Node {
+                col.spawn((
+                    tile_node(Node {
+                        flex_grow: 1.0,
+                        min_height: Val::Px(120.0),
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Stretch,
                         row_gap: Val::Px(8.0),
-                        padding: UiRect::all(Val::Px(14.0)),
+                        padding: UiRect::all(Val::Px(18.0)),
+                        overflow: Overflow::clip_y(),
                         ..default()
-                    },
-                    sliced(k("panels/panel_inset.png"), 28.0),
-                    ShowOn::Home,
+                    }),
+                    BackgroundColor(TILE_BG),
+                    BorderColor::all(TILE_BORDER),
                     HubSection,
                 ))
                 .with_children(|hub| {
                     hub.spawn((
                         Text::new("YOUR PORTSIDE HUB"),
-                        TextFont::from_font_size(12.0),
-                        TextColor(KIT_YELLOW),
+                        fonts.heading(22.0),
+                        TextColor(TEXT_PRIMARY),
                     ));
                     hub.spawn((
                         Text::new(""),
@@ -774,178 +860,427 @@ fn spawn_main_menu(
                         );
                     });
                 });
-
-                // Join screen (Tailcat address input + Connect / Paste / Back).
-                card.spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Stretch,
-                        row_gap: Val::Px(12.0),
-                        ..default()
-                    },
-                    ShowOn::Join,
-                ))
-                .with_children(|join| {
-                    join.spawn((
-                        Text::new("HOST TAILCAT ADDRESS (TYPE OR CTRL+V)"),
-                        TextFont::from_font_size(13.0),
-                        TextColor(TEXT_MUTED),
-                    ));
-                    join.spawn((
-                        Node {
-                            width: Val::Percent(100.0),
-                            min_height: Val::Px(54.0),
-                            padding: UiRect::axes(Val::Px(16.0), Val::Px(10.0)),
-                            align_items: AlignItems::Center,
-                            overflow: Overflow::clip(),
-                            ..default()
-                        },
-                        sliced(k("panels/panel_inset.png"), 28.0),
-                    ))
-                    .with_children(|input_box| {
-                        input_box.spawn((
-                            Text::new("Paste tc... address here"),
-                            TextFont::from_font_size(14.0),
-                            TextColor(TEXT_MUTED),
-                            JoinAddressText,
-                        ));
-                    });
-                    join.spawn(Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(10.0),
-                        ..default()
-                    })
-                    .with_children(|row| {
-                        spawn_menu_button(
-                            row,
-                            "PASTE",
-                            MenuAction::PasteAddress,
-                            ButtonStyle::SECONDARY,
-                            40.0,
-                            14.0,
-                            true,
-                        );
-                        spawn_menu_button(
-                            row,
-                            "CLEAR",
-                            MenuAction::ClearAddress,
-                            ButtonStyle::SECONDARY,
-                            40.0,
-                            14.0,
-                            true,
-                        );
-                    });
-                    join.spawn(Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(10.0),
-                        margin: UiRect::top(Val::Px(4.0)),
-                        ..default()
-                    })
-                    .with_children(|row| {
-                        spawn_menu_button(
-                            row,
-                            "BACK",
-                            MenuAction::BackToHome,
-                            ButtonStyle::SECONDARY,
-                            48.0,
-                            17.0,
-                            true,
-                        );
-                        spawn_menu_button(
-                            row,
-                            "CONNECT",
-                            MenuAction::ConnectJoin,
-                            ButtonStyle::PRIMARY,
-                            48.0,
-                            17.0,
-                            true,
-                        );
-                    });
-                });
-
-                // Cancel while connecting / starting a game.
-                card.spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Stretch,
-                        ..default()
-                    },
-                    ShowOn::Connecting,
-                ))
-                .with_children(|cancel_wrap| {
-                    spawn_menu_button(
-                        cancel_wrap,
-                        "CANCEL",
-                        MenuAction::CancelConnect,
-                        ButtonStyle::DANGER,
-                        44.0,
-                        16.0,
-                        false,
-                    );
-                });
-
-                card.spawn((
-                    Text::new(""),
-                    TextFont::from_font_size(14.0),
-                    TextColor(TEXT_STATUS),
-                    MenuStatusText,
-                ));
             });
         });
 
-    // Right: the player card with rank.
+    // Join screen: the Tailcat address input.
     commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                right: Val::Percent(4.0),
-                top: Val::Px(28.0),
-                width: Val::Px(300.0),
-                padding: UiRect::all(Val::Px(22.0)),
-                flex_direction: FlexDirection::Column,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(TOP_BAR_HEIGHT),
+                bottom: Val::Px(0.0),
+                justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                row_gap: Val::Px(8.0),
                 ..default()
             },
-            sliced(k("panels/card_neutral.png"), 28.0),
-            ShowOn::HomeIdle,
+            Pickable::IGNORE,
+            ShowOn::Join,
             DespawnOnExit(AppState::MainMenu),
         ))
-        .with_children(|card| {
-            card.spawn((
-                Text::new("RANKED ELIMINATION"),
-                TextFont::from_font_size(13.0),
-                TextColor(TEXT_MUTED),
-            ));
-            card.spawn((
-                ImageNode::new(k("badges/rank_bronze.png")),
+        .with_children(|root| {
+            root.spawn((
                 Node {
-                    width: Val::Px(96.0),
-                    height: Val::Px(96.0),
+                    width: Val::Px(580.0),
+                    padding: UiRect::all(Val::Px(30.0)),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Stretch,
+                    row_gap: Val::Px(12.0),
                     ..default()
                 },
-                RankCardPart::Badge,
+                sliced(k("panels/panel.png"), 28.0),
+            ))
+            .with_children(|join| {
+                join.spawn((
+                    Text::new("JOIN A MATCH"),
+                    fonts.heading(40.0),
+                    TextColor(TEXT_PRIMARY),
+                ));
+                join.spawn((
+                    Text::new("HOST TAILCAT ADDRESS (TYPE OR CTRL+V)"),
+                    TextFont::from_font_size(13.0),
+                    TextColor(TEXT_MUTED),
+                ));
+                join.spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        min_height: Val::Px(54.0),
+                        padding: UiRect::axes(Val::Px(16.0), Val::Px(10.0)),
+                        align_items: AlignItems::Center,
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    sliced(k("panels/panel_inset.png"), 28.0),
+                ))
+                .with_children(|input_box| {
+                    input_box.spawn((
+                        Text::new("Paste tc... address here"),
+                        TextFont::from_font_size(14.0),
+                        TextColor(TEXT_MUTED),
+                        JoinAddressText,
+                    ));
+                });
+                join.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(10.0),
+                    ..default()
+                })
+                .with_children(|row| {
+                    spawn_menu_button(
+                        row,
+                        "PASTE",
+                        MenuAction::PasteAddress,
+                        ButtonStyle::SECONDARY,
+                        40.0,
+                        14.0,
+                        true,
+                    );
+                    spawn_menu_button(
+                        row,
+                        "CLEAR",
+                        MenuAction::ClearAddress,
+                        ButtonStyle::SECONDARY,
+                        40.0,
+                        14.0,
+                        true,
+                    );
+                });
+                join.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(10.0),
+                    margin: UiRect::top(Val::Px(4.0)),
+                    ..default()
+                })
+                .with_children(|row| {
+                    spawn_menu_button(
+                        row,
+                        "BACK",
+                        MenuAction::BackToHome,
+                        ButtonStyle::SECONDARY,
+                        48.0,
+                        17.0,
+                        true,
+                    );
+                    spawn_menu_button(
+                        row,
+                        "CONNECT",
+                        MenuAction::ConnectJoin,
+                        ButtonStyle::PRIMARY,
+                        48.0,
+                        17.0,
+                        true,
+                    );
+                });
+            });
+        });
+
+    // Status, errors and Cancel, at the bottom.
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                bottom: Val::Px(56.0),
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+            GlobalZIndex(5),
+            DespawnOnExit(AppState::MainMenu),
+        ))
+        .with_children(|root| {
+            root.spawn((
+                Node {
+                    display: Display::None,
+                    min_width: Val::Px(420.0),
+                    max_width: Val::Px(760.0),
+                    padding: UiRect::axes(Val::Px(26.0), Val::Px(18.0)),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(18.0),
+                    ..default()
+                },
+                sliced(k("panels/dialog.png"), 28.0),
+                StatusBar,
+            ))
+            .with_children(|bar| {
+                bar.spawn((
+                    Text::new(""),
+                    TextFont::from_font_size(15.0),
+                    TextColor(TEXT_STATUS),
+                    Node {
+                        flex_grow: 1.0,
+                        ..default()
+                    },
+                    MenuStatusText,
+                ));
+                bar.spawn((
+                    Node {
+                        width: Val::Px(150.0),
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    },
+                    CancelWrap,
+                ))
+                .with_children(|w| {
+                    spawn_menu_button(
+                        w,
+                        "CANCEL",
+                        MenuAction::CancelConnect,
+                        ButtonStyle::DANGER,
+                        42.0,
+                        15.0,
+                        false,
+                    );
+                });
+            });
+        });
+
+    spawn_play_screen(&mut commands, &assets, &kit_fonts);
+}
+
+/// A tile's box: a thin border and square-ish corners.
+fn tile_node(node: Node) -> Node {
+    Node {
+        border: UiRect::all(Val::Px(2.0)),
+        border_radius: BorderRadius::all(Val::Px(6.0)),
+        ..node
+    }
+}
+
+/// The top bar: logo, tabs, and the player's rank on the right.
+fn spawn_top_bar(commands: &mut Commands, assets: &AssetServer, fonts: &UiKit) {
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                height: Val::Px(TOP_BAR_HEIGHT),
+                padding: UiRect::axes(Val::Px(28.0), Val::Px(0.0)),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(8.0),
+                border: UiRect::bottom(Val::Px(1.0)),
+                ..default()
+            },
+            BackgroundColor(TOP_BAR_BG),
+            BorderColor::all(TILE_BORDER),
+            GlobalZIndex(2),
+            DespawnOnExit(AppState::MainMenu),
+        ))
+        .with_children(|bar| {
+            bar.spawn((
+                ImageNode::new(assets.load("branding/logo.png")),
+                Node {
+                    width: Val::Px(110.0),
+                    height: Val::Px(60.0),
+                    margin: UiRect::right(Val::Px(22.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
             ));
-            card.spawn((
-                Text::new(""),
-                kit_fonts.heading(32.0),
+            let tabs: [(&str, MenuAction, Option<MenuScreen>); 4] = [
+                ("HOME", MenuAction::BackToHome, Some(MenuScreen::Home)),
+                ("PLAY", MenuAction::OpenPlay, Some(MenuScreen::Play)),
+                ("LOADOUT", MenuAction::OpenLoadout, None),
+                ("OPTIONS", MenuAction::OpenSettings, None),
+            ];
+            for (label, action, screen) in tabs {
+                bar.spawn((
+                    Node {
+                        height: Val::Percent(100.0),
+                        padding: UiRect::axes(Val::Px(18.0), Val::Px(0.0)),
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    action,
+                    NavTab(screen),
+                    Hover::default(),
+                ))
+                .with_children(|tab| {
+                    tab.spawn((
+                        Text::new(label),
+                        fonts.heading(28.0),
+                        TextColor(TEXT_MUTED),
+                        Pickable::IGNORE,
+                    ));
+                    if let Some(screen) = screen {
+                        tab.spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: Val::Px(12.0),
+                                right: Val::Px(12.0),
+                                bottom: Val::Px(0.0),
+                                height: Val::Px(4.0),
+                                ..default()
+                            },
+                            BackgroundColor(KIT_YELLOW),
+                            Visibility::Hidden,
+                            Pickable::IGNORE,
+                            NavUnderline(screen),
+                        ));
+                    }
+                });
+            }
+
+            // Push the profile to the right.
+            bar.spawn((
+                Node {
+                    flex_grow: 1.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ));
+
+            bar.spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(12.0),
+                    padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
+                    margin: UiRect::right(Val::Px(10.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(6.0)),
+                    ..default()
+                },
+                BackgroundColor(TILE_BG),
+                BorderColor::all(TILE_BORDER),
+                Pickable::IGNORE,
+            ))
+            .with_children(|profile| {
+                profile.spawn((
+                    ImageNode::new(kit(assets, "badges/rank_bronze.png")),
+                    Node {
+                        width: Val::Px(44.0),
+                        height: Val::Px(44.0),
+                        ..default()
+                    },
+                    RankCardPart::Badge,
+                ));
+                profile
+                    .spawn(Node {
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    })
+                    .with_children(|c| {
+                        c.spawn((
+                            Text::new(""),
+                            fonts.heading(20.0),
+                            TextColor(TEXT_PRIMARY),
+                            RankCardPart::Name,
+                        ));
+                        c.spawn((
+                            Text::new(""),
+                            TextFont::from_font_size(12.0),
+                            TextColor(KIT_YELLOW),
+                            RankCardPart::Points,
+                        ));
+                    });
+            });
+
+            // Quit.
+            bar.spawn((
+                Node {
+                    width: Val::Px(48.0),
+                    height: Val::Px(48.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::all(Val::Px(6.0)),
+                    ..default()
+                },
+                BackgroundColor(TILE_BG),
+                BorderColor::all(TILE_BORDER),
+                Tile,
+                Hover::default(),
+                MenuAction::Quit,
+            ))
+            .with_children(|q| {
+                q.spawn((
+                    ImageNode::new(kit(assets, "icons/exit.png")),
+                    Node {
+                        width: Val::Px(26.0),
+                        height: Val::Px(26.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ));
+            });
+        });
+}
+
+/// The ranked tile: badge, division, progress and record.
+fn spawn_ranked_tile(col: &mut ChildSpawnerCommands, assets: &AssetServer, fonts: &UiKit) {
+    col.spawn((
+        tile_node(Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            column_gap: Val::Px(20.0),
+            padding: UiRect::all(Val::Px(22.0)),
+            ..default()
+        }),
+        BackgroundColor(TILE_BG),
+        BackgroundGradient::from(LinearGradient::to_right(vec![
+            ColorStop::auto(Color::srgba(0.96, 0.77, 0.17, 0.10)),
+            ColorStop::auto(Color::NONE),
+        ])),
+        BorderColor::all(TILE_BORDER),
+        Tile,
+        Hover::default(),
+        MenuAction::PlayRanked,
+    ))
+    .with_children(|tile| {
+        tile.spawn((
+            ImageNode::new(kit(assets, "badges/rank_bronze.png")),
+            Node {
+                width: Val::Px(104.0),
+                height: Val::Px(104.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+            RankCardPart::Badge,
+        ));
+        tile.spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(4.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|c| {
+            c.spawn((
+                Text::new("RANKED"),
+                fonts.heading(34.0),
                 TextColor(TEXT_PRIMARY),
+                Pickable::IGNORE,
+            ));
+            c.spawn((
+                Text::new(""),
+                TextFont::from_font_size(16.0),
+                TextColor(TEXT_PRIMARY),
+                Pickable::IGNORE,
                 RankCardPart::Name,
             ));
-            card.spawn((
-                Text::new(""),
-                TextFont::from_font_size(15.0),
-                TextColor(KIT_YELLOW),
-                RankCardPart::Points,
-            ));
-            card.spawn((
+            c.spawn((
                 Node {
                     width: Val::Percent(100.0),
-                    height: Val::Px(20.0),
+                    height: Val::Px(16.0),
                     padding: UiRect::all(Val::Px(3.0)),
+                    margin: UiRect::vertical(Val::Px(4.0)),
                     ..default()
                 },
-                sliced(k("controls/progress_frame.png"), 10.0),
+                sliced(kit(assets, "controls/progress_frame.png"), 8.0),
+                Pickable::IGNORE,
             ))
             .with_children(|bar| {
                 bar.spawn((
@@ -954,25 +1289,177 @@ fn spawn_main_menu(
                         height: Val::Percent(100.0),
                         ..default()
                     },
-                    sliced(k("controls/progress_fill_yellow.png"), 10.0),
+                    sliced(kit(assets, "controls/progress_fill_yellow.png"), 6.0),
+                    Pickable::IGNORE,
                     RankCardPart::Fill,
                 ));
             });
-            card.spawn((
+            c.spawn((
                 Text::new(""),
                 TextFont::from_font_size(12.0),
                 TextColor(TEXT_MUTED),
+                Pickable::IGNORE,
                 RankCardPart::Next,
             ));
-            card.spawn((
+            c.spawn((
                 Text::new(""),
-                TextFont::from_font_size(13.0),
+                TextFont::from_font_size(12.0),
                 TextColor(TEXT_PRIMARY),
+                Pickable::IGNORE,
                 RankCardPart::Record,
             ));
         });
+    });
+}
 
-    spawn_play_screen(&mut commands, &assets, &kit_fonts);
+/// A small square-ish tile with an icon and two lines.
+fn spawn_small_tile(
+    row: &mut ChildSpawnerCommands,
+    assets: &AssetServer,
+    fonts: &UiKit,
+    icon: &str,
+    title: &str,
+    line: &str,
+    action: MenuAction,
+) {
+    row.spawn((
+        tile_node(Node {
+            flex_grow: 1.0,
+            flex_basis: Val::Px(0.0),
+            height: Val::Px(112.0),
+            padding: UiRect::all(Val::Px(18.0)),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::SpaceBetween,
+            ..default()
+        }),
+        BackgroundColor(TILE_BG),
+        BorderColor::all(TILE_BORDER),
+        Tile,
+        Hover::default(),
+        action,
+    ))
+    .with_children(|t| {
+        t.spawn((
+            ImageNode::new(kit(assets, icon)),
+            Node {
+                width: Val::Px(34.0),
+                height: Val::Px(34.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ));
+        t.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|c| {
+            c.spawn((
+                Text::new(title.to_string()),
+                fonts.heading(26.0),
+                TextColor(TEXT_PRIMARY),
+                Pickable::IGNORE,
+            ));
+            c.spawn((
+                Text::new(line.to_string()),
+                TextFont::from_font_size(12.0),
+                TextColor(TEXT_MUTED),
+                Pickable::IGNORE,
+            ));
+        });
+    });
+}
+
+fn on_hover_over(
+    over: On<PointerOver>,
+    mut q: Query<&mut Hover>,
+    mut commands: Commands,
+    sounds: Option<Res<UiSounds>>,
+    settings: Option<Res<AudioSettings>>,
+) {
+    if let Ok(mut h) = q.get_mut(over.entity) {
+        h.0 = true;
+        if let Some(sounds) = sounds {
+            ui_sound(&mut commands, &sounds.hover, 0.35, settings.as_deref());
+        }
+    }
+}
+
+fn on_hover_out(out: On<PointerOut>, mut q: Query<&mut Hover>) {
+    if let Ok(mut h) = q.get_mut(out.entity) {
+        h.0 = false;
+    }
+}
+
+/// Lights up tiles and tabs under the mouse, and the tab you're on.
+#[allow(clippy::type_complexity)]
+fn style_tiles_and_tabs(
+    menu: Res<MenuState>,
+    mut tiles: Query<(&Hover, &mut BorderColor), (With<Tile>, Changed<Hover>)>,
+    tabs: Query<(&NavTab, &Hover, &Children)>,
+    mut texts: Query<&mut TextColor>,
+    mut lines: Query<(&NavUnderline, &mut Visibility)>,
+) {
+    for (h, mut border) in &mut tiles {
+        *border = BorderColor::all(if h.0 { TILE_BORDER_HOVER } else { TILE_BORDER });
+    }
+    for (tab, h, children) in &tabs {
+        let color = if tab.0 == Some(menu.screen) {
+            TEXT_PRIMARY
+        } else if h.0 {
+            KIT_YELLOW
+        } else {
+            TEXT_MUTED
+        };
+        for &c in children {
+            if let Ok(mut t) = texts.get_mut(c)
+                && t.0 != color
+            {
+                t.0 = color;
+            }
+        }
+    }
+    for (line, mut vis) in &mut lines {
+        let want = if line.0 == menu.screen {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *vis != want {
+            *vis = want;
+        }
+    }
+}
+
+/// Crops [`CoverImage`]s to their box so the art fills it without stretching.
+fn fit_cover_images(
+    images: Res<Assets<Image>>,
+    mut q: Query<(&mut ImageNode, &ComputedNode), With<CoverImage>>,
+) {
+    for (mut img, node) in &mut q {
+        let Some(image) = images.get(&img.image) else {
+            continue;
+        };
+        let size = image.size_f32();
+        let boxed = node.size();
+        if size.x <= 0.0 || size.y <= 0.0 || boxed.x <= 0.0 || boxed.y <= 0.0 {
+            continue;
+        }
+        let want = boxed.x / boxed.y;
+        let have = size.x / size.y;
+        let crop = if have > want {
+            let w = size.y * want;
+            Rect::new((size.x - w) * 0.5, 0.0, (size.x + w) * 0.5, size.y)
+        } else {
+            let h = size.x / want;
+            Rect::new(0.0, (size.y - h) * 0.5, size.x, (size.y + h) * 0.5)
+        };
+        if img.rect != Some(crop) {
+            img.rect = Some(crop);
+        }
+    }
 }
 
 /// The play screen: mode cards and the map picker over a live view of the map.
@@ -985,7 +1472,7 @@ fn spawn_play_screen(commands: &mut Commands, assets: &AssetServer, fonts: &UiKi
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Px(36.0),
-                top: Val::Px(28.0),
+                top: Val::Px(TOP_BAR_HEIGHT + 20.0),
                 max_width: Val::Px(520.0),
                 padding: UiRect::axes(Val::Px(24.0), Val::Px(16.0)),
                 flex_direction: FlexDirection::Column,
@@ -1228,13 +1715,9 @@ fn spawn_play_screen(commands: &mut Commands, assets: &AssetServer, fonts: &UiKi
 }
 
 /// Shows the parts of the menu for the current screen.
-fn show_menu_screens(
-    menu: Res<MenuState>,
-    net: Res<NetworkState>,
-    mut q: Query<(&ShowOn, &mut Node)>,
-) {
+fn show_menu_screens(menu: Res<MenuState>, mut q: Query<(&ShowOn, &mut Node)>) {
     for (show, mut node) in &mut q {
-        let want = if show.visible(menu.screen, net.is_connecting) {
+        let want = if show.visible(menu.screen) {
             Display::Flex
         } else {
             Display::None
@@ -1506,6 +1989,7 @@ fn handle_join_text_input(
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn update_menu_ui(
     menu: Res<MenuState>,
     net: Res<NetworkState>,
@@ -1517,6 +2001,8 @@ fn update_menu_ui(
         (&mut Text, &mut TextColor),
         (With<MenuStatusText>, Without<JoinAddressText>),
     >,
+    mut bar_q: Query<&mut Node, (With<StatusBar>, Without<CancelWrap>)>,
+    mut cancel_q: Query<&mut Node, (With<CancelWrap>, Without<StatusBar>)>,
 ) {
     if let Ok((mut text, mut color)) = addr_text_q.single_mut() {
         if menu.join_address.is_empty() {
@@ -1537,6 +2023,19 @@ fn update_menu_ui(
             color.0 = TEXT_STATUS;
         } else {
             text.0.clear();
+        }
+        let show = |b: bool| if b { Display::Flex } else { Display::None };
+        if let Ok(mut bar) = bar_q.single_mut() {
+            let want = show(!text.0.is_empty());
+            if bar.display != want {
+                bar.display = want;
+            }
+        }
+        if let Ok(mut cancel) = cancel_q.single_mut() {
+            let want = show(net.is_connecting);
+            if cancel.display != want {
+                cancel.display = want;
+            }
         }
     }
 }
@@ -1731,6 +2230,7 @@ fn spawn_in_game_hud(
             },
             Pickable::IGNORE,
             DespawnOnExit(AppState::InGame),
+            crate::hud::HudPart,
         ))
         .with_children(|root| {
             // Top-left multiplayer info & actions bar
