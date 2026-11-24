@@ -1,7 +1,7 @@
 use crate::protocol::{
-    ClientDatagram, ClientMessage, GAME_PORT, HitEvent, PING_EVERY, PlayerId, PlayerSnapshot,
-    PlayerState, SILENCE_TIMEOUT, ServerDatagram, ServerMessage, Team, encode_server_datagrams,
-    player_color, read_frame, spawn_position, write_frame,
+    ClientDatagram, ClientMessage, GAME_PORT, HitEvent, MatchState, PING_EVERY, PlayerId,
+    PlayerSnapshot, PlayerState, SILENCE_TIMEOUT, ServerDatagram, ServerMessage,
+    encode_server_datagrams, enemies, player_color, read_frame, spawn_position, write_frame,
 };
 use bevy::prelude::*;
 use std::{
@@ -58,6 +58,8 @@ enum OutboundCommand {
         state: PlayerState,
     },
     ReportHit(HitEvent),
+    /// Host only: the match clock and scores, for everyone.
+    Match(Box<MatchState>),
 }
 
 /// Events produced by the background Tailcat networking tasks for Bevy to process.
@@ -75,6 +77,7 @@ pub enum NetEvent {
     Connected {
         your_id: PlayerId,
         players: Vec<PlayerSnapshot>,
+        match_state: Option<MatchState>,
     },
     PlayerJoined(PlayerSnapshot),
     PlayerLeft {
@@ -89,6 +92,8 @@ pub enum NetEvent {
     Roster(Vec<PlayerId>),
     /// A shooter-confirmed hit on the local player.
     HitReceived(HitEvent),
+    /// The host's match clock and scores.
+    Match(MatchState),
     Error(String),
     Disconnected(String),
 }
@@ -118,6 +123,8 @@ pub struct NetworkState {
     pub players: HashMap<PlayerId, PlayerSnapshot>,
     /// Confirmed hits on the local player queued for combat to apply this frame.
     pub pending_hits: Vec<HitEvent>,
+    /// The match: what the host decides (and, hosting, what we decide).
+    pub match_state: MatchState,
 }
 
 impl Default for NetworkState {
@@ -142,6 +149,7 @@ impl Default for NetworkState {
             is_connecting: false,
             players: HashMap::new(),
             pending_hits: Vec::new(),
+            match_state: MatchState::default(),
         }
     }
 }
@@ -264,6 +272,15 @@ impl NetworkState {
         }
     }
 
+    /// Host only: tells everyone the match clock, phase and scores.
+    pub fn send_match(&self, state: &MatchState) {
+        if let Some(session) = &self.session {
+            let _ = session
+                .tx_out
+                .send(OutboundCommand::Match(Box::new(state.clone())));
+        }
+    }
+
     /// Drains all pending network events produced by background tasks without blocking.
     pub fn poll_events(&self) -> Vec<NetEvent> {
         let Some(session) = &self.session else {
@@ -293,6 +310,8 @@ impl NetworkState {
         self.status_text.clear();
         self.players.clear();
         self.pending_hits.clear();
+        self.match_state = MatchState::default();
+        crate::protocol::set_free_for_all(false);
     }
 
     pub fn active_role(&self) -> Option<NetRole> {
@@ -342,6 +361,7 @@ struct HostSharedState {
     players: HashMap<PlayerId, PlayerSnapshot>,
     clients: HashMap<PlayerId, mpsc::UnboundedSender<ServerMessage>>,
     seen_hits: HitTracker,
+    match_state: Option<MatchState>,
 }
 
 impl HostSharedState {
@@ -370,7 +390,7 @@ async fn relay_hit(
     tx_in: &mpsc::UnboundedSender<NetEvent>,
 ) {
     hit.attacker = sender_id;
-    if hit.victim == sender_id || Team::of(hit.victim) == Team::of(sender_id) {
+    if !enemies(sender_id, hit.victim) {
         return;
     }
     if !hit.damage.is_finite() || hit.damage <= 0.0 {
@@ -407,6 +427,7 @@ async fn run_host_session(
         players: HashMap::from([(0, host_player)]),
         clients: HashMap::new(),
         seen_hits: HitTracker::default(),
+        match_state: None,
     }));
     let next_id = Arc::new(AtomicU32::new(1));
 
@@ -474,6 +495,9 @@ async fn run_host_session(
                 Some(OutboundCommand::ReportHit(hit)) => {
                     relay_hit(0, hit, &shared, &tx_in).await;
                 }
+                Some(OutboundCommand::Match(state)) => {
+                    set_match(&shared, *state).await;
+                }
                 None => {
                     host_goodbye(&shared, &shutdown, udp_task).await;
                     return;
@@ -517,6 +541,9 @@ async fn run_host_session(
                     Some(OutboundCommand::ReportHit(hit)) => {
                         relay_hit(0, hit, &shared, &tx_in).await;
                     }
+                    Some(OutboundCommand::Match(state)) => {
+                        set_match(&shared, *state).await;
+                    }
                     None => break,
                 }
             }
@@ -553,6 +580,13 @@ async fn host_goodbye(
     tokio::time::sleep(GOODBYE_GRACE).await;
     shutdown.notify_waiters();
     udp_task.abort();
+}
+
+/// Remembers the match (for players who join later) and tells everyone.
+async fn set_match(shared: &Arc<AsyncMutex<HostSharedState>>, state: MatchState) {
+    let mut guard = shared.lock().await;
+    guard.broadcast(&ServerMessage::Match(state.clone()));
+    guard.match_state = Some(state);
 }
 
 async fn set_host_transform(
@@ -624,7 +658,11 @@ async fn run_udp_host(
                             guard.broadcast(&ServerMessage::PlayerJoined(snapshot));
                             guard.players.insert(id, snapshot);
                             guard.clients.insert(id, client_tx);
-                            ServerMessage::Welcome { your_id: id, players: guard.snapshot_list() }
+                            ServerMessage::Welcome {
+                                your_id: id,
+                                players: guard.snapshot_list(),
+                                match_state: guard.match_state.clone(),
+                            }
                         };
                         let welcome = encode_server_datagrams(&welcome);
                         for d in &welcome {
@@ -745,6 +783,7 @@ async fn handle_host_client(
         ServerMessage::Welcome {
             your_id: player_id,
             players: guard.snapshot_list(),
+            match_state: guard.match_state.clone(),
         }
     };
     // Welcome goes first, through the same writer as everything else.
@@ -888,8 +927,16 @@ async fn run_client_session(
         }
     };
     match welcome {
-        Ok(Some(ServerMessage::Welcome { your_id, players })) => {
-            let _ = tx_in.send(NetEvent::Connected { your_id, players });
+        Ok(Some(ServerMessage::Welcome {
+            your_id,
+            players,
+            match_state,
+        })) => {
+            let _ = tx_in.send(NetEvent::Connected {
+                your_id,
+                players,
+                match_state,
+            });
         }
         Ok(Some(_)) => {
             reader_task.abort();
@@ -952,6 +999,7 @@ async fn run_client_session(
                             break Some("Lost connection to host.".to_string());
                         }
                     }
+                    Some(OutboundCommand::Match(_)) => {}
                     None => break None,
                 }
             }
@@ -990,8 +1038,11 @@ async fn run_client_session(
                     Some(ServerMessage::PlayerHit(hit)) => {
                         let _ = tx_in.send(NetEvent::HitReceived(hit));
                     }
-                    Some(ServerMessage::Welcome { your_id, players }) => {
-                        let _ = tx_in.send(NetEvent::Connected { your_id, players });
+                    Some(ServerMessage::Match(state)) => {
+                        let _ = tx_in.send(NetEvent::Match(state));
+                    }
+                    Some(ServerMessage::Welcome { your_id, players, match_state }) => {
+                        let _ = tx_in.send(NetEvent::Connected { your_id, players, match_state });
                     }
                     Some(ServerMessage::HostLeaving) | None => {
                         break Some("Host ended the game.".to_string());
@@ -1050,6 +1101,7 @@ async fn run_udp_client_session(
     let mut retry = tokio::time::interval(Duration::from_millis(250));
     let mut welcome_id: Option<PlayerId> = None;
     let mut welcome_players: Vec<PlayerSnapshot> = Vec::new();
+    let mut welcome_match: Option<MatchState> = None;
     loop {
         tokio::select! {
             _ = shutdown.notified() => return,
@@ -1069,9 +1121,10 @@ async fn run_udp_client_session(
             res = sock.recv(&mut buf) => {
                 let Ok(len) = res else { continue };
                 match serde_json::from_slice::<ServerDatagram>(&buf[..len]) {
-                    Ok(ServerDatagram::Msg(ServerMessage::Welcome { your_id, players })) => {
+                    Ok(ServerDatagram::Msg(ServerMessage::Welcome { your_id, players, match_state })) => {
                         welcome_id = Some(your_id);
                         welcome_players = players;
+                        welcome_match = match_state;
                     }
                     // A big world comes as Welcome then chunks, right behind it.
                     Ok(ServerDatagram::Players { players }) if welcome_id.is_some() => {
@@ -1085,6 +1138,7 @@ async fn run_udp_client_session(
     let _ = tx_in.send(NetEvent::Connected {
         your_id: welcome_id.unwrap_or_default(),
         players: welcome_players,
+        match_state: welcome_match,
     });
 
     let mut latest_transform: Option<([f32; 3], f32, PlayerState)> = None;
@@ -1122,6 +1176,7 @@ async fn run_udp_client_session(
                         }
                     });
                 }
+                Some(OutboundCommand::Match(_)) => {}
                 None => break None,
             },
             _ = send_tick.tick() => {
@@ -1147,6 +1202,7 @@ async fn run_udp_client_session(
                     ServerDatagram::Msg(ServerMessage::PlayerLeft { id }) => NetEvent::PlayerLeft { id },
                     ServerDatagram::Msg(ServerMessage::WorldState { players }) => NetEvent::WorldState { players },
                     ServerDatagram::Msg(ServerMessage::PlayerHit(hit)) => NetEvent::HitReceived(hit),
+                    ServerDatagram::Msg(ServerMessage::Match(state)) => NetEvent::Match(state),
                     ServerDatagram::Msg(ServerMessage::Welcome { .. }) => continue,
                     ServerDatagram::Players { players } => NetEvent::PlayerUpdates(players),
                     ServerDatagram::Roster { ids } => NetEvent::Roster(ids),
@@ -1204,7 +1260,10 @@ mod tests {
         let mut client_id = None;
         for _ in 0..200 {
             for ev in client.poll_events() {
-                if let NetEvent::Connected { your_id, players } = ev {
+                if let NetEvent::Connected {
+                    your_id, players, ..
+                } = ev
+                {
                     assert!(players.iter().any(|p| p.id == 0));
                     client_id = Some(your_id);
                 }
@@ -1410,6 +1469,7 @@ mod tests {
         let welcome = ServerDatagram::Msg(ServerMessage::Welcome {
             your_id: 1,
             players: vec![],
+            match_state: None,
         });
         fake_host
             .send_to(&serde_json::to_vec(&welcome).unwrap(), from)
@@ -1458,7 +1518,10 @@ mod tests {
             let mut id = None;
             for _ in 0..200 {
                 for ev in client.poll_events() {
-                    if let NetEvent::Connected { your_id, players } = ev {
+                    if let NetEvent::Connected {
+                        your_id, players, ..
+                    } = ev
+                    {
                         assert!(players.iter().any(|p| p.id == 0));
                         id = Some(your_id);
                     }

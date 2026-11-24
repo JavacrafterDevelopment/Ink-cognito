@@ -1,10 +1,13 @@
-//! The rigged blue / orange player models: Idle and Walk animations from the
-//! pack, an upper body that aims where the player looks, and the player's gun
-//! in their hands.
+//! The rigged blue / orange player models: the pack's animations (idle,
+//! walk, run, aim, crouch, jump, reload, hit react and victory) blended from
+//! what each player is doing, an upper body that aims where the player looks,
+//! and the player's gun in their hands.
+//!
+//! The pack's Eliminated clip is never used: eliminated players ragdoll.
 
 use crate::{
     loadout::{GunAssets, GunModel, Loadout, spawn_gun_parts},
-    protocol::Team,
+    protocol::{FLAG_AIMING, FLAG_AIRBORNE, FLAG_CROUCH, FLAG_RELOADING, Team},
 };
 use bevy::{
     app::AnimationSystems, prelude::*, transform::TransformSystems,
@@ -43,9 +46,55 @@ pub struct PlayerModelAssets {
     pub blue: Handle<WorldAsset>,
     pub orange: Handle<WorldAsset>,
     graph: Handle<AnimationGraph>,
+    clips: Clips,
+}
+
+/// Graph nodes for the clips we use.
+#[derive(Clone, Copy)]
+struct Clips {
     idle: AnimationNodeIndex,
     walk: AnimationNodeIndex,
+    run: AnimationNodeIndex,
+    aim_idle: AnimationNodeIndex,
+    aim_walk: AnimationNodeIndex,
+    reload: AnimationNodeIndex,
+    crouch_idle: AnimationNodeIndex,
+    crouch_walk: AnimationNodeIndex,
+    jump: AnimationNodeIndex,
+    hit: AnimationNodeIndex,
+    victory: AnimationNodeIndex,
 }
+
+impl Clips {
+    /// The looping clips blended by movement.
+    fn looping(&self) -> [AnimationNodeIndex; 9] {
+        [
+            self.idle,
+            self.walk,
+            self.run,
+            self.aim_idle,
+            self.aim_walk,
+            self.reload,
+            self.crouch_idle,
+            self.crouch_walk,
+            self.victory,
+        ]
+    }
+}
+
+/// Clip numbers in the rigged player files.
+const CLIP_IDLE: usize = 0;
+const CLIP_WALK: usize = 1;
+const CLIP_RUN: usize = 2;
+const CLIP_AIM_IDLE: usize = 3;
+const CLIP_AIM_WALK: usize = 4;
+const CLIP_RELOAD: usize = 6;
+const CLIP_CROUCH_IDLE: usize = 7;
+const CLIP_CROUCH_WALK: usize = 8;
+const CLIP_JUMP: usize = 9;
+const CLIP_HIT_REACT: usize = 10;
+// 11 is Eliminated: not used, players ragdoll instead.
+const CLIP_VICTORY: usize = 12;
 
 impl PlayerModelAssets {
     pub fn scene(&self, team: Team) -> Handle<WorldAsset> {
@@ -62,16 +111,39 @@ fn load_player_assets(
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     // Both models share the same skeleton and clips.
-    let (graph, nodes) = AnimationGraph::from_clips([
-        assets.load(GltfAssetLabel::Animation(0).from_asset(BLUE_MODEL)),
-        assets.load(GltfAssetLabel::Animation(1).from_asset(BLUE_MODEL)),
-    ]);
+    let order = [
+        CLIP_IDLE,
+        CLIP_WALK,
+        CLIP_RUN,
+        CLIP_AIM_IDLE,
+        CLIP_AIM_WALK,
+        CLIP_RELOAD,
+        CLIP_CROUCH_IDLE,
+        CLIP_CROUCH_WALK,
+        CLIP_JUMP,
+        CLIP_HIT_REACT,
+        CLIP_VICTORY,
+    ];
+    let (graph, n) = AnimationGraph::from_clips(
+        order.map(|i| assets.load(GltfAssetLabel::Animation(i).from_asset(BLUE_MODEL))),
+    );
     commands.insert_resource(PlayerModelAssets {
         blue: assets.load(GltfAssetLabel::Scene(0).from_asset(BLUE_MODEL)),
         orange: assets.load(GltfAssetLabel::Scene(0).from_asset(ORANGE_MODEL)),
         graph: graphs.add(graph),
-        idle: nodes[0],
-        walk: nodes[1],
+        clips: Clips {
+            idle: n[0],
+            walk: n[1],
+            run: n[2],
+            aim_idle: n[3],
+            aim_walk: n[4],
+            reload: n[5],
+            crouch_idle: n[6],
+            crouch_walk: n[7],
+            jump: n[8],
+            hit: n[9],
+            victory: n[10],
+        },
     });
 }
 
@@ -86,6 +158,13 @@ pub struct PlayerPose {
     pub pitch: f32,
     pub speed: f32,
     pub loadout: u32,
+    /// `protocol::FLAG_*` bits: crouching, airborne, aiming, reloading.
+    pub flags: u8,
+    pub health: f32,
+    /// Celebrating a won match.
+    pub victory: bool,
+    /// Counts down after taking a hit (hit react).
+    pub hit_timer: f32,
 }
 
 /// The model's bones by name, once spawned.
@@ -181,27 +260,85 @@ const UPPER_ARM: f32 = 0.28;
 const FOREARM: f32 = 0.25;
 
 fn drive_animation(
+    time: Res<Time>,
     player_assets: Res<PlayerModelAssets>,
-    models: Query<(&Rig, &PlayerPose)>,
+    mut models: Query<(&Rig, &mut PlayerPose)>,
     mut players: Query<&mut AnimationPlayer>,
+    mut last_health: Local<HashMap<Entity, f32>>,
 ) {
-    for (rig, pose) in &models {
-        let Some(mut player) = rig.anim_player.and_then(|e| players.get_mut(e).ok()) else {
+    let c = player_assets.clips;
+    let dt = time.delta_secs();
+    let k = 1.0 - (-10.0 * dt).exp();
+    for (rig, mut pose) in &mut models {
+        let Some(anim_e) = rig.anim_player else {
             continue;
         };
-        if !player.is_playing_animation(player_assets.idle) {
-            player.play(player_assets.idle).repeat();
+        let Ok(mut player) = players.get_mut(anim_e) else {
+            continue;
+        };
+        for node in c.looping() {
+            if !player.is_playing_animation(node) {
+                player.play(node).repeat().set_weight(0.0);
+            }
         }
-        if !player.is_playing_animation(player_assets.walk) {
-            player.play(player_assets.walk).repeat();
+        // A hit (health went down while alive): flinch.
+        let prev = last_health
+            .insert(anim_e, pose.health)
+            .unwrap_or(pose.health);
+        if pose.health < prev - 0.5 && pose.health > 0.0 {
+            pose.hit_timer = 0.4;
+            player.play(c.hit).replay();
         }
-        let walk = (pose.speed / 5.0).clamp(0.0, 1.0);
-        if let Some(anim) = player.animation_mut(player_assets.walk) {
-            anim.set_weight(walk);
-            anim.set_speed((pose.speed / 6.5).clamp(0.6, 1.7));
+        pose.hit_timer = (pose.hit_timer - dt).max(0.0);
+
+        let crouch = pose.flags & FLAG_CROUCH != 0;
+        let airborne = pose.flags & FLAG_AIRBORNE != 0;
+        let aiming = pose.flags & FLAG_AIMING != 0;
+        let reloading = pose.flags & FLAG_RELOADING != 0;
+        let moving = (pose.speed / 3.0).clamp(0.0, 1.0);
+        let run = ((pose.speed - 6.5) / 3.0).clamp(0.0, 1.0);
+
+        // Target weights for each clip.
+        let mut w: HashMap<AnimationNodeIndex, f32> = HashMap::new();
+        if pose.victory {
+            w.insert(c.victory, 1.0);
+        } else if airborne {
+            w.insert(c.jump, 1.0);
+        } else if crouch {
+            w.insert(c.crouch_idle, 1.0 - moving);
+            w.insert(c.crouch_walk, moving);
+        } else if aiming {
+            w.insert(c.aim_idle, 1.0 - moving);
+            w.insert(c.aim_walk, moving);
+        } else {
+            w.insert(c.idle, 1.0 - moving);
+            w.insert(c.walk, moving * (1.0 - run));
+            w.insert(c.run, moving * run);
         }
-        if let Some(anim) = player.animation_mut(player_assets.idle) {
-            anim.set_weight(1.0 - walk);
+        if reloading && !pose.victory {
+            // Mixed over the legs' clip: the arms do the work.
+            for v in w.values_mut() {
+                *v *= 0.5;
+            }
+            w.insert(c.reload, 0.5);
+        }
+        let hit = (pose.hit_timer / 0.4) * 0.6;
+
+        for node in c.looping().into_iter().chain([c.jump]) {
+            let target = w.get(&node).copied().unwrap_or(0.0) * (1.0 - hit);
+            if node == c.jump && target > 0.0 && !player.is_playing_animation(node) {
+                player.play(node).repeat();
+            }
+            if let Some(anim) = player.animation_mut(node) {
+                let cur = anim.weight();
+                anim.set_weight(cur + (target - cur) * k);
+                if node == c.walk || node == c.crouch_walk || node == c.aim_walk {
+                    anim.set_speed((pose.speed / 6.5).clamp(0.6, 1.7));
+                }
+            }
+        }
+        if let Some(anim) = player.animation_mut(c.hit) {
+            anim.set_weight(hit);
         }
     }
 }
@@ -251,6 +388,11 @@ fn elbow_for(shoulder: Vec3, target: Vec3, pole: Vec3) -> (Vec3, Vec3) {
 /// After the animation: lean the chest toward the aim and put both hands on the gun.
 fn pose_upper_body(models: Query<(&Rig, &PlayerPose)>, mut transforms: Query<&mut Transform>) {
     for (rig, pose) in &models {
+        // Celebrating: the victory clip moves freely.
+        if pose.victory {
+            continue;
+        }
+        let reloading = pose.flags & FLAG_RELOADING != 0;
         if let Some(mut chest) = rig.bone("Spine2").and_then(|e| transforms.get_mut(e).ok()) {
             chest.rotation = Quat::from_rotation_x(-pose.pitch * 0.85);
         }
@@ -275,6 +417,10 @@ fn pose_upper_body(models: Query<(&Rig, &PlayerPose)>, mut transforms: Query<&mu
                 Vec3::new(0.4, -1.0, 0.0),
             ),
         ] {
+            // Reloading: the left hand leaves the foregrip for the hopper.
+            if reloading && arm == "LeftArm" {
+                continue;
+            }
             let (elbow, hand) = elbow_for(shoulder, target, pole);
             let upper = Quat::from_rotation_arc(rest, (elbow - shoulder).normalize_or(rest));
             let fore_world =

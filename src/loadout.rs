@@ -2,7 +2,11 @@
 //! the LowPoly Armory set) or one of the water guns, plus the stats each part
 //! gives. A loadout packs into a `u32` so it rides along in `PlayerState`.
 
-use bevy::prelude::*;
+use bevy::{
+    gltf::GltfMaterialName,
+    image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
+    prelude::*,
+};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -39,6 +43,16 @@ pub const BODIES: &[Part] = &[
         blurb: "Full-auto workhorse. Heavy to carry.",
         model: "models/guns/bodies/titan.glb",
     },
+    Part {
+        name: "Breacher",
+        blurb: "Paint shotgun: six balls a pull. Brutal up close.",
+        model: "models/guns/bodies/shotgun.glb",
+    },
+    Part {
+        name: "Longshot",
+        blurb: "Bolt-action sniper marker. Two hits splat.",
+        model: "models/guns/bodies/sniper.glb",
+    },
 ];
 
 pub const BARRELS: &[Part] = &[
@@ -67,6 +81,21 @@ pub const BARRELS: &[Part] = &[
         blurb: "Hits harder, groups wider.",
         model: "models/guns/attachments/barrels/barrel_bull.glb",
     },
+    Part {
+        name: "Sawed-off",
+        blurb: "Short and wide: light, hits a bit harder, sprays.",
+        model: "models/guns/attachments/barrels/barrel_sawed_off.glb",
+    },
+    Part {
+        name: "Suppressor",
+        blurb: "Near-silent shots, slightly tighter.",
+        model: "models/guns/attachments/barrels/barrel_suppressor.glb",
+    },
+    Part {
+        name: "Twin",
+        blurb: "Two bores: cycles faster, groups wider.",
+        model: "models/guns/attachments/barrels/barrel_twin.glb",
+    },
 ];
 
 pub const HOPPERS: &[Part] = &[
@@ -94,6 +123,21 @@ pub const HOPPERS: &[Part] = &[
         name: "Pod",
         blurb: "30 balls, fastest reload.",
         model: "models/guns/attachments/hoppers/hopper_pod.glb",
+    },
+    Part {
+        name: "Box",
+        blurb: "80 balls, steady reload.",
+        model: "models/guns/attachments/hoppers/hopper_box.glb",
+    },
+    Part {
+        name: "Speedfeed",
+        blurb: "50 balls, quick reload.",
+        model: "models/guns/attachments/hoppers/hopper_speedfeed.glb",
+    },
+    Part {
+        name: "Stick Mag",
+        blurb: "25 balls, very fast swaps.",
+        model: "models/guns/attachments/hoppers/hopper_stick_mag.glb",
     },
 ];
 
@@ -124,6 +168,21 @@ pub const SIGHTS: &[Part] = &[
         blurb: "Long range. 2.6x zoom, slower to move.",
         model: "models/guns/attachments/sights/sight_scope.glb",
     },
+    Part {
+        name: "Laser",
+        blurb: "Tighter from the hip. 1.15x zoom.",
+        model: "models/guns/attachments/sights/sight_laser.glb",
+    },
+    Part {
+        name: "Prism",
+        blurb: "Mid-range glass. 1.8x zoom.",
+        model: "models/guns/attachments/sights/sight_prism.glb",
+    },
+    Part {
+        name: "Reflex",
+        blurb: "Open and quick. 1.3x zoom.",
+        model: "models/guns/attachments/sights/sight_reflex.glb",
+    },
 ];
 
 pub const STOCKS: &[Part] = &[
@@ -152,6 +211,16 @@ pub const STOCKS: &[Part] = &[
         blurb: "Steadiest aim, heaviest stock.",
         model: "models/guns/attachments/stocks/stock_cheek_rise.glb",
     },
+    Part {
+        name: "Minimal",
+        blurb: "A bare brace: quick, a little steadier.",
+        model: "models/guns/attachments/stocks/stock_minimal.glb",
+    },
+    Part {
+        name: "Thumbhole",
+        blurb: "Locked-in grip: very steady aim.",
+        model: "models/guns/attachments/stocks/stock_thumbhole.glb",
+    },
 ];
 
 pub const TANKS: &[Part] = &[
@@ -175,6 +244,16 @@ pub const TANKS: &[Part] = &[
         blurb: "Cheap and cold: slower balls, quicker cycling.",
         model: "models/guns/attachments/tanks/tank_co2.glb",
     },
+    Part {
+        name: "HPA Mini",
+        blurb: "Tiny and light: a touch slower balls.",
+        model: "models/guns/attachments/tanks/tank_hpa_mini.glb",
+    },
+    Part {
+        name: "Twin Bottle",
+        blurb: "Most pressure: fastest balls, heaviest.",
+        model: "models/guns/attachments/tanks/tank_twin_bottle.glb",
+    },
 ];
 
 pub const FOREGRIPS: &[Part] = &[
@@ -197,6 +276,65 @@ pub const FOREGRIPS: &[Part] = &[
         name: "Bipod",
         blurb: "Very tight when still, heavy.",
         model: "models/guns/attachments/foregrips/grip_bipod.glb",
+    },
+    Part {
+        name: "Handstop",
+        blurb: "Slightly tighter, no weight.",
+        model: "models/guns/attachments/foregrips/grip_handstop.glb",
+    },
+    Part {
+        name: "Stubby",
+        blurb: "Short grip: tighter while moving.",
+        model: "models/guns/attachments/foregrips/grip_stubby.glb",
+    },
+];
+
+/// Camo skins for the marker body (index 0 is the factory paint).
+pub const SKINS: &[Part] = &[
+    Part {
+        name: "Factory",
+        blurb: "The body's own paint.",
+        model: "",
+    },
+    Part {
+        name: "Woodland",
+        blurb: "Classic greens and browns.",
+        model: "textures/skins/camo_woodland.png",
+    },
+    Part {
+        name: "Desert",
+        blurb: "Sand and stone.",
+        model: "textures/skins/camo_desert.png",
+    },
+    Part {
+        name: "Arctic",
+        blurb: "Snow and ice.",
+        model: "textures/skins/camo_arctic.png",
+    },
+    Part {
+        name: "Urban",
+        blurb: "Concrete greys.",
+        model: "textures/skins/camo_urban.png",
+    },
+    Part {
+        name: "Digital",
+        blurb: "Pixel camo.",
+        model: "textures/skins/camo_digital.png",
+    },
+    Part {
+        name: "Tiger",
+        blurb: "Bold stripes.",
+        model: "textures/skins/camo_tiger.png",
+    },
+    Part {
+        name: "Carbon",
+        blurb: "Carbon-fibre weave.",
+        model: "textures/skins/skin_carbon_fiber.png",
+    },
+    Part {
+        name: "Splatter",
+        blurb: "Already been in a few games.",
+        model: "textures/skins/skin_paint_splatter.png",
     },
 ];
 
@@ -246,6 +384,8 @@ pub struct Loadout {
     pub foregrip: u8,
     pub water: u8,
     pub crosshair: u8,
+    /// Camo skin (`SKINS`), paintball markers only.
+    pub skin: u8,
 }
 
 impl Default for Loadout {
@@ -262,6 +402,7 @@ impl Default for Loadout {
             foregrip: 0,
             water: 1,
             crosshair: 0,
+            skin: 0,
         }
     }
 }
@@ -276,11 +417,12 @@ pub enum Slot {
     Stock,
     Tank,
     Foregrip,
+    Skin,
     Water,
 }
 
 impl Slot {
-    pub const PAINTBALL: [Slot; 7] = [
+    pub const PAINTBALL: [Slot; 8] = [
         Slot::Body,
         Slot::Barrel,
         Slot::Hopper,
@@ -288,6 +430,7 @@ impl Slot {
         Slot::Stock,
         Slot::Tank,
         Slot::Foregrip,
+        Slot::Skin,
     ];
 
     pub fn label(self) -> &'static str {
@@ -299,6 +442,7 @@ impl Slot {
             Slot::Stock => "Stock",
             Slot::Tank => "Air Tank",
             Slot::Foregrip => "Foregrip",
+            Slot::Skin => "Skin",
             Slot::Water => "Water Gun",
         }
     }
@@ -312,6 +456,7 @@ impl Slot {
             Slot::Stock => STOCKS,
             Slot::Tank => TANKS,
             Slot::Foregrip => FOREGRIPS,
+            Slot::Skin => SKINS,
             Slot::Water => WATER_GUNS,
         }
     }
@@ -327,6 +472,7 @@ impl Loadout {
             Slot::Stock => self.stock,
             Slot::Tank => self.tank,
             Slot::Foregrip => self.foregrip,
+            Slot::Skin => self.skin,
             Slot::Water => self.water,
         }
     }
@@ -341,6 +487,7 @@ impl Loadout {
             Slot::Stock => self.stock = value,
             Slot::Tank => self.tank = value,
             Slot::Foregrip => self.foregrip = value,
+            Slot::Skin => self.skin = value,
             Slot::Water => self.water = value,
         }
     }
@@ -355,18 +502,22 @@ impl Loadout {
         self
     }
 
-    /// Packs the gun into 4 bits per part (the crosshair stays local).
+    /// Packs the gun into 4 bits per part (the crosshair stays local). The
+    /// skin rides in bits 1-3 plus bit 31 (foregrips only need 3 bits).
     pub fn pack(&self) -> u32 {
         match self.kind {
             GunKind::Water => 1 | (self.water as u32) << 4,
             GunKind::Paintball => {
-                (self.body as u32) << 4
+                let skin = self.skin as u32;
+                (skin & 7) << 1
+                    | (skin >> 3) << 31
+                    | (self.body as u32) << 4
                     | (self.barrel as u32) << 8
                     | (self.hopper as u32) << 12
                     | (self.sight as u32) << 16
                     | (self.stock as u32) << 20
                     | (self.tank as u32) << 24
-                    | (self.foregrip as u32) << 28
+                    | ((self.foregrip as u32) & 7) << 28
             }
         }
     }
@@ -374,7 +525,7 @@ impl Loadout {
     pub fn unpack(v: u32) -> Self {
         let nib = |shift: u32| ((v >> shift) & 0xF) as u8;
         let mut l = Loadout::default();
-        if nib(0) == 1 {
+        if v & 1 == 1 {
             l.kind = GunKind::Water;
             l.water = nib(4);
         } else {
@@ -385,7 +536,8 @@ impl Loadout {
             l.sight = nib(16);
             l.stock = nib(20);
             l.tank = nib(24);
-            l.foregrip = nib(28);
+            l.foregrip = nib(28) & 7;
+            l.skin = (((v >> 1) & 7) | (v >> 31) << 3) as u8;
         }
         l.sanitized()
     }
@@ -412,7 +564,11 @@ impl Loadout {
     pub fn display_name(&self) -> String {
         match self.kind {
             GunKind::Water => format!("{} water gun", WATER_GUNS[self.water as usize].name),
-            GunKind::Paintball => format!("{} marker", BODIES[self.body as usize].name),
+            GunKind::Paintball => match self.body {
+                5 => "Breacher shotgun".to_string(),
+                6 => "Longshot sniper".to_string(),
+                b => format!("{} marker", BODIES[b as usize].name),
+            },
         }
     }
 
@@ -448,6 +604,8 @@ pub struct WeaponStats {
     pub gravity: f32,
     /// Shot sound volume.
     pub loudness: f32,
+    /// Balls per trigger pull (the shotgun fires several).
+    pub pellets: u32,
 }
 
 fn paintball_stats(l: &Loadout) -> WeaponStats {
@@ -457,7 +615,9 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
         1 => (40.0, 0.38, 88.0, 0.008, 0.97),  // Bulldog
         2 => (17.0, 0.075, 74.0, 0.026, 1.03), // Raptor
         3 => (30.0, 0.2, 95.0, 0.009, 1.0),    // Phantom
-        _ => (22.0, 0.09, 78.0, 0.02, 0.9),    // Titan
+        4 => (22.0, 0.09, 78.0, 0.02, 0.9),    // Titan
+        5 => (13.0, 0.75, 68.0, 0.065, 0.98),  // Breacher (per ball)
+        _ => (70.0, 1.0, 140.0, 0.002, 0.92),  // Longshot
     };
     let mut s = WeaponStats {
         water: false,
@@ -472,6 +632,7 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
         mobility,
         gravity: 9.81,
         loudness: 1.0,
+        pellets: 1,
     };
     match l.barrel {
         0 => {
@@ -489,9 +650,23 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
             s.loudness = 0.45;
         }
         3 => s.spread *= 0.6,
-        _ => {
+        4 => {
             s.damage += 5.0;
             s.spread *= 1.15;
+        }
+        5 => {
+            s.damage += 3.0;
+            s.spread *= 1.6;
+            s.mobility *= 1.05;
+        }
+        6 => {
+            s.loudness = 0.3;
+            s.speed *= 0.97;
+            s.spread *= 0.8;
+        }
+        _ => {
+            s.fire_interval *= 0.85;
+            s.spread *= 1.25;
         }
     }
     (s.capacity, s.reload) = match l.hopper {
@@ -502,17 +677,26 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
             s.mobility *= 0.95;
             (150, 3.4)
         }
-        _ => (30, 1.2),
+        4 => (30, 1.2),
+        5 => (80, 2.4),
+        6 => (50, 1.4),
+        _ => (25, 0.9),
     };
     s.zoom = match l.sight {
         0 => 1.1,
         1 => 1.2,
         2 => 1.35,
         3 => 1.5,
-        _ => {
+        4 => {
             s.mobility *= 0.97;
             2.6
         }
+        5 => {
+            s.spread *= 0.8;
+            1.15
+        }
+        6 => 1.8,
+        _ => 1.3,
     };
     match l.stock {
         0 => s.aim_spread = 0.7,
@@ -522,9 +706,17 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
             s.mobility *= 1.02;
         }
         3 => s.aim_spread = 0.5,
-        _ => {
+        4 => {
             s.aim_spread = 0.35;
             s.mobility *= 0.97;
+        }
+        5 => {
+            s.aim_spread = 0.6;
+            s.mobility *= 1.03;
+        }
+        _ => {
+            s.aim_spread = 0.4;
+            s.mobility *= 0.99;
         }
     }
     match l.tank {
@@ -534,9 +726,17 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
             s.mobility *= 0.97;
         }
         2 => s.speed *= 1.05,
-        _ => {
+        3 => {
             s.speed *= 0.94;
             s.fire_interval *= 0.92;
+        }
+        4 => {
+            s.speed *= 0.97;
+            s.mobility *= 1.02;
+        }
+        _ => {
+            s.speed *= 1.08;
+            s.mobility *= 0.95;
         }
     }
     match l.foregrip {
@@ -546,10 +746,30 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
             s.spread *= 0.92;
             s.aim_spread *= 0.9;
         }
-        _ => {
+        3 => {
             s.spread *= 0.75;
             s.mobility *= 0.95;
         }
+        4 => {
+            s.spread *= 0.9;
+            s.mobility *= 1.01;
+        }
+        _ => s.spread *= 0.88,
+    }
+    // The shotgun and sniper load shells / rounds, not a hopper's worth of balls.
+    match l.body {
+        5 => {
+            s.pellets = 6;
+            s.capacity = (s.capacity / 5).clamp(5, 24);
+            // Spread is the whole pattern: aiming tightens it less.
+            s.aim_spread = s.aim_spread.max(0.75);
+        }
+        6 => {
+            s.capacity = (s.capacity / 8).clamp(3, 15);
+            s.zoom = s.zoom.max(2.2);
+            s.reload *= 1.2;
+        }
+        _ => {}
     }
     s
 }
@@ -568,6 +788,7 @@ fn water_stats(i: u8) -> WeaponStats {
         mobility: 1.06,
         gravity: 7.0,
         loudness: 0.6,
+        pellets: 1,
     };
     match i {
         0 => base,
@@ -600,6 +821,8 @@ fn water_stats(i: u8) -> WeaponStats {
 #[derive(Resource)]
 pub struct GunAssets {
     handles: Vec<(&'static str, Handle<WorldAsset>)>,
+    /// One material per skin (index 0, the factory paint, is unused).
+    skins: Vec<Handle<StandardMaterial>>,
 }
 
 impl GunAssets {
@@ -611,7 +834,34 @@ impl GunAssets {
     }
 }
 
-pub fn load_gun_assets(mut commands: Commands, assets: Res<AssetServer>) {
+pub fn load_gun_assets(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let repeat = |s: &mut ImageLoaderSettings| {
+        s.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+            address_mode_u: ImageAddressMode::Repeat,
+            address_mode_v: ImageAddressMode::Repeat,
+            ..default()
+        });
+    };
+    let skins = SKINS
+        .iter()
+        .map(|skin| {
+            if skin.model.is_empty() {
+                return Handle::default();
+            }
+            let texture: Handle<Image> =
+                assets.load_builder().with_settings(repeat).load(skin.model);
+            materials.add(StandardMaterial {
+                base_color: Color::WHITE,
+                base_color_texture: Some(texture),
+                perceptual_roughness: 0.55,
+                ..default()
+            })
+        })
+        .collect();
     let mut handles = Vec::new();
     for table in [
         BODIES, BARRELS, HOPPERS, SIGHTS, STOCKS, TANKS, FOREGRIPS, WATER_GUNS,
@@ -625,7 +875,7 @@ pub fn load_gun_assets(mut commands: Commands, assets: Res<AssetServer>) {
             }
         }
     }
-    commands.insert_resource(GunAssets { handles });
+    commands.insert_resource(GunAssets { handles, skins });
 }
 
 /// Marks the entity that holds a gun's parts (so it can be rebuilt).
@@ -643,16 +893,51 @@ pub fn spawn_gun_parts(
     loadout: &Loadout,
 ) {
     commands.entity(parent).despawn_related::<Children>();
+    let skin = match loadout.kind {
+        GunKind::Paintball if loadout.skin > 0 => guns.skins.get(loadout.skin as usize).cloned(),
+        _ => None,
+    };
     for path in loadout.model_paths() {
         if let Some(handle) = guns.get(path) {
-            let child = commands.spawn(WorldAssetRoot(handle)).id();
+            let mut child = commands.spawn(WorldAssetRoot(handle));
+            if let Some(skin) = &skin {
+                child.insert(GunSkin(skin.clone()));
+            }
+            let child = child.id();
             commands.entity(parent).add_child(child);
+        }
+    }
+}
+
+/// A gun part painted with a camo skin (applied once its model is spawned).
+#[derive(Component)]
+pub struct GunSkin(Handle<StandardMaterial>);
+
+/// Repaints a skinned part's `body_paint` material with its skin.
+pub fn apply_gun_skin(
+    ready: On<bevy::world_serialization::WorldInstanceReady>,
+    skins: Query<&GunSkin>,
+    children: Query<&Children>,
+    painted: Query<&GltfMaterialName>,
+    mut commands: Commands,
+) {
+    let Ok(skin) = skins.get(ready.entity) else {
+        return;
+    };
+    for e in children.iter_descendants(ready.entity) {
+        if painted.get(e).is_ok_and(|n| n.0 == "body_paint") {
+            commands.entity(e).insert(MeshMaterial3d(skin.0.clone()));
         }
     }
 }
 
 /// Where loadouts are saved between runs.
 fn save_path() -> Option<PathBuf> {
+    config_file("loadout.json")
+}
+
+/// A file in the game's settings folder.
+pub fn config_file(name: &str) -> Option<PathBuf> {
     let base = std::env::var_os("APPDATA").map(PathBuf::from).or_else(|| {
         std::env::var_os("HOME").map(|h| {
             let mut p = PathBuf::from(h);
@@ -664,7 +949,7 @@ fn save_path() -> Option<PathBuf> {
             p
         })
     })?;
-    Some(base.join("Ink-cognito").join("loadout.json"))
+    Some(base.join("Ink-cognito").join(name))
 }
 
 pub fn load_saved_loadout() -> Loadout {
@@ -706,8 +991,40 @@ mod tests {
             foregrip: 3,
             water: 0,
             crosshair: 0,
+            skin: 3,
         };
         assert_eq!(Loadout::unpack(l.pack()).model_paths(), l.model_paths());
+        assert_eq!(Loadout::unpack(l.pack()).skin, 3);
+        // The last of every table, including the 9th skin (uses bit 31).
+        let last = |s: Slot| s.parts().len() as u8 - 1;
+        let max = Loadout {
+            body: last(Slot::Body),
+            barrel: last(Slot::Barrel),
+            hopper: last(Slot::Hopper),
+            sight: last(Slot::Sight),
+            stock: last(Slot::Stock),
+            tank: last(Slot::Tank),
+            foregrip: last(Slot::Foregrip),
+            skin: last(Slot::Skin),
+            ..Loadout::default()
+        };
+        assert_eq!(
+            Loadout::unpack(max.pack()),
+            Loadout {
+                crosshair: 0,
+                ..max
+            }
+        );
+        // The shotgun fires a spread of balls.
+        assert_eq!(
+            Loadout {
+                body: 5,
+                ..Loadout::default()
+            }
+            .stats()
+            .pellets,
+            6
+        );
         l.kind = GunKind::Water;
         l.water = 2;
         let back = Loadout::unpack(l.pack());

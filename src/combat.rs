@@ -9,15 +9,17 @@
 use crate::{
     AppState, Overlay,
     arena::Colliders,
+    game_mode::respawn_local,
     loadout::{GunAssets, GunKind, GunModel, Loadout, WeaponStats, spawn_gun_parts},
+    maps::MapInfo,
     net::NetworkState,
     player_model::{PlayerModelAssets, Rig},
-    protocol::{HitEvent, MAX_HEALTH, PlayerId, PlayerState, Team},
+    protocol::{FLAG_CROUCH, HitEvent, MAX_HEALTH, PlayerId, PlayerState, Team, enemies},
     ragdoll::{RagdollStart, spawn_ragdoll},
     settings::{AudioSettings, SfxAudio},
     world::{
-        CameraRig, EYE_OFFSET, LocalPlayer, MainCamera, PLAYER_GROUND_Y, RemotePlayer,
-        WorldSystems, spawn_point, spawn_yaw,
+        CROUCH_DROP, CameraRig, EYE_OFFSET, LocalPlayer, MainCamera, PLAYER_GROUND_Y, RemotePlayer,
+        WorldSystems,
     },
 };
 use bevy::prelude::*;
@@ -134,6 +136,9 @@ pub struct Combat {
     pub hitmarker: f32,
     /// Counts down after we got hit (red flash).
     pub damage_flash: f32,
+    /// Which way (on the ground) the last hit came from, and how long to show it.
+    pub hit_from: Vec3,
+    pub hit_arc: f32,
     /// Where we went down, while eliminated.
     pub death_cam: Option<Vec3>,
     pub dead_for: f32,
@@ -156,6 +161,8 @@ impl Default for Combat {
             aim_blend: 0.0,
             hitmarker: 0.0,
             damage_flash: 0.0,
+            hit_from: Vec3::Z,
+            hit_arc: 0.0,
             death_cam: None,
             dead_for: 0.0,
             recoil: 0.0,
@@ -498,6 +505,7 @@ fn aim_and_reload(
     combat.aim_blend += (target - combat.aim_blend) * k;
     combat.hitmarker = (combat.hitmarker - dt).max(0.0);
     combat.damage_flash = (combat.damage_flash - dt).max(0.0);
+    combat.hit_arc = (combat.hit_arc - dt).max(0.0);
     combat.cooldown = (combat.cooldown - dt).max(0.0);
     combat.recoil = (combat.recoil - dt * 0.4).max(0.0) * (-12.0 * dt).exp();
 
@@ -559,7 +567,7 @@ fn fire_local(
         return;
     };
     let alive = local_state.0.health > 0.0;
-    if !alive || overlay.blocks_input() {
+    if !alive || overlay.blocks_input() || net.match_state.frozen() {
         return;
     }
     if !mouse.pressed(MouseButton::Left) {
@@ -593,16 +601,23 @@ fn fire_local(
     let origin = cam.translation + forward * 0.45 + cam.right() * 0.06 * (1.0 - combat.aim_blend)
         - cam.up() * 0.05;
     let team = Team::of(net.local_player_id.unwrap_or(player.id));
-    spawn_projectile(
-        &mut commands,
-        &mut fx,
-        &mut materials,
-        player.id,
-        team,
-        &stats,
-        origin,
-        dir,
-    );
+    for pellet in 0..stats.pellets {
+        let dir = if pellet == 0 {
+            dir
+        } else {
+            shot_direction(forward, spread, player.id, pellet_seed(shot, pellet))
+        };
+        spawn_projectile(
+            &mut commands,
+            &mut fx,
+            &mut materials,
+            player.id,
+            team,
+            &stats,
+            origin,
+            dir,
+        );
+    }
 
     // Muzzle puff / spray at the barrel tip.
     let muzzle = cam.transform_point(
@@ -768,22 +783,31 @@ fn fire_remote(
         let stats = Loadout::unpack(remote.state.loadout).stats();
         let rot = look_rotation(remote.target_yaw, remote.state.pitch);
         let forward = rot * Vec3::NEG_Z;
-        let eye = remote.target_pos + Vec3::Y * EYE_OFFSET;
+        let crouched = remote.state.flags & FLAG_CROUCH != 0;
+        let eye =
+            remote.target_pos + Vec3::Y * (EYE_OFFSET - if crouched { CROUCH_DROP } else { 0.0 });
         let origin = eye + forward * 0.45 + rot * Vec3::new(0.06, -0.05, 0.0);
         let team = Team::of(remote.id);
         for i in 0..new.min(8) {
             let shot = first.wrapping_add(i);
-            let dir = shot_direction(forward, stats.spread * 0.8, remote.id, shot);
-            spawn_projectile(
-                &mut commands,
-                &mut fx,
-                &mut materials,
-                remote.id,
-                team,
-                &stats,
-                origin,
-                dir,
-            );
+            for pellet in 0..stats.pellets {
+                let seed = if pellet == 0 {
+                    shot
+                } else {
+                    pellet_seed(shot, pellet)
+                };
+                let dir = shot_direction(forward, stats.spread * 0.8, remote.id, seed);
+                spawn_projectile(
+                    &mut commands,
+                    &mut fx,
+                    &mut materials,
+                    remote.id,
+                    team,
+                    &stats,
+                    origin,
+                    dir,
+                );
+            }
         }
         muzzle_fx(
             &mut commands,
@@ -853,8 +877,16 @@ fn segment_segment(p1: Vec3, q1: Vec3, p2: Vec3, q2: Vec3) -> (f32, f32) {
 }
 
 /// Where along `from -> to` (0..=1) it passes through a standing player.
-fn hits_player(from: Vec3, to: Vec3, center: Vec3) -> Option<f32> {
-    let axis = PLAYER_GROUND_Y - PLAYER_HIT_RADIUS;
+/// A different (but repeatable) spread seed for each extra shotgun ball.
+fn pellet_seed(shot: u32, pellet: u32) -> u32 {
+    shot ^ pellet.wrapping_mul(0x9E37_79B9)
+}
+
+fn hits_player(from: Vec3, to: Vec3, center: Vec3, crouched: bool) -> Option<f32> {
+    // Crouching drops the top of the body; the feet stay put.
+    let drop = if crouched { CROUCH_DROP } else { 0.0 };
+    let axis = PLAYER_GROUND_Y - PLAYER_HIT_RADIUS - drop * 0.5;
+    let center = center - Vec3::Y * drop * 0.5;
     let (dist, s) = segment_segment(from, to, center - Vec3::Y * axis, center + Vec3::Y * axis);
     (dist <= PLAYER_HIT_RADIUS).then_some(s)
 }
@@ -908,22 +940,20 @@ fn move_projectiles(
         // Players: enemies only (paint passes through teammates).
         if let Some((lt, lp)) = local
             && ball.owner != lp.id
-            && Team::of(ball.owner) != Team::of(lp.id)
+            && enemies(ball.owner, lp.id)
             && local_state.0.health > 0.0
-            && let Some(t) = hits_player(from, to, lt.translation)
+            && let Some(t) = hits_player(from, to, lt.translation, lp.crouch > 0.5)
             && t < best_t
         {
             best_t = t;
             target = Some(Target::Local);
         }
         for (rt, remote) in &remote_q {
-            if remote.id == ball.owner
-                || Team::of(remote.id) == Team::of(ball.owner)
-                || !remote.alive()
-            {
+            if !enemies(ball.owner, remote.id) || !remote.alive() {
                 continue;
             }
-            if let Some(t) = hits_player(from, to, rt.translation)
+            let crouched = remote.state.flags & FLAG_CROUCH != 0;
+            if let Some(t) = hits_player(from, to, rt.translation, crouched)
                 && t < best_t
             {
                 best_t = t;
@@ -1016,7 +1046,7 @@ fn process_incoming_hits(
     for hit in incoming {
         if hit.victim != lp.id
             || hit.attacker == lp.id
-            || Team::of(hit.attacker) == Team::of(lp.id)
+            || !enemies(hit.attacker, lp.id)
             || !hit.damage.is_finite()
             || hit.damage <= 0.0
         {
@@ -1030,6 +1060,8 @@ fn process_incoming_hits(
         }
         let velocity = Vec3::from_array(hit.velocity);
         let normal = -velocity.normalize_or(Vec3::Z);
+        combat.hit_from = (-velocity).with_y(0.0).normalize_or(Vec3::Z);
+        combat.hit_arc = 1.2;
         let point = lt.translation + Vec3::Y * 0.2;
         let paint = if hit.water {
             Paint::Water
@@ -1182,6 +1214,8 @@ fn regen_and_respawn(
     fx: Res<Fx>,
     settings: Res<AudioSettings>,
     loadout: Res<Loadout>,
+    map: Res<MapInfo>,
+    net: Res<NetworkState>,
     mut combat: ResMut<Combat>,
     mut local_state: ResMut<LocalState>,
     mut feed: ResMut<Killfeed>,
@@ -1200,22 +1234,25 @@ fn regen_and_respawn(
         return;
     }
     combat.dead_for += dt;
-    if combat.dead_for < RESPAWN_TIME {
+    // Elimination: out until the next round.
+    if combat.dead_for < RESPAWN_TIME || !net.match_state.respawns() {
         return;
     }
-    // Back in: full health and paint, on our team's pad.
+    // Back in: full health and paint, at a spawn away from enemies.
     let Ok((mut transform, mut player)) = player_q.single_mut() else {
         return;
     };
-    transform.translation = spawn_point(player.id);
-    player.velocity_y = 0.0;
-    player.yaw = spawn_yaw(player.id);
-    if let Ok(mut rig) = rig_q.single_mut() {
-        rig.yaw = player.yaw;
-        rig.pitch = 0.0;
-    }
-    state.health = MAX_HEALTH;
-    combat.reset(&loadout.stats());
+    let mut rig = rig_q.single_mut().ok();
+    respawn_local(
+        &map,
+        &net,
+        &loadout,
+        &mut combat,
+        &mut local_state,
+        &mut transform,
+        &mut player,
+        rig.as_deref_mut(),
+    );
     play_sfx(&mut commands, &fx.sounds.round_start, 0.35, &settings);
 }
 
@@ -1484,8 +1521,32 @@ mod tests {
     #[test]
     fn balls_hit_standing_players() {
         let center = Vec3::new(0.0, PLAYER_GROUND_Y, 0.0);
-        assert!(hits_player(Vec3::new(-2.0, 1.4, 0.0), Vec3::new(2.0, 1.4, 0.0), center).is_some());
-        assert!(hits_player(Vec3::new(-2.0, 1.4, 1.0), Vec3::new(2.0, 1.4, 1.0), center).is_none());
-        assert!(hits_player(Vec3::new(-2.0, 2.2, 0.0), Vec3::new(2.0, 2.2, 0.0), center).is_none());
+        assert!(
+            hits_player(
+                Vec3::new(-2.0, 1.4, 0.0),
+                Vec3::new(2.0, 1.4, 0.0),
+                center,
+                false
+            )
+            .is_some()
+        );
+        assert!(
+            hits_player(
+                Vec3::new(-2.0, 1.4, 1.0),
+                Vec3::new(2.0, 1.4, 1.0),
+                center,
+                false
+            )
+            .is_none()
+        );
+        assert!(
+            hits_player(
+                Vec3::new(-2.0, 2.2, 0.0),
+                Vec3::new(2.0, 2.2, 0.0),
+                center,
+                false
+            )
+            .is_none()
+        );
     }
 }
