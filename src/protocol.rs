@@ -99,6 +99,21 @@ impl Team {
     }
 }
 
+/// A confirmed paintball/water hit reported by the shooter and relayed to the victim.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct HitEvent {
+    /// Monotonically increasing per-attacker id so UDP retries never apply twice.
+    pub hit_id: u32,
+    pub attacker: PlayerId,
+    pub victim: PlayerId,
+    pub damage: f32,
+    /// Projectile velocity at impact (for hit splash normal and ragdoll push).
+    pub velocity: [f32; 3],
+    /// World-space impact point (for hit splash particles on the victim).
+    pub point: [f32; 3],
+    pub water: bool,
+}
+
 /// Messages sent from a joining client to the host.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClientMessage {
@@ -108,6 +123,8 @@ pub enum ClientMessage {
         #[serde(default)]
         state: PlayerState,
     },
+    /// The client's projectile struck another player on their screen.
+    ReportHit(HitEvent),
     /// "Still here", every couple of seconds, so a host notices a player that vanished.
     Ping,
     /// The player is leaving (sent before closing).
@@ -128,6 +145,8 @@ pub enum ServerMessage {
     WorldState {
         players: Vec<PlayerSnapshot>,
     },
+    /// Another player's shot hit this client.
+    PlayerHit(HitEvent),
     /// The host is closing the game: everyone goes back to the menu.
     HostLeaving,
 }

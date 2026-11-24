@@ -114,6 +114,9 @@ pub struct RemotePlayer {
     /// Smoothed horizontal speed, for the walk animation.
     pub speed: f32,
     pub last_pos: Vec3,
+    /// Estimated velocity between network snapshots for low-latency interpolation.
+    pub net_velocity: Vec3,
+    pub last_snapshot_time: f32,
 }
 
 impl RemotePlayer {
@@ -183,6 +186,7 @@ fn spawn_remote(
     commands: &mut Commands,
     asset_server: &AssetServer,
     snapshot: &PlayerSnapshot,
+    now: f32,
 ) -> Entity {
     let pos = Vec3::from_array(snapshot.position);
     let root = commands
@@ -213,12 +217,16 @@ fn spawn_remote(
         model,
         speed: 0.0,
         last_pos: pos,
+        net_velocity: Vec3::ZERO,
+        last_snapshot_time: now,
     });
     root
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_in_game_players(
     mut commands: Commands,
+    time: Res<Time>,
     asset_server: Res<AssetServer>,
     net: Res<NetworkState>,
     mut camera_q: Query<&mut CameraRig, With<MainCamera>>,
@@ -229,6 +237,7 @@ fn spawn_in_game_players(
     let local_id = net.local_player_id.unwrap_or(0);
     let spawn_pos = spawn_point(local_id);
     let yaw = spawn_yaw(local_id);
+    let now = time.elapsed_secs();
 
     // First person: our own body isn't drawn, the camera is the player.
     commands.spawn((
@@ -253,7 +262,7 @@ fn spawn_in_game_players(
         if id == local_id {
             continue;
         }
-        spawn_remote(&mut commands, &asset_server, snapshot);
+        spawn_remote(&mut commands, &asset_server, snapshot, now);
     }
 
     if let Ok(mut rig) = camera_q.single_mut() {
@@ -279,6 +288,7 @@ fn poll_network_events(
                 net.local_player_id = Some(local_player.id);
                 net.status_text = "Hosting".to_string();
                 net.players.clear();
+                net.pending_hits.clear();
                 net.players.insert(local_player.id, local_player);
                 next_state.set(AppState::InGame);
             }
@@ -296,6 +306,7 @@ fn poll_network_events(
                 net.local_player_id = Some(your_id);
                 net.status_text = "Connected".to_string();
                 net.players.clear();
+                net.pending_hits.clear();
                 for player in players {
                     net.players.insert(player.id, player);
                 }
@@ -331,6 +342,9 @@ fn poll_network_events(
                 let local_id = net.local_player_id;
                 net.players
                     .retain(|id, _| Some(*id) == local_id || ids.contains(id));
+            }
+            NetEvent::HitReceived(hit) => {
+                net.pending_hits.push(hit);
             }
             NetEvent::Error(err) => {
                 net.disconnect();
@@ -569,10 +583,12 @@ fn keep_cursor_in_sync(
 
 fn sync_remote_players(
     mut commands: Commands,
+    time: Res<Time>,
     asset_server: Res<AssetServer>,
     net: Res<NetworkState>,
     mut remote_q: Query<(Entity, &mut RemotePlayer)>,
 ) {
+    let now = time.elapsed_secs();
     let local_id = net.local_player_id;
     let mut existing: HashMap<PlayerId, Entity> = HashMap::new();
 
@@ -582,7 +598,20 @@ fn sync_remote_players(
             continue;
         }
         if let Some(snapshot) = net.players.get(&remote.id) {
-            remote.target_pos = Vec3::from_array(snapshot.position);
+            let new_pos = Vec3::from_array(snapshot.position);
+            let delta = new_pos - remote.target_pos;
+            let dist = delta.length();
+            if dist > 6.0 {
+                // Respawn teleport: don't extrapolate across the field.
+                remote.net_velocity = Vec3::ZERO;
+                remote.last_snapshot_time = now;
+            } else if dist > 1e-4 {
+                let dt_snap = (now - remote.last_snapshot_time).clamp(0.012, 0.25);
+                let raw_vel = (delta / dt_snap).clamp_length_max(16.0);
+                remote.net_velocity = remote.net_velocity.lerp(raw_vel, 0.55);
+                remote.last_snapshot_time = now;
+            }
+            remote.target_pos = new_pos;
             remote.target_yaw = snapshot.yaw;
             remote.state = snapshot.state;
         }
@@ -593,7 +622,7 @@ fn sync_remote_players(
         if Some(id) == local_id || existing.contains_key(&id) {
             continue;
         }
-        spawn_remote(&mut commands, &asset_server, snapshot);
+        spawn_remote(&mut commands, &asset_server, snapshot, now);
     }
 }
 
@@ -603,14 +632,24 @@ fn interpolate_remote_players(
     mut pose_q: Query<&mut PlayerPose>,
 ) {
     let dt = time.delta_secs().min(0.05);
-    let blend = 1.0 - (-16.0 * dt).exp();
+    let now = time.elapsed_secs();
+    let blend = 1.0 - (-22.0 * dt).exp();
 
     for (mut transform, mut remote) in &mut remote_q {
+        let since = (now - remote.last_snapshot_time).max(0.0);
+        // If no new position arrived recently, damp velocity so stopped players don't drift.
+        if since > 0.09 {
+            remote.net_velocity *= (-18.0 * dt).exp();
+        }
+        // Light dead-reckoning (capped at 65 ms) compensates for smoothing + tick lag.
+        let predicted = remote.target_pos + remote.net_velocity * since.min(0.065);
+
         // A respawn teleports across the field: don't slide there.
         if transform.translation.distance(remote.target_pos) > 6.0 {
             transform.translation = remote.target_pos;
+            remote.net_velocity = Vec3::ZERO;
         } else {
-            transform.translation = transform.translation.lerp(remote.target_pos, blend);
+            transform.translation = transform.translation.lerp(predicted, blend);
         }
         let target_rot = Quat::from_rotation_y(remote.target_yaw);
         transform.rotation = transform.rotation.slerp(target_rot, blend);

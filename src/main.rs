@@ -15,6 +15,7 @@ mod player_model;
 mod portside;
 mod protocol;
 mod ragdoll;
+mod settings;
 mod world;
 
 use bevy::prelude::*;
@@ -28,6 +29,7 @@ use net::NetworkState;
 use pause::PausePlugin;
 use player_model::PlayerModelPlugin;
 use ragdoll::RagdollPlugin;
+use settings::SettingsPlugin;
 use world::WorldPlugin;
 
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -45,11 +47,13 @@ pub struct Overlay {
     pub pause: bool,
     /// The loadout screen (from the main menu or the Escape menu).
     pub loadout: bool,
+    /// The options / audio settings screen (from the main menu or the Escape menu).
+    pub settings: bool,
 }
 
 impl Overlay {
     pub fn blocks_input(&self) -> bool {
-        self.pause || self.loadout
+        self.pause || self.loadout || self.settings
     }
 }
 
@@ -67,6 +71,7 @@ fn main() {
         .init_resource::<NetworkState>()
         .init_resource::<Overlay>()
         .insert_resource(loadout::load_saved_loadout())
+        .insert_resource(settings::load_saved_settings())
         .add_systems(Startup, loadout::load_gun_assets)
         .add_plugins((WorldPlugin, MenuPlugin, HubPlugin))
         .add_plugins((
@@ -76,6 +81,7 @@ fn main() {
             HudPlugin,
             PausePlugin,
             LoadoutUiPlugin,
+            SettingsPlugin,
             MusicPlugin,
         ))
         .run();

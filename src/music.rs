@@ -1,8 +1,11 @@
 //! Main-menu music: cycles through the "Menu_..." tracks, starting at a
 //! random one, and shows what's playing.
 
-use crate::{AppState, menu::TEXT_MUTED};
-use bevy::{audio::Volume, prelude::*};
+use crate::{AppState, menu::TEXT_MUTED, settings::AudioSettings};
+use bevy::{
+    audio::{AudioSink, AudioSinkPlayback, Volume},
+    prelude::*,
+};
 
 pub struct MusicPlugin;
 
@@ -10,7 +13,10 @@ impl Plugin for MusicPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_playlist)
             .add_systems(OnEnter(AppState::MainMenu), spawn_now_playing)
-            .add_systems(Update, play_next_track.run_if(in_state(AppState::MainMenu)));
+            .add_systems(
+                Update,
+                (play_next_track, sync_music_volume).run_if(in_state(AppState::MainMenu)),
+            );
     }
 }
 
@@ -98,6 +104,7 @@ fn spawn_now_playing(mut commands: Commands, assets: Res<AssetServer>) {
 fn play_next_track(
     mut commands: Commands,
     mut playlist: ResMut<Playlist>,
+    settings: Res<AudioSettings>,
     playing: Query<(), With<MenuTrack>>,
     mut text_q: Query<&mut Text, With<NowPlayingText>>,
 ) {
@@ -109,12 +116,26 @@ fn play_next_track(
     let (title, handle) = playlist.tracks[i].clone();
     commands.spawn((
         AudioPlayer::new(handle),
-        PlaybackSettings::DESPAWN.with_volume(Volume::Linear(MUSIC_VOLUME)),
+        PlaybackSettings::DESPAWN
+            .with_volume(Volume::Linear(MUSIC_VOLUME * settings.effective_music())),
         MenuTrack,
         DespawnOnExit(AppState::MainMenu),
     ));
     if let Ok(mut text) = text_q.single_mut() {
         text.0 = format!("Now playing: {title}");
+    }
+}
+
+fn sync_music_volume(
+    settings: Res<AudioSettings>,
+    mut sinks: Query<&mut AudioSink, With<MenuTrack>>,
+) {
+    if !settings.is_changed() {
+        return;
+    }
+    let vol = Volume::Linear(MUSIC_VOLUME * settings.effective_music());
+    for mut sink in &mut sinks {
+        sink.set_volume(vol);
     }
 }
 

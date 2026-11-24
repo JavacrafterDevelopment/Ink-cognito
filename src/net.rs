@@ -1,11 +1,11 @@
 use crate::protocol::{
-    ClientDatagram, ClientMessage, GAME_PORT, PING_EVERY, PlayerId, PlayerSnapshot, PlayerState,
-    SILENCE_TIMEOUT, ServerDatagram, ServerMessage, encode_server_datagrams, player_color,
-    read_frame, spawn_position, write_frame,
+    ClientDatagram, ClientMessage, GAME_PORT, HitEvent, PING_EVERY, PlayerId, PlayerSnapshot,
+    PlayerState, SILENCE_TIMEOUT, ServerDatagram, ServerMessage, Team, encode_server_datagrams,
+    player_color, read_frame, spawn_position, write_frame,
 };
 use bevy::prelude::*;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet, VecDeque},
     future::Future,
     net::{Ipv4Addr, SocketAddr},
     pin::Pin,
@@ -30,6 +30,8 @@ const GOODBYE_GRACE: Duration = Duration::from_millis(400);
 /// How long a joining player keeps saying hello before giving up. Portside's
 /// tunnel can take a few seconds to come up, and drops packets until it has.
 const UDP_HELLO_FOR: Duration = Duration::from_secs(25);
+/// Target tick interval for transform/world-state replication (50 Hz).
+const NET_TICK: Duration = Duration::from_millis(20);
 
 /// How this game reaches the others.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,6 +57,7 @@ enum OutboundCommand {
         yaw: f32,
         state: PlayerState,
     },
+    ReportHit(HitEvent),
 }
 
 /// Events produced by the background Tailcat networking tasks for Bevy to process.
@@ -84,6 +87,8 @@ pub enum NetEvent {
     PlayerUpdates(Vec<PlayerSnapshot>),
     /// Everyone in the game: anyone else is gone.
     Roster(Vec<PlayerId>),
+    /// A shooter-confirmed hit on the local player.
+    HitReceived(HitEvent),
     Error(String),
     Disconnected(String),
 }
@@ -111,6 +116,8 @@ pub struct NetworkState {
     pub error_text: Option<String>,
     pub is_connecting: bool,
     pub players: HashMap<PlayerId, PlayerSnapshot>,
+    /// Confirmed hits on the local player queued for combat to apply this frame.
+    pub pending_hits: Vec<HitEvent>,
 }
 
 impl Default for NetworkState {
@@ -134,6 +141,7 @@ impl Default for NetworkState {
             error_text: None,
             is_connecting: false,
             players: HashMap::new(),
+            pending_hits: Vec::new(),
         }
     }
 }
@@ -249,6 +257,13 @@ impl NetworkState {
         }
     }
 
+    /// Reports a confirmed paintball/water hit on another player.
+    pub fn send_hit(&self, hit: HitEvent) {
+        if let Some(session) = &self.session {
+            let _ = session.tx_out.send(OutboundCommand::ReportHit(hit));
+        }
+    }
+
     /// Drains all pending network events produced by background tasks without blocking.
     pub fn poll_events(&self) -> Vec<NetEvent> {
         let Some(session) = &self.session else {
@@ -277,6 +292,7 @@ impl NetworkState {
         self.is_connecting = false;
         self.status_text.clear();
         self.players.clear();
+        self.pending_hits.clear();
     }
 
     pub fn active_role(&self) -> Option<NetRole> {
@@ -296,9 +312,36 @@ impl Drop for NetworkState {
     }
 }
 
+/// Bounded deduplicator for `(attacker, hit_id)` so redundant UDP hit sends never apply twice.
+#[derive(Default)]
+struct HitTracker {
+    seen: HashSet<(PlayerId, u32)>,
+    order: VecDeque<(PlayerId, u32)>,
+}
+
+impl HitTracker {
+    const CAPACITY: usize = 512;
+
+    /// Returns `true` if this `(attacker, hit_id)` has not been seen yet.
+    fn record(&mut self, attacker: PlayerId, hit_id: u32) -> bool {
+        let key = (attacker, hit_id);
+        if !self.seen.insert(key) {
+            return false;
+        }
+        self.order.push_back(key);
+        while self.order.len() > Self::CAPACITY {
+            if let Some(old) = self.order.pop_front() {
+                self.seen.remove(&old);
+            }
+        }
+        true
+    }
+}
+
 struct HostSharedState {
     players: HashMap<PlayerId, PlayerSnapshot>,
     clients: HashMap<PlayerId, mpsc::UnboundedSender<ServerMessage>>,
+    seen_hits: HitTracker,
 }
 
 impl HostSharedState {
@@ -319,6 +362,33 @@ impl HostSharedState {
     }
 }
 
+/// Validates, deduplicates, and forwards a shooter-reported hit to its victim.
+async fn relay_hit(
+    sender_id: PlayerId,
+    mut hit: HitEvent,
+    shared: &Arc<AsyncMutex<HostSharedState>>,
+    tx_in: &mpsc::UnboundedSender<NetEvent>,
+) {
+    hit.attacker = sender_id;
+    if hit.victim == sender_id || Team::of(hit.victim) == Team::of(sender_id) {
+        return;
+    }
+    if !hit.damage.is_finite() || hit.damage <= 0.0 {
+        return;
+    }
+    hit.damage = hit.damage.min(150.0);
+
+    let mut guard = shared.lock().await;
+    if !guard.seen_hits.record(hit.attacker, hit.hit_id) {
+        return;
+    }
+    if hit.victim == 0 {
+        let _ = tx_in.send(NetEvent::HitReceived(hit));
+    } else if let Some(client_tx) = guard.clients.get(&hit.victim) {
+        let _ = client_tx.send(ServerMessage::PlayerHit(hit));
+    }
+}
+
 async fn run_host_session(
     region: Option<Region>,
     mut rx_out: mpsc::UnboundedReceiver<OutboundCommand>,
@@ -336,6 +406,7 @@ async fn run_host_session(
     let shared = Arc::new(AsyncMutex::new(HostSharedState {
         players: HashMap::from([(0, host_player)]),
         clients: HashMap::new(),
+        seen_hits: HitTracker::default(),
     }));
     let next_id = Arc::new(AtomicU32::new(1));
 
@@ -383,7 +454,11 @@ async fn run_host_session(
         ..Default::default()
     };
 
-    // TailCat (for a pasted address) can take a while; keep serving meanwhile.
+    let mut broadcast_tick = tokio::time::interval(NET_TICK);
+    broadcast_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+    // TailCat (for a pasted address) can take a while; keep broadcasting to
+    // Portside UDP players meanwhile so movement stays live from frame one.
     let start = Server::start(config);
     tokio::pin!(start);
     let server = loop {
@@ -396,11 +471,21 @@ async fn run_host_session(
                 Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
                     set_host_transform(&shared, position, yaw, state).await;
                 }
+                Some(OutboundCommand::ReportHit(hit)) => {
+                    relay_hit(0, hit, &shared, &tx_in).await;
+                }
                 None => {
                     host_goodbye(&shared, &shutdown, udp_task).await;
                     return;
                 }
             },
+            _ = broadcast_tick.tick() => {
+                let mut guard = shared.lock().await;
+                if !guard.clients.is_empty() {
+                    let players = guard.snapshot_list();
+                    guard.broadcast(&ServerMessage::WorldState { players });
+                }
+            }
             res = &mut start => break res,
         }
     };
@@ -419,9 +504,6 @@ async fn run_host_session(
         }
     };
 
-    let mut broadcast_tick = tokio::time::interval(Duration::from_millis(33));
-    broadcast_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
     loop {
         tokio::select! {
             _ = shutdown.notified() => {
@@ -431,6 +513,9 @@ async fn run_host_session(
                 match cmd {
                     Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
                         set_host_transform(&shared, position, yaw, state).await;
+                    }
+                    Some(OutboundCommand::ReportHit(hit)) => {
+                        relay_hit(0, hit, &shared, &tx_in).await;
                     }
                     None => break,
                 }
@@ -551,8 +636,22 @@ async fn run_udp_host(
                         let sock = sock.clone();
                         tokio::spawn(async move {
                             while let Some(msg) = client_rx.recv().await {
-                                for d in encode_server_datagrams(&msg) {
-                                    let _ = sock.send_to(&d, from).await;
+                                let is_hit = matches!(msg, ServerMessage::PlayerHit(_));
+                                let datagrams = encode_server_datagrams(&msg);
+                                for d in &datagrams {
+                                    let _ = sock.send_to(d, from).await;
+                                }
+                                if is_hit {
+                                    let sock_retry = sock.clone();
+                                    tokio::spawn(async move {
+                                        for delay_ms in [35u64, 40] {
+                                            tokio::time::sleep(Duration::from_millis(delay_ms))
+                                                .await;
+                                            for d in &datagrams {
+                                                let _ = sock_retry.send_to(d, from).await;
+                                            }
+                                        }
+                                    });
                                 }
                             }
                             if let Ok(bye) = serde_json::to_vec(&ServerDatagram::Bye) {
@@ -578,6 +677,11 @@ async fn run_udp_host(
                             guard.snapshot_list()
                         };
                         let _ = tx_in.send(NetEvent::WorldState { players });
+                    }
+                    ClientDatagram::Msg(ClientMessage::ReportHit(hit)) => {
+                        if let Some(peer) = peers.get(&from) {
+                            relay_hit(peer.id, hit, &shared, &tx_in).await;
+                        }
                     }
                     ClientDatagram::Msg(ClientMessage::Ping) => {}
                     ClientDatagram::Msg(ClientMessage::Leave) => {
@@ -688,6 +792,9 @@ async fn handle_host_client(
                             guard.snapshot_list()
                         };
                         let _ = tx_in.send(NetEvent::WorldState { players });
+                    }
+                    Some(ClientMessage::ReportHit(hit)) => {
+                        relay_hit(player_id, hit, &shared, &tx_in).await;
                     }
                     Some(ClientMessage::Ping) => {}
                     Some(ClientMessage::Leave) | None => break,
@@ -808,7 +915,9 @@ async fn run_client_session(
     }
 
     let mut latest_transform: Option<([f32; 3], f32, PlayerState)> = None;
-    let mut send_tick = tokio::time::interval(Duration::from_millis(33));
+    let mut last_sent_shots = 0u32;
+    let mut last_sent_deaths = 0u32;
+    let mut send_tick = tokio::time::interval(NET_TICK);
     send_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut ping_tick = tokio::time::interval(PING_EVERY);
     ping_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -820,18 +929,42 @@ async fn run_client_session(
             cmd = rx_out.recv() => {
                 match cmd {
                     Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
-                        latest_transform = Some((position, yaw, state));
+                        let urgent = state.shots != last_sent_shots || state.deaths != last_sent_deaths;
+                        if urgent {
+                            last_sent_shots = state.shots;
+                            last_sent_deaths = state.deaths;
+                            latest_transform = None;
+                            if write_frame(&mut writer, &ClientMessage::UpdateTransform { position, yaw, state })
+                                .await
+                                .is_err()
+                            {
+                                break Some("Lost connection to host.".to_string());
+                            }
+                        } else {
+                            latest_transform = Some((position, yaw, state));
+                        }
+                    }
+                    Some(OutboundCommand::ReportHit(hit)) => {
+                        if write_frame(&mut writer, &ClientMessage::ReportHit(hit))
+                            .await
+                            .is_err()
+                        {
+                            break Some("Lost connection to host.".to_string());
+                        }
                     }
                     None => break None,
                 }
             }
             _ = send_tick.tick() => {
-                if let Some((position, yaw, state)) = latest_transform.take()
-                    && write_frame(&mut writer, &ClientMessage::UpdateTransform { position, yaw, state })
+                if let Some((position, yaw, state)) = latest_transform.take() {
+                    last_sent_shots = state.shots;
+                    last_sent_deaths = state.deaths;
+                    if write_frame(&mut writer, &ClientMessage::UpdateTransform { position, yaw, state })
                         .await
                         .is_err()
-                {
-                    break Some("Lost connection to host.".to_string());
+                    {
+                        break Some("Lost connection to host.".to_string());
+                    }
                 }
             }
             _ = ping_tick.tick() => {
@@ -853,6 +986,9 @@ async fn run_client_session(
                     }
                     Some(ServerMessage::WorldState { players }) => {
                         let _ = tx_in.send(NetEvent::WorldState { players });
+                    }
+                    Some(ServerMessage::PlayerHit(hit)) => {
+                        let _ = tx_in.send(NetEvent::HitReceived(hit));
                     }
                     Some(ServerMessage::Welcome { your_id, players }) => {
                         let _ = tx_in.send(NetEvent::Connected { your_id, players });
@@ -891,7 +1027,7 @@ async fn run_udp_client_session(
     shutdown: Arc<Notify>,
 ) {
     let sock = match UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await {
-        Ok(sock) => sock,
+        Ok(sock) => Arc::new(sock),
         Err(err) => {
             let _ = tx_in.send(NetEvent::Error(format!(
                 "Could not open a UDP socket: {err}"
@@ -952,7 +1088,9 @@ async fn run_udp_client_session(
     });
 
     let mut latest_transform: Option<([f32; 3], f32, PlayerState)> = None;
-    let mut send_tick = tokio::time::interval(Duration::from_millis(33));
+    let mut last_sent_shots = 0u32;
+    let mut last_sent_deaths = 0u32;
+    let mut send_tick = tokio::time::interval(NET_TICK);
     send_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut keepalive = tokio::time::interval(Duration::from_secs(2));
     let mut last_heard = Instant::now();
@@ -962,12 +1100,34 @@ async fn run_udp_client_session(
             _ = shutdown.notified() => break None,
             cmd = rx_out.recv() => match cmd {
                 Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
-                    latest_transform = Some((position, yaw, state));
+                    let urgent = state.shots != last_sent_shots || state.deaths != last_sent_deaths;
+                    if urgent {
+                        last_sent_shots = state.shots;
+                        last_sent_deaths = state.deaths;
+                        latest_transform = None;
+                        let msg = ClientDatagram::Msg(ClientMessage::UpdateTransform { position, yaw, state });
+                        let _ = sock.send(&send(&msg)).await;
+                    } else {
+                        latest_transform = Some((position, yaw, state));
+                    }
+                }
+                Some(OutboundCommand::ReportHit(hit)) => {
+                    let packet = send(&ClientDatagram::Msg(ClientMessage::ReportHit(hit)));
+                    let _ = sock.send(&packet).await;
+                    let sock_retry = sock.clone();
+                    tokio::spawn(async move {
+                        for delay_ms in [35u64, 40] {
+                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                            let _ = sock_retry.send(&packet).await;
+                        }
+                    });
                 }
                 None => break None,
             },
             _ = send_tick.tick() => {
                 if let Some((position, yaw, state)) = latest_transform.take() {
+                    last_sent_shots = state.shots;
+                    last_sent_deaths = state.deaths;
                     let msg = ClientDatagram::Msg(ClientMessage::UpdateTransform { position, yaw, state });
                     let _ = sock.send(&send(&msg)).await;
                 }
@@ -986,6 +1146,7 @@ async fn run_udp_client_session(
                     ServerDatagram::Msg(ServerMessage::PlayerJoined(p)) => NetEvent::PlayerJoined(p),
                     ServerDatagram::Msg(ServerMessage::PlayerLeft { id }) => NetEvent::PlayerLeft { id },
                     ServerDatagram::Msg(ServerMessage::WorldState { players }) => NetEvent::WorldState { players },
+                    ServerDatagram::Msg(ServerMessage::PlayerHit(hit)) => NetEvent::HitReceived(hit),
                     ServerDatagram::Msg(ServerMessage::Welcome { .. }) => continue,
                     ServerDatagram::Players { players } => NetEvent::PlayerUpdates(players),
                     ServerDatagram::Roster { ids } => NetEvent::Roster(ids),
@@ -1383,5 +1544,88 @@ mod tests {
             std::thread::sleep(Duration::from_millis(20));
         }
         assert!(ended, "client should hear the host ended the game");
+    }
+
+    #[test]
+    fn udp_hits_deliver_and_deduplicate() {
+        let mut tracker = HitTracker::default();
+        assert!(tracker.record(1, 1));
+        assert!(!tracker.record(1, 1), "duplicate hit_id must be rejected");
+        assert!(tracker.record(1, 2));
+        assert!(tracker.record(2, 1));
+
+        let mut host = NetworkState::default();
+        host.start_host_with_region(None);
+        let mut port = None;
+        for _ in 0..100 {
+            for ev in host.poll_events() {
+                if let NetEvent::HostingStarted { udp_port, .. } = ev {
+                    port = Some(udp_port);
+                }
+            }
+            if port.is_some() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let port = port.expect("host did not start");
+
+        let mut client = NetworkState::default();
+        client.join_udp(port, "test");
+        assert!(wait_for(&client, Duration::from_secs(5), |e| matches!(
+            e,
+            NetEvent::Connected { your_id: 1, .. }
+        )));
+
+        // Client (Orange, id 1) hits Host (Blue, id 0).
+        let c_hit = HitEvent {
+            hit_id: 1,
+            attacker: 1,
+            victim: 0,
+            damage: 34.0,
+            velocity: [0.0, 0.0, -30.0],
+            point: [0.0, 1.2, 0.0],
+            water: false,
+        };
+        client.send_hit(c_hit);
+        // Duplicate send should be deduplicated by the host.
+        client.send_hit(c_hit);
+
+        let mut host_hits = 0usize;
+        let deadline = Instant::now() + Duration::from_millis(400);
+        while Instant::now() < deadline {
+            for ev in host.poll_events() {
+                if let NetEvent::HitReceived(h) = ev {
+                    assert_eq!(h.attacker, 1);
+                    assert_eq!(h.victim, 0);
+                    assert!((h.damage - 34.0).abs() < 0.01);
+                    host_hits += 1;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(host_hits, 1, "host should receive the hit exactly once");
+
+        // Host (Blue, id 0) hits Client (Orange, id 1).
+        let h_hit = HitEvent {
+            hit_id: 1,
+            attacker: 0,
+            victim: 1,
+            damage: 45.0,
+            velocity: [0.0, 0.0, 30.0],
+            point: [1.0, 1.1, 2.0],
+            water: false,
+        };
+        host.send_hit(h_hit);
+        assert!(
+            wait_for(&client, Duration::from_secs(3), |e| matches!(
+                e,
+                NetEvent::HitReceived(h) if h.attacker == 0 && h.victim == 1 && (h.damage - 45.0).abs() < 0.01
+            )),
+            "client should receive the host's hit"
+        );
+
+        client.disconnect();
+        host.disconnect();
     }
 }

@@ -25,6 +25,7 @@ impl Plugin for PausePlugin {
 enum PauseAction {
     Resume,
     Loadout,
+    Settings,
     Quit,
 }
 
@@ -35,7 +36,7 @@ fn close_overlays(mut overlay: ResMut<Overlay>) {
     *overlay = Overlay::default();
 }
 
-/// Escape closes the loadout screen if it's open, otherwise opens or closes
+/// Escape closes the loadout or options screen if open, otherwise opens or closes
 /// the Escape menu (in game).
 fn escape_key(
     keys: Res<ButtonInput<KeyCode>>,
@@ -45,7 +46,9 @@ fn escape_key(
     if !keys.just_pressed(KeyCode::Escape) {
         return;
     }
-    if overlay.loadout {
+    if overlay.settings {
+        overlay.settings = false;
+    } else if overlay.loadout {
         overlay.loadout = false;
     } else if *state.get() == AppState::InGame {
         overlay.pause = !overlay.pause;
@@ -68,6 +71,7 @@ fn on_pause_click(
     match action {
         PauseAction::Resume => overlay.pause = false,
         PauseAction::Loadout => overlay.loadout = true,
+        PauseAction::Settings => overlay.settings = true,
         PauseAction::Quit => {
             net.disconnect();
             exit.write(AppExit::Success);
@@ -87,8 +91,8 @@ fn show_pause_menu(
             commands.entity(root).despawn();
         }
         (true, Ok((_, mut node))) => {
-            // Step aside while the loadout screen is up.
-            let want = if overlay.loadout {
+            // Step aside while Loadout or Options is up.
+            let want = if overlay.loadout || overlay.settings {
                 Display::None
             } else {
                 Display::Flex
@@ -168,6 +172,15 @@ fn spawn_pause_menu(commands: &mut Commands, net: &NetworkState, assets: &AssetS
                     card,
                     "Loadout",
                     PauseAction::Loadout,
+                    ButtonStyle::SECONDARY,
+                    44.0,
+                    17.0,
+                    false,
+                );
+                spawn_button(
+                    card,
+                    "Options",
+                    PauseAction::Settings,
                     ButtonStyle::SECONDARY,
                     44.0,
                     17.0,
