@@ -52,6 +52,10 @@ pub const TEXT_MUTED: Color = Color::srgb(0.68, 0.75, 0.84);
 const WATER: Color = Color::srgb(0.62, 0.89, 1.0);
 const MINIMAP: f32 = 180.0;
 
+/// Part of the in-game HUD (hidden while the podium is up).
+#[derive(Component)]
+pub struct HudPart;
+
 pub fn team_color(team: Team) -> Color {
     let [r, g, b] = team.srgb();
     Color::srgb(r, g, b)
@@ -175,6 +179,7 @@ fn spawn_hud(
         GlobalZIndex(-1),
         DamageTint,
         DespawnOnExit(AppState::InGame),
+        HudPart,
     ));
 
     // --- Score header, top center -----------------------------------------
@@ -192,6 +197,7 @@ fn spawn_hud(
             },
             Pickable::IGNORE,
             DespawnOnExit(AppState::InGame),
+            HudPart,
         ))
         .with_children(|col| {
             col.spawn((
@@ -331,6 +337,7 @@ fn spawn_hud(
             Pickable::IGNORE,
             Banner,
             DespawnOnExit(AppState::InGame),
+            HudPart,
         ))
         .with_children(|col| {
             col.spawn((
@@ -399,6 +406,7 @@ fn spawn_hud(
             sliced(k("panels/panel_glass.png"), 28.0),
             Pickable::IGNORE,
             DespawnOnExit(AppState::InGame),
+            HudPart,
         ))
         .with_children(|row| {
             row.spawn((
@@ -478,6 +486,7 @@ fn spawn_hud(
             },
             Pickable::IGNORE,
             DespawnOnExit(AppState::InGame),
+            HudPart,
         ))
         .with_children(|row| {
             // The counter: the kit frame has a round icon slot on the left.
@@ -591,6 +600,7 @@ fn spawn_hud(
             ImageNode::new(assets.load(path)).with_color(Color::WHITE.with_alpha(0.0)),
             Pickable::IGNORE,
             DespawnOnExit(AppState::InGame),
+            HudPart,
         ));
         if marker {
             e.insert(Crosshair);
@@ -618,6 +628,7 @@ fn spawn_hud(
             Pickable::IGNORE,
             HitArc,
             DespawnOnExit(AppState::InGame),
+            HudPart,
         ))
         .with_children(|c| {
             c.spawn((
@@ -646,6 +657,7 @@ fn spawn_hud(
             },
             Pickable::IGNORE,
             DespawnOnExit(AppState::InGame),
+            HudPart,
         ))
         .with_children(|col| {
             col.spawn((
@@ -727,6 +739,7 @@ fn spawn_hud(
             Pickable::IGNORE,
             Scoreboard,
             DespawnOnExit(AppState::InGame),
+            HudPart,
         ))
         .with_children(|p| {
             p.spawn((
@@ -1097,7 +1110,7 @@ fn banner_for(
                 Some(false) => "banners/banner_defeat.png",
                 None => "banners/banner_draw.png",
             };
-            let mut line = format!("Next match in {}", ms.time_left.ceil() as u32);
+            let mut line = format!("Main menu in {}", ms.time_left.ceil() as u32);
             if ms.settings.ranked && rank.match_id == Some(ms.match_id) {
                 let after = (rank.before as i32 + rank.delta).max(0) as u32;
                 line = format!(
@@ -1386,8 +1399,7 @@ fn update_scoreboard(
     mut last: Local<Vec<(PlayerId, u32, u32, u16, bool)>>,
 ) {
     let ms = &net.match_state;
-    let open =
-        (keys.pressed(KeyCode::Tab) && !overlay.blocks_input()) || ms.phase == Phase::MatchOver;
+    let open = keys.pressed(KeyCode::Tab) && !overlay.blocks_input();
     if let Ok(mut node) = board_q.single_mut() {
         let want = if open { Display::Flex } else { Display::None };
         if node.display != want {

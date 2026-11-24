@@ -504,24 +504,9 @@ impl Layout {
         }
     }
 
-    /// Spawn pads, flags and the pickups by them, at z = ±`z`.
-    fn team_bases(&mut self, z: f32, flag_z: f32) {
-        for (pad, flag, side) in [
-            (
-                "models/props/spawn_pad_blue.glb",
-                "models/props/flag_blue.glb",
-                1.0,
-            ),
-            (
-                "models/props/spawn_pad_orange.glb",
-                "models/props/flag_orange.glb",
-                -1.0,
-            ),
-        ] {
-            for x in [-2.5, 2.5] {
-                self.model(pad, Transform::from_xyz(x, 0.0, side * z));
-            }
-            self.model(flag, Transform::from_xyz(0.0, 0.0, side * flag_z));
+    /// The supply props (paint, pods, air) behind each team's spawn, at z = ±`z`.
+    fn team_supplies(&mut self, z: f32) {
+        for side in [1.0, -1.0] {
             self.model(
                 "models/pickups/paint_case.glb",
                 Transform::from_xyz(-5.5, 0.0, side * (z + 1.0))
@@ -645,7 +630,7 @@ fn splat_park() -> Layout {
             Transform::from_xyz(i * 3.0, 0.0, 0.0),
         );
     }
-    l.team_bases(24.0, 28.0);
+    l.team_supplies(24.0);
     l.perimeter(Perimeter::Nets);
     l.place(&SCOREBOARD, 0.0, -33.5, 0.0);
 
@@ -901,7 +886,7 @@ fn ring_road() -> Layout {
     for (x, z, t) in [(10.0, 9.8, 0.0), (-10.0, -9.8, 2.0)] {
         l.place(&SIGN, x, z, t);
     }
-    l.team_bases(21.0, 23.0);
+    l.team_supplies(21.0);
     l.perimeter(Perimeter::Concrete);
 
     let blue = [
@@ -1044,7 +1029,7 @@ fn three_lanes() -> Layout {
     for (x, z) in [(-21.0, -37.0), (21.0, 37.0), (-21.0, 37.0), (21.0, -37.0)] {
         l.place(&FLOODLIGHT, x, z, if x * z > 0.0 { 0.5 } else { 1.5 });
     }
-    l.team_bases(34.0, 36.5);
+    l.team_supplies(34.0);
     l.perimeter(Perimeter::Fence);
 
     let blue = [
@@ -1175,7 +1160,7 @@ fn pine_hollow() -> Layout {
         along += 4.2;
         i += 1;
     }
-    l.team_bases(26.5, 28.5);
+    l.team_supplies(26.5);
     l.perimeter(Perimeter::Fence);
 
     let blue = [

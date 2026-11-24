@@ -9,6 +9,8 @@ use crate::{
         spawn_gun_parts,
     },
     menu::{BG_CARD, BORDER_SUBTLE, ButtonStyle, TEXT_MUTED, TEXT_PRIMARY, spawn_button},
+    progression::{Progress, lock_loadout},
+    ui_kit::{KIT_YELLOW, kit},
 };
 use bevy::{
     camera::RenderTarget, picking::prelude::*, prelude::*, render::render_resource::TextureFormat,
@@ -131,6 +133,7 @@ fn on_loadout_click(
     mut loadout: ResMut<Loadout>,
     mut screen: ResMut<LoadoutScreen>,
     mut overlay: ResMut<Overlay>,
+    progress: Res<Progress>,
 ) {
     if click.button != PointerButton::Primary {
         return;
@@ -148,7 +151,12 @@ fn on_loadout_click(
         }
         LoadoutAction::Slot(slot) => screen.slot = slot,
         LoadoutAction::Pick(slot, i) => {
+            if !progress.unlocked(loadout.body, slot, i) {
+                return;
+            }
             loadout.set(slot, i);
+            // A new body starts with only what it has unlocked.
+            lock_loadout(&mut loadout, &progress);
             if slot == Slot::Water {
                 loadout.kind = GunKind::Water;
             } else {
@@ -167,6 +175,7 @@ fn show_loadout_screen(
     loadout: Res<Loadout>,
     mut screen: ResMut<LoadoutScreen>,
     assets: Res<AssetServer>,
+    progress: Res<Progress>,
     root_q: Query<Entity, With<LoadoutRoot>>,
     mut camera_q: Query<&mut Camera, With<PreviewCamera>>,
     mut was_open: Local<bool>,
@@ -203,7 +212,7 @@ fn show_loadout_screen(
     for root in &root_q {
         commands.entity(root).despawn();
     }
-    spawn_screen(&mut commands, &loadout, &screen, &assets);
+    spawn_screen(&mut commands, &loadout, &screen, &assets, &progress);
 }
 
 fn style_for(selected: bool) -> ButtonStyle {
@@ -232,6 +241,7 @@ fn spawn_screen(
     loadout: &Loadout,
     screen: &LoadoutScreen,
     assets: &AssetServer,
+    progress: &Progress,
 ) {
     let slot = match (loadout.kind, screen.slot) {
         (GunKind::Water, _) => Slot::Water,
@@ -249,7 +259,7 @@ fn spawn_screen(
                 row_gap: Val::Px(14.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.02, 0.03, 0.06, 0.94)),
+            BackgroundColor(Color::srgba(0.02, 0.03, 0.06, 0.985)),
             GlobalZIndex(30),
             LoadoutRoot,
         ))
@@ -290,7 +300,7 @@ fn spawn_screen(
                         Pickable::IGNORE,
                     ));
                     col.spawn((
-                        Text::new("Build a paintball marker from parts, or grab a water gun. Saved automatically."),
+                        Text::new("Splat with a marker to unlock its parts and camos. Each body levels up on its own."),
                         TextFont::from_font_size(13.0),
                         TextColor(TEXT_MUTED),
                         Pickable::IGNORE,
@@ -402,8 +412,19 @@ fn spawn_screen(
                 body.spawn(column(300.0)).with_children(|col| {
                     label(col, &slot.label().to_uppercase());
                     let chosen = loadout.get(slot);
+                    let body_name = crate::loadout::BODIES
+                        .get(loadout.body as usize)
+                        .map(|b| b.name)
+                        .unwrap_or("");
                     for (i, part) in slot.parts().iter().enumerate() {
-                        let style = style_for(i as u8 == chosen);
+                        let i = i as u8;
+                        let status = progress.status(loadout.body, slot, i);
+                        let locked = status.is_some_and(|(r, have)| have < r.need);
+                        let style = if locked {
+                            ButtonStyle::LOCKED
+                        } else {
+                            style_for(i == chosen)
+                        };
                         col.spawn((
                             Node {
                                 flex_direction: FlexDirection::Column,
@@ -414,21 +435,98 @@ fn spawn_screen(
                             },
                             BackgroundColor(style.normal),
                             style,
-                            LoadoutAction::Pick(slot, i as u8),
+                            LoadoutAction::Pick(slot, i),
                         ))
                         .with_children(|b| {
                             b.spawn((
-                                Text::new(part.name),
-                                TextFont::from_font_size(16.0),
-                                TextColor(TEXT_PRIMARY),
+                                Node {
+                                    flex_direction: FlexDirection::Row,
+                                    align_items: AlignItems::Center,
+                                    column_gap: Val::Px(6.0),
+                                    ..default()
+                                },
                                 Pickable::IGNORE,
-                            ));
-                            b.spawn((
-                                Text::new(part.blurb),
-                                TextFont::from_font_size(12.0),
-                                TextColor(TEXT_MUTED),
-                                Pickable::IGNORE,
-                            ));
+                            ))
+                            .with_children(|row| {
+                                if locked {
+                                    row.spawn((
+                                        ImageNode::new(kit(assets, "icons/lock.png")),
+                                        Node {
+                                            width: Val::Px(16.0),
+                                            height: Val::Px(16.0),
+                                            ..default()
+                                        },
+                                        Pickable::IGNORE,
+                                    ));
+                                }
+                                row.spawn((
+                                    Text::new(part.name),
+                                    TextFont::from_font_size(16.0),
+                                    TextColor(if locked { TEXT_MUTED } else { TEXT_PRIMARY }),
+                                    Pickable::IGNORE,
+                                ));
+                            });
+                            match status {
+                                Some((r, have)) if locked => {
+                                    b.spawn((
+                                        Text::new(format!(
+                                            "{} with the {body_name}  ({have}/{})",
+                                            r.describe(),
+                                            r.need
+                                        )),
+                                        TextFont::from_font_size(12.0),
+                                        TextColor(KIT_YELLOW),
+                                        Pickable::IGNORE,
+                                    ));
+                                    // How far along.
+                                    b.spawn((
+                                        Node {
+                                            height: Val::Px(4.0),
+                                            margin: UiRect::top(Val::Px(3.0)),
+                                            border_radius: BorderRadius::all(Val::Px(2.0)),
+                                            overflow: Overflow::clip(),
+                                            ..default()
+                                        },
+                                        BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.08)),
+                                        Pickable::IGNORE,
+                                    ))
+                                    .with_children(|t| {
+                                        t.spawn((
+                                            Node {
+                                                width: Val::Percent(
+                                                    have as f32 / r.need.max(1) as f32 * 100.0,
+                                                ),
+                                                height: Val::Percent(100.0),
+                                                ..default()
+                                            },
+                                            BackgroundColor(KIT_YELLOW),
+                                            Pickable::IGNORE,
+                                        ));
+                                    });
+                                }
+                                _ => {
+                                    b.spawn((
+                                        Text::new(part.blurb),
+                                        TextFont::from_font_size(12.0),
+                                        TextColor(TEXT_MUTED),
+                                        Pickable::IGNORE,
+                                    ));
+                                }
+                            }
+                            if slot == Slot::Body {
+                                let rec = progress.record(i);
+                                let (have, all) = progress.unlocked_count(i);
+                                b.spawn((
+                                    Text::new(format!(
+                                        "{} splat{}  |  {have}/{all} unlocked",
+                                        rec.splats,
+                                        if rec.splats == 1 { "" } else { "s" }
+                                    )),
+                                    TextFont::from_font_size(11.0),
+                                    TextColor(KIT_YELLOW),
+                                    Pickable::IGNORE,
+                                ));
+                            }
                         });
                     }
                 });
@@ -496,7 +594,8 @@ fn stat_rows(s: &WeaponStats) -> Vec<(&'static str, f32, String)> {
             "Damage",
             (s.damage * s.pellets as f32 / 75.0).min(1.0),
             if s.pellets > 1 {
-                format!("{:.0} x{}", s.damage, s.pellets)
+                // "6 x 13": balls per shot, then damage per ball.
+                format!("{} x {:.0}", s.pellets, s.damage)
             } else {
                 format!("{:.0}", s.damage)
             },
@@ -511,7 +610,11 @@ fn stat_rows(s: &WeaponStats) -> Vec<(&'static str, f32, String)> {
         (
             "Capacity",
             s.capacity as f32 / 150.0,
-            format!("{}", s.capacity),
+            if s.pellets > 1 {
+                format!("{} shells", s.capacity)
+            } else {
+                format!("{}", s.capacity)
+            },
         ),
         (
             "Reload",
@@ -577,7 +680,7 @@ fn stat_bar(parent: &mut ChildSpawnerCommands, name: &str, value: f32, text: &st
                 TextFont::from_font_size(13.0),
                 TextColor(TEXT_PRIMARY),
                 Node {
-                    width: Val::Px(70.0),
+                    width: Val::Px(84.0),
                     ..default()
                 },
                 Pickable::IGNORE,

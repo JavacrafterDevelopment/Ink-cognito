@@ -20,7 +20,8 @@ and respawns 5 seconds later, at a spawn away from enemies.
 | Ranked Elimination | Elimination for rank points (RP). |
 
 A match waits in warmup until there is someone to play against, then everyone goes back to
-spawn for a 5 second countdown. Results stay up for 15 seconds, then the next match starts.
+spawn for a 5 second countdown. When the match ends, the top three splatters celebrate on a podium for two minutes, then
+everyone goes back to the main menu (or click **Main Menu** to leave sooner).
 
 **Ranked:** a win gives +30 RP (plus 2 per splat, up to +10), a loss takes 20, and quitting a
 ranked match before it's decided counts as a loss. Ranks are Bronze, Silver, Gold, Platinum
@@ -50,7 +51,12 @@ and Diamond (three divisions of 100 RP each, from 0, 300, 600, 900 and 1200 RP) 
    Leave Game and Quit. If the host leaves, the game ends for everyone.
 5. **Loadout** (main menu or Esc menu): build a paintball marker from a body and
    barrel, hopper, sight, stock, air tank, foregrip and camo skin, or pick a water gun, and
-   choose a crosshair. The Breacher body is a paint shotgun and the Longshot is a sniper. Your loadout is saved between runs.
+   choose a crosshair. The Breacher body is a paint shotgun (6 balls x 13 damage a shot) and the
+   Longshot is a sniper. Your loadout is saved between runs.
+6. **Unlocks:** every marker body levels up on its own. Its camos unlock at 25, 50, 100, 150,
+   200, 300, 400 and 500 splats with that body, and its attachments unlock with splats or
+   challenges (crouching splats, splats from 25 m+, hip-fire splats and aimed splats). Only
+   splats in a live match count. Locked parts show what they need and how far along you are.
 
 ### Controls
 
@@ -102,6 +108,8 @@ sudo apt install pkg-config libasound2-dev libudev-dev libx11-dev libxkbcommon-x
 | `src/arena.rs` | Collision shapes (boxes, cylinders, ramps) and how players and paint hit them |
 | `src/game_mode.rs` | Match rules: phases, clock, scores, rounds, respawns (run by the host) |
 | `src/ranked.rs` | Rank points, tiers and the ranked save file |
+| `src/progression.rs` | Per-body splat records, camo and attachment unlocks, unlock pop-ups |
+| `src/podium.rs` | The end-of-match podium and the trip back to the main menu |
 | `src/world.rs` | Player movement and camera |
 | `src/player_model.rs` | Rigged player models, animations, and the gun in their hands |
 | `src/combat.rs` | Shooting, paint effects, health, regeneration and respawns |

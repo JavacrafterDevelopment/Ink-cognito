@@ -33,8 +33,8 @@ pub const COUNTDOWN_SECONDS: f32 = 5.0;
 pub const ROUND_SECONDS: f32 = 120.0;
 /// Elimination: the pause after a round is decided.
 pub const ROUND_OVER_SECONDS: f32 = 5.0;
-/// Results stay up this long before the next match.
-pub const MATCH_OVER_SECONDS: f32 = 15.0;
+/// The podium stays up this long, then everyone goes back to the menu.
+pub const MATCH_OVER_SECONDS: f32 = 120.0;
 /// How often the host resends the clock when nothing else changes.
 const RESEND_SECONDS: f32 = 1.0;
 /// Most lines on the scoreboard (keeps the update inside one datagram).
@@ -293,17 +293,8 @@ fn step_rules(ms: &mut MatchState, seen_deaths: &mut HashMap<PlayerId, u32>, pla
                 start_countdown(ms);
             }
         }
-        Phase::MatchOver => {
-            if ms.time_left <= 0.0 {
-                if ready {
-                    new_match(ms);
-                    start_countdown(ms);
-                } else {
-                    new_match(ms);
-                    to_warmup(ms);
-                }
-            }
-        }
+        // The podium stays up until everyone heads back to the menu.
+        Phase::MatchOver => {}
     }
 }
 
@@ -500,14 +491,14 @@ mod tests {
         );
         assert_eq!(ms.phase, Phase::MatchOver);
         assert_eq!(ms.winner, WIN_BLUE);
-        // Then a fresh match.
+        // The podium holds; nobody starts another match.
         ms.time_left = 0.0;
         let id = ms.match_id;
         step_rules(&mut ms, &mut seen_deaths, &both);
-        assert_eq!(ms.phase, Phase::Countdown);
-        assert_eq!(ms.match_id, id + 1);
-        assert_eq!(ms.score, [0, 0]);
-        assert_eq!(ms.kills(0), 0);
+        assert_eq!(ms.phase, Phase::MatchOver);
+        assert_eq!(ms.match_id, id);
+        assert_eq!(ms.score, [2, 0]);
+        assert_eq!(ms.kills(0), 2);
     }
 
     #[test]
