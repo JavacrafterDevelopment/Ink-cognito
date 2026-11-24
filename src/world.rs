@@ -1,10 +1,15 @@
 use crate::{
     AppState, Overlay,
-    arena::{Colliders, FIELD_HALF, setup_arena},
+    arena::Colliders,
     combat::{Combat, LocalState},
+    game_mode::{MatchSetup, pick_spawn},
+    maps::{CurrentMap, MapInfo},
     net::{NetEvent, NetworkState},
     player_model::{PlayerPose, spawn_player_model},
-    protocol::{PlayerId, PlayerSnapshot, PlayerState, Team, spawn_position},
+    protocol::{
+        FLAG_AIMING, FLAG_AIRBORNE, FLAG_CROUCH, FLAG_RELOADING, MatchState, PlayerId,
+        PlayerSnapshot, PlayerState, Team,
+    },
 };
 use bevy::{
     camera::{PerspectiveProjection, Projection},
@@ -20,6 +25,9 @@ pub const PLAYER_RADIUS: f32 = 0.38;
 pub const PLAYER_GROUND_Y: f32 = 0.9;
 /// Eye height above the body's center.
 pub const EYE_OFFSET: f32 = 0.72;
+/// How far the eyes (and the body's hit center) drop when crouching.
+pub const CROUCH_DROP: f32 = 0.55;
+const CROUCH_SPEED: f32 = 0.5;
 
 const WALK_SPEED: f32 = 6.5;
 const SPRINT_SPEED: f32 = 10.0;
@@ -40,8 +48,8 @@ impl Plugin for WorldPlugin {
                 brightness: 380.0,
                 ..default()
             })
-            .add_systems(Startup, (setup_world, setup_arena))
-            .add_systems(Update, poll_network_events)
+            .add_systems(Startup, setup_world)
+            .add_systems(Update, poll_network_events.in_set(WorldSystems::Net))
             .add_systems(
                 Update,
                 animate_menu_camera.run_if(in_state(AppState::MainMenu)),
@@ -76,6 +84,8 @@ impl Plugin for WorldPlugin {
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum WorldSystems {
+    /// Network events are applied (state changes, the match, the map).
+    Net,
     Move,
 }
 
@@ -98,6 +108,8 @@ pub struct LocalPlayer {
     pub yaw: f32,
     /// Horizontal speed this frame (for footsteps).
     pub speed: f32,
+    /// 0 standing to 1 fully crouched, eased.
+    pub crouch: f32,
 }
 
 #[derive(Component)]
@@ -151,14 +163,23 @@ fn setup_world(mut commands: Commands) {
     ));
 }
 
-fn animate_menu_camera(time: Res<Time>, mut camera_q: Query<&mut Transform, With<MainCamera>>) {
+fn animate_menu_camera(
+    time: Res<Time>,
+    map: Res<MapInfo>,
+    mut camera_q: Query<&mut Transform, With<MainCamera>>,
+) {
     let Ok(mut transform) = camera_q.single_mut() else {
         return;
     };
     let angle = time.elapsed_secs() * 0.08;
-    let radius = 30.0;
-    let pos = Vec3::new(angle.cos() * radius, 12.0, angle.sin() * radius);
-    *transform = Transform::from_translation(pos).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y);
+    // Orbit just outside the field, whatever its size.
+    let radius = map.half.max_element().clamp(14.0, 34.0) * 1.1;
+    let dir = Vec3::new(angle.cos(), 0.0, angle.sin());
+    let pos = dir * radius + Vec3::Y * radius * 0.6;
+    // Look a little short of the middle, so the field sits high on screen
+    // above the play screen's panel.
+    let target = dir * radius * 0.45;
+    *transform = Transform::from_translation(pos).looking_at(target, Vec3::Y);
 }
 
 fn reset_camera_fov(mut camera_q: Query<&mut Projection, With<MainCamera>>) {
@@ -167,19 +188,6 @@ fn reset_camera_fov(mut camera_q: Query<&mut Projection, With<MainCamera>>) {
     {
         p.fov = BASE_FOV;
     }
-}
-
-/// Faces a fresh spawn toward the middle of the field.
-pub fn spawn_yaw(id: PlayerId) -> f32 {
-    match Team::of(id) {
-        Team::Blue => 0.0,
-        Team::Orange => std::f32::consts::PI,
-    }
-}
-
-pub fn spawn_point(id: PlayerId) -> Vec3 {
-    let p = spawn_position(id);
-    Vec3::new(p[0], PLAYER_GROUND_Y, p[2])
 }
 
 fn spawn_remote(
@@ -202,8 +210,9 @@ fn spawn_remote(
             .with_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
         PlayerPose {
             pitch: snapshot.state.pitch,
-            speed: 0.0,
             loadout: snapshot.state.loadout,
+            health: snapshot.state.health,
+            ..default()
         },
     ));
     commands.entity(root).add_child(model);
@@ -229,14 +238,14 @@ fn spawn_in_game_players(
     time: Res<Time>,
     asset_server: Res<AssetServer>,
     net: Res<NetworkState>,
+    map: Res<MapInfo>,
     mut camera_q: Query<&mut CameraRig, With<MainCamera>>,
     mut local_state: ResMut<LocalState>,
     mut combat: ResMut<Combat>,
     loadout: Res<crate::loadout::Loadout>,
 ) {
     let local_id = net.local_player_id.unwrap_or(0);
-    let spawn_pos = spawn_point(local_id);
-    let yaw = spawn_yaw(local_id);
+    let (spawn_pos, yaw) = pick_spawn(&map, &net, local_id, 0);
     let now = time.elapsed_secs();
 
     // First person: our own body isn't drawn, the camera is the player.
@@ -248,6 +257,7 @@ fn spawn_in_game_players(
             grounded: true,
             yaw,
             speed: 0.0,
+            crouch: 0.0,
         },
         DespawnOnExit(AppState::InGame),
     ));
@@ -270,11 +280,19 @@ fn spawn_in_game_players(
     }
 }
 
-fn poll_network_events(
+pub fn poll_network_events(
     mut net: ResMut<NetworkState>,
+    setup: Res<MatchSetup>,
+    mut current_map: ResMut<CurrentMap>,
     state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
+    // Builds the match's map right away, so it's there when the game starts.
+    let mut follow = |ms: &MatchState| {
+        if current_map.0 != ms.settings.map {
+            current_map.0 = ms.settings.map;
+        }
+    };
     let events = net.poll_events();
     for event in events {
         match event {
@@ -290,6 +308,11 @@ fn poll_network_events(
                 net.players.clear();
                 net.pending_hits.clear();
                 net.players.insert(local_player.id, local_player);
+                net.match_state = MatchState {
+                    settings: setup.0,
+                    ..default()
+                };
+                follow(&net.match_state);
                 next_state.set(AppState::InGame);
             }
             NetEvent::TailcatReady(addr) => {
@@ -300,7 +323,11 @@ fn poll_network_events(
                 warn!("{err}");
                 net.tailcat_error = Some(err);
             }
-            NetEvent::Connected { your_id, players } => {
+            NetEvent::Connected {
+                your_id,
+                players,
+                match_state,
+            } => {
                 net.is_connecting = false;
                 net.error_text = None;
                 net.local_player_id = Some(your_id);
@@ -310,6 +337,8 @@ fn poll_network_events(
                 for player in players {
                     net.players.insert(player.id, player);
                 }
+                net.match_state = match_state.unwrap_or_default();
+                follow(&net.match_state);
                 next_state.set(AppState::InGame);
             }
             NetEvent::PlayerJoined(player) => {
@@ -343,6 +372,11 @@ fn poll_network_events(
                 net.players
                     .retain(|id, _| Some(*id) == local_id || ids.contains(id));
             }
+            NetEvent::Match(ms) => {
+                // The host's word, except we keep our own clock ticking smoothly.
+                follow(&ms);
+                net.match_state = ms;
+            }
             NetEvent::HitReceived(hit) => {
                 net.pending_hits.push(hit);
             }
@@ -370,8 +404,10 @@ fn move_local_player(
     keys: Res<ButtonInput<KeyCode>>,
     overlay: Res<Overlay>,
     colliders: Res<Colliders>,
+    map: Res<MapInfo>,
+    net: Res<NetworkState>,
     combat: Res<Combat>,
-    local_state: Res<LocalState>,
+    mut local_state: ResMut<LocalState>,
     camera_q: Query<&CameraRig, With<MainCamera>>,
     mut player_q: Query<(&mut Transform, &mut LocalPlayer)>,
 ) {
@@ -380,9 +416,18 @@ fn move_local_player(
     };
     let rig_yaw = camera_q.single().map(|r| r.yaw).unwrap_or(0.0);
     let alive = local_state.0.health > 0.0;
+    let can_move = alive && !overlay.blocks_input() && !net.match_state.frozen();
+    let dt = time.delta_secs().min(0.05);
+
+    // Crouch while C or Ctrl is held.
+    let crouch_held = alive
+        && !overlay.blocks_input()
+        && (keys.pressed(KeyCode::KeyC) || keys.pressed(KeyCode::ControlLeft));
+    let crouch_target = if crouch_held { 1.0 } else { 0.0 };
+    player.crouch += (crouch_target - player.crouch) * (1.0 - (-14.0 * dt).exp());
 
     let mut input_dir = Vec2::ZERO;
-    if alive && !overlay.blocks_input() {
+    if can_move {
         if keys.pressed(KeyCode::KeyW) || keys.pressed(KeyCode::ArrowUp) {
             input_dir.y += 1.0;
         }
@@ -397,7 +442,6 @@ fn move_local_player(
         }
     }
 
-    let dt = time.delta_secs().min(0.05);
     let before = transform.translation;
 
     if input_dir.length_squared() > 0.0 {
@@ -408,11 +452,15 @@ fn move_local_player(
         let move_vec = (forward * input_dir.y + right * input_dir.x).normalize_or_zero();
 
         let sprinting = (keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight))
-            && !combat.aiming;
+            && !combat.aiming
+            && !crouch_held;
         let mut speed = if sprinting { SPRINT_SPEED } else { WALK_SPEED };
         speed *= combat.stats.mobility;
         if combat.aiming {
             speed *= 0.6;
+        }
+        if crouch_held {
+            speed *= CROUCH_SPEED;
         }
         transform.translation += move_vec * speed * dt;
     }
@@ -422,7 +470,7 @@ fn move_local_player(
     transform.rotation = Quat::from_rotation_y(player.yaw);
 
     // Jump & gravity.
-    if alive && !overlay.blocks_input() && player.grounded && keys.just_pressed(KeyCode::Space) {
+    if can_move && player.grounded && keys.just_pressed(KeyCode::Space) {
         player.velocity_y = JUMP_SPEED;
         player.grounded = false;
     }
@@ -446,13 +494,31 @@ fn move_local_player(
         player.grounded = false;
     }
 
-    // Keep the player inside the nets.
-    let limit = FIELD_HALF - PLAYER_RADIUS - 0.15;
-    transform.translation.x = transform.translation.x.clamp(-limit, limit);
-    transform.translation.z = transform.translation.z.clamp(-limit, limit);
+    // Keep the player inside the field.
+    let limit = map.half - Vec2::splat(PLAYER_RADIUS + 0.15);
+    transform.translation.x = transform.translation.x.clamp(-limit.x, limit.x);
+    transform.translation.z = transform.translation.z.clamp(-limit.y, limit.y);
 
     let moved = (transform.translation - before).with_y(0.0).length();
     player.speed = if dt > 0.0 { moved / dt } else { 0.0 };
+
+    // What others need to animate us.
+    let mut flags = 0;
+    if player.crouch > 0.5 {
+        flags |= FLAG_CROUCH;
+    }
+    if !player.grounded {
+        flags |= FLAG_AIRBORNE;
+    }
+    if combat.aiming {
+        flags |= FLAG_AIMING;
+    }
+    if combat.reloading.is_some() {
+        flags |= FLAG_RELOADING;
+    }
+    if local_state.0.flags != flags {
+        local_state.0.flags = flags;
+    }
 }
 
 /// Sends where we are and our state (health, shots, ...) once everything this
@@ -486,7 +552,7 @@ fn update_game_camera(
     combat: Res<Combat>,
     mut mouse_motion: MessageReader<MouseMotion>,
     cursor_q: Query<&CursorOptions, With<PrimaryWindow>>,
-    player_q: Query<&Transform, (With<LocalPlayer>, Without<MainCamera>)>,
+    player_q: Query<(&Transform, &LocalPlayer), Without<MainCamera>>,
     mut camera_q: Query<(&mut Transform, &mut CameraRig, &mut Projection), With<MainCamera>>,
 ) {
     let Ok((mut cam_transform, mut rig, mut projection)) = camera_q.single_mut() else {
@@ -525,10 +591,11 @@ fn update_game_camera(
         return;
     }
 
-    let Ok(player_transform) = player_q.single() else {
+    let Ok((player_transform, player)) = player_q.single() else {
         return;
     };
-    cam_transform.translation = player_transform.translation + Vec3::Y * EYE_OFFSET;
+    cam_transform.translation =
+        player_transform.translation + Vec3::Y * (EYE_OFFSET - CROUCH_DROP * player.crouch);
     cam_transform.rotation = Quat::from_rotation_y(rig.yaw) * Quat::from_rotation_x(rig.pitch);
 }
 
@@ -628,6 +695,7 @@ fn sync_remote_players(
 
 fn interpolate_remote_players(
     time: Res<Time>,
+    net: Res<NetworkState>,
     mut remote_q: Query<(&mut Transform, &mut RemotePlayer)>,
     mut pose_q: Query<&mut PlayerPose>,
 ) {
@@ -668,6 +736,9 @@ fn interpolate_remote_players(
             pose.pitch = remote.state.pitch;
             pose.speed = remote.speed;
             pose.loadout = remote.state.loadout;
+            pose.flags = remote.state.flags;
+            pose.health = remote.state.health;
+            pose.victory = net.match_state.is_winner(remote.id);
         }
     }
 }

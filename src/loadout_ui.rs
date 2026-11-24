@@ -492,7 +492,15 @@ fn column(width: f32) -> impl Bundle {
 fn stat_rows(s: &WeaponStats) -> Vec<(&'static str, f32, String)> {
     let rate = 1.0 / s.fire_interval;
     vec![
-        ("Damage", s.damage / 45.0, format!("{:.0}", s.damage)),
+        (
+            "Damage",
+            (s.damage * s.pellets as f32 / 75.0).min(1.0),
+            if s.pellets > 1 {
+                format!("{:.0} x{}", s.damage, s.pellets)
+            } else {
+                format!("{:.0}", s.damage)
+            },
+        ),
         ("Fire rate", rate / 20.0, format!("{rate:.1}/s")),
         (
             "Accuracy",

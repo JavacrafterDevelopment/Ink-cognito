@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use std::io;
+use std::{
+    io,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Virtual TCP port used inside the Tailcat tunnel for game traffic.
@@ -43,7 +46,20 @@ pub struct PlayerState {
     pub deaths: u32,
     /// Who made the last elimination.
     pub killer: PlayerId,
+    /// What the body is doing (`FLAG_*`), for the animations others see.
+    pub flags: u8,
+    /// Ranked points (shown next to the name in ranked matches).
+    pub rank_points: u16,
 }
+
+/// `PlayerState::flags`: crouching.
+pub const FLAG_CROUCH: u8 = 1;
+/// `PlayerState::flags`: in the air (jumping or falling).
+pub const FLAG_AIRBORNE: u8 = 2;
+/// `PlayerState::flags`: aiming down sights.
+pub const FLAG_AIMING: u8 = 4;
+/// `PlayerState::flags`: reloading.
+pub const FLAG_RELOADING: u8 = 8;
 
 impl Default for PlayerState {
     fn default() -> Self {
@@ -54,6 +70,8 @@ impl Default for PlayerState {
             shots: 0,
             deaths: 0,
             killer: 0,
+            flags: 0,
+            rank_points: 0,
         }
     }
 }
@@ -97,7 +115,181 @@ impl Team {
             Team::Orange => "Orange",
         }
     }
+
+    pub fn index(self) -> usize {
+        match self {
+            Team::Blue => 0,
+            Team::Orange => 1,
+        }
+    }
 }
+
+/// Whether the current match is free-for-all (everyone is everyone's enemy).
+/// Set by the host when a match starts and by players when they hear about it.
+static FREE_FOR_ALL: AtomicBool = AtomicBool::new(false);
+
+pub fn set_free_for_all(on: bool) {
+    FREE_FOR_ALL.store(on, Ordering::Relaxed);
+}
+
+pub fn free_for_all() -> bool {
+    FREE_FOR_ALL.load(Ordering::Relaxed)
+}
+
+/// Whether paint from `a` can hurt `b`: different teams, or anyone else in
+/// free-for-all.
+pub fn enemies(a: PlayerId, b: PlayerId) -> bool {
+    a != b && (free_for_all() || Team::of(a) != Team::of(b))
+}
+
+/// The three ways to play.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum GameMode {
+    /// Blue vs orange, most splats in 10 minutes wins.
+    #[default]
+    TeamSplat,
+    /// Everyone for themselves, most splats in 10 minutes wins.
+    FreeForAll,
+    /// One life per round, first team to win 5 rounds wins.
+    Elimination,
+}
+
+impl GameMode {
+    pub fn name(self) -> &'static str {
+        match self {
+            GameMode::TeamSplat => "Team Splat",
+            GameMode::FreeForAll => "Free-for-All",
+            GameMode::Elimination => "Elimination",
+        }
+    }
+
+    pub fn teams(self) -> bool {
+        self != GameMode::FreeForAll
+    }
+}
+
+/// The five fields.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum MapId {
+    #[default]
+    SplatPark,
+    Dockyard,
+    RingRoad,
+    ThreeLanes,
+    PineHollow,
+}
+
+impl MapId {
+    pub const ALL: [MapId; 5] = [
+        MapId::SplatPark,
+        MapId::Dockyard,
+        MapId::RingRoad,
+        MapId::ThreeLanes,
+        MapId::PineHollow,
+    ];
+}
+
+/// What the host picked: mode, map, and whether it counts for ranked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MatchSettings {
+    pub mode: GameMode,
+    pub map: MapId,
+    /// Ranked (Elimination only).
+    pub ranked: bool,
+}
+
+/// Where a match is at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Phase {
+    /// Not enough players yet: play freely, nothing counts.
+    #[default]
+    Warmup,
+    /// Everyone's back at spawn and held still until it starts.
+    Countdown,
+    Live,
+    /// Elimination: a round just ended.
+    RoundOver,
+    /// The match is decided; results are up until the next one starts.
+    MatchOver,
+}
+
+/// Who won a round or a match.
+pub const WIN_NONE: u8 = 0;
+pub const WIN_BLUE: u8 = 1;
+pub const WIN_ORANGE: u8 = 2;
+pub const WIN_DRAW: u8 = 3;
+/// Free-for-all: `winner` is `WIN_PLAYER + id`.
+pub const WIN_PLAYER: u8 = 10;
+
+/// The match as the host sees it, sent to everyone a few times a second.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MatchState {
+    pub settings: MatchSettings,
+    pub phase: Phase,
+    /// Seconds left in this phase (match clock while live).
+    pub time_left: f32,
+    /// Counts matches: a new one means everyone respawns and scores reset.
+    pub match_id: u32,
+    /// Elimination: the round being played (from 1).
+    pub round: u32,
+    /// Blue and orange: splats (Team Splat) or rounds won (Elimination).
+    pub score: [u32; 2],
+    /// Last round's winner (`WIN_*`).
+    pub round_winner: u8,
+    /// The match winner once it's over (`WIN_*`, `WIN_PLAYER + id` in free-for-all).
+    pub winner: u8,
+    /// Per player: [id, splats, times splatted].
+    pub board: Vec<[u32; 3]>,
+    /// Bumped whenever everyone goes back to their spawn (a countdown starts).
+    pub resets: u32,
+}
+
+impl MatchState {
+    pub fn kills(&self, id: PlayerId) -> u32 {
+        self.board.iter().find(|l| l[0] == id).map_or(0, |l| l[1])
+    }
+
+    pub fn deaths(&self, id: PlayerId) -> u32 {
+        self.board.iter().find(|l| l[0] == id).map_or(0, |l| l[2])
+    }
+
+    /// Whether `id` won the match that just ended.
+    pub fn is_winner(&self, id: PlayerId) -> bool {
+        if self.phase != Phase::MatchOver {
+            return false;
+        }
+        match self.settings.mode {
+            GameMode::FreeForAll => self.winner == WIN_PLAYER.saturating_add(id.min(200) as u8),
+            _ => match Team::of(id) {
+                Team::Blue => self.winner == WIN_BLUE,
+                Team::Orange => self.winner == WIN_ORANGE,
+            },
+        }
+    }
+
+    /// Players hold still (countdown, results).
+    pub fn frozen(&self) -> bool {
+        matches!(self.phase, Phase::Countdown | Phase::MatchOver)
+    }
+
+    /// Whether eliminated players come back on their own.
+    pub fn respawns(&self) -> bool {
+        !(self.settings.mode == GameMode::Elimination
+            && matches!(self.phase, Phase::Live | Phase::RoundOver))
+    }
+
+    /// Whether this phase's splats count.
+    pub fn counting(&self) -> bool {
+        self.phase == Phase::Live
+    }
+}
+
+/// Elimination: rounds needed to win the match.
+pub const ROUNDS_TO_WIN: u32 = 5;
+/// Team Splat and Free-for-All length.
+pub const MATCH_SECONDS: f32 = 600.0;
 
 /// A confirmed paintball/water hit reported by the shooter and relayed to the victim.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -137,6 +329,9 @@ pub enum ServerMessage {
     Welcome {
         your_id: PlayerId,
         players: Vec<PlayerSnapshot>,
+        /// The match in progress (mode, map, scores).
+        #[serde(default)]
+        match_state: Option<MatchState>,
     },
     PlayerJoined(PlayerSnapshot),
     PlayerLeft {
@@ -149,6 +344,8 @@ pub enum ServerMessage {
     PlayerHit(HitEvent),
     /// The host is closing the game: everyone goes back to the menu.
     HostLeaving,
+    /// The match clock, phase and scores.
+    Match(MatchState),
 }
 
 /// What a joining player sends the host over UDP (one JSON datagram each).
@@ -195,10 +392,16 @@ pub fn encode_server_datagrams(msg: &ServerMessage) -> Vec<Vec<u8>> {
         _ => return vec![whole],
     };
     let mut out = Vec::new();
-    if let ServerMessage::Welcome { your_id, .. } = msg {
+    if let ServerMessage::Welcome {
+        your_id,
+        match_state,
+        ..
+    } = msg
+    {
         let w = ServerMessage::Welcome {
             your_id: *your_id,
             players: Vec::new(),
+            match_state: match_state.clone(),
         };
         out.extend(serde_json::to_vec(&ServerDatagram::Msg(w)));
     }
@@ -309,6 +512,8 @@ mod tests {
                     shots: 123_456,
                     deaths: 1234,
                     killer: 39,
+                    flags: 15,
+                    rank_points: 1234,
                 },
             })
             .collect();
