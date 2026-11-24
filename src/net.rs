@@ -1,6 +1,7 @@
 use crate::protocol::{
-    ClientDatagram, ClientMessage, GAME_PORT, PlayerId, PlayerSnapshot, ServerDatagram,
-    ServerMessage, encode_server_datagrams, player_color, read_frame, spawn_position, write_frame,
+    ClientDatagram, ClientMessage, GAME_PORT, PING_EVERY, PlayerId, PlayerSnapshot,
+    SILENCE_TIMEOUT, ServerDatagram, ServerMessage, encode_server_datagrams, player_color,
+    read_frame, spawn_position, write_frame,
 };
 use bevy::prelude::*;
 use std::{
@@ -23,7 +24,9 @@ use tokio::{
 };
 
 /// How long a UDP peer can go silent before it's counted as gone.
-const UDP_TIMEOUT: Duration = Duration::from_secs(10);
+const UDP_TIMEOUT: Duration = SILENCE_TIMEOUT;
+/// How long goodbyes get to go out before the game closes or a host's tasks stop.
+const GOODBYE_GRACE: Duration = Duration::from_millis(400);
 /// How long a joining player keeps saying hello before giving up. Portside's
 /// tunnel can take a few seconds to come up, and drops packets until it has.
 const UDP_HELLO_FOR: Duration = Duration::from_secs(25);
@@ -85,7 +88,6 @@ struct ActiveSession {
     role: NetRole,
     tx_out: mpsc::UnboundedSender<OutboundCommand>,
     rx_in: Mutex<mpsc::UnboundedReceiver<NetEvent>>,
-    shutdown: Arc<Notify>,
 }
 
 /// Bevy resource that owns the Tokio runtime and active Tailcat multiplayer session.
@@ -160,7 +162,6 @@ impl NetworkState {
             role: NetRole::Host,
             tx_out,
             rx_in: Mutex::new(rx_in),
-            shutdown,
         });
     }
 
@@ -193,7 +194,6 @@ impl NetworkState {
             role: NetRole::Client,
             tx_out,
             rx_in: Mutex::new(rx_in),
-            shutdown,
         });
     }
 
@@ -231,7 +231,6 @@ impl NetworkState {
             role: NetRole::Client,
             tx_out,
             rx_in: Mutex::new(rx_in),
-            shutdown,
         });
     }
 
@@ -260,10 +259,9 @@ impl NetworkState {
 
     /// Cleanly terminates any active Tailcat host or client session.
     pub fn disconnect(&mut self) {
-        if let Some(session) = self.session.take() {
-            session.shutdown.notify_waiters();
-            drop(session);
-        }
+        // Dropping the session closes its command channel: its task then says
+        // goodbye (Leave / HostLeaving / Bye) and stops on its own.
+        drop(self.session.take());
         self.role = None;
         self.local_player_id = None;
         self.tailcat_addr = None;
@@ -282,7 +280,13 @@ impl NetworkState {
 
 impl Drop for NetworkState {
     fn drop(&mut self) {
+        // Closing the game: give the goodbyes a moment before the runtime stops,
+        // so others see us leave at once instead of after a timeout.
+        let had_session = self.session.is_some();
         self.disconnect();
+        if had_session {
+            std::thread::sleep(GOODBYE_GRACE * 2);
+        }
     }
 }
 
@@ -378,8 +382,7 @@ async fn run_host_session(
     let server = loop {
         tokio::select! {
             _ = shutdown.notified() => {
-                udp_task.abort();
-                shared.lock().await.clients.clear();
+                host_goodbye(&shared, &shutdown, udp_task).await;
                 return;
             }
             cmd = rx_out.recv() => match cmd {
@@ -387,8 +390,7 @@ async fn run_host_session(
                     set_host_transform(&shared, position, yaw).await;
                 }
                 None => {
-                    udp_task.abort();
-                    shared.lock().await.clients.clear();
+                    host_goodbye(&shared, &shutdown, udp_task).await;
                     return;
                 }
             },
@@ -436,12 +438,29 @@ async fn run_host_session(
         }
     }
 
-    udp_task.abort();
-    // Dropping each player's sender says Bye to the UDP ones.
-    shared.lock().await.clients.clear();
+    host_goodbye(&shared, &shutdown, udp_task).await;
     if let Some(server) = server {
         server.close().await;
     }
+}
+
+/// The host is closing: tell every player, give it a moment to go out, then
+/// stop each player's task.
+async fn host_goodbye(
+    shared: &Arc<AsyncMutex<HostSharedState>>,
+    shutdown: &Notify,
+    udp_task: tokio::task::JoinHandle<()>,
+) {
+    {
+        let mut guard = shared.lock().await;
+        guard.broadcast(&ServerMessage::HostLeaving);
+        // Dropping each player's sender ends its writer once HostLeaving is
+        // out (and says Bye to the UDP ones).
+        guard.clients.clear();
+    }
+    tokio::time::sleep(GOODBYE_GRACE).await;
+    shutdown.notify_waiters();
+    udp_task.abort();
 }
 
 async fn set_host_transform(
@@ -549,6 +568,12 @@ async fn run_udp_host(
                         };
                         let _ = tx_in.send(NetEvent::WorldState { players });
                     }
+                    ClientDatagram::Msg(ClientMessage::Ping) => {}
+                    ClientDatagram::Msg(ClientMessage::Leave) => {
+                        if let Some(peer) = peers.remove(&from) {
+                            cleanup_host_client(peer.id, &shared, &tx_in).await;
+                        }
+                    }
                     ClientDatagram::Keepalive => {
                         if peers.contains_key(&from)
                             && let Ok(d) = serde_json::to_vec(&ServerDatagram::Keepalive)
@@ -600,47 +625,47 @@ async fn handle_host_client(
         let mut guard = shared.lock().await;
         guard.broadcast(&ServerMessage::PlayerJoined(snapshot));
         guard.players.insert(player_id, snapshot);
-        guard.clients.insert(player_id, client_tx);
+        guard.clients.insert(player_id, client_tx.clone());
         ServerMessage::Welcome {
             your_id: player_id,
             players: guard.snapshot_list(),
         }
     };
+    // Welcome goes first, through the same writer as everything else.
+    let _ = client_tx.send(welcome);
+    drop(client_tx);
 
     let _ = tx_in.send(NetEvent::PlayerJoined(snapshot));
 
-    let (mut reader, mut writer) = tokio::io::split(stream);
+    let (reader, mut writer) = tokio::io::split(stream);
 
-    if write_frame(&mut writer, &welcome).await.is_err() {
-        cleanup_host_client(player_id, &shared, &tx_in).await;
-        return;
-    }
-
-    let writer_shutdown = shutdown.clone();
+    // Writes until the host drops this player's sender (left, or the host closing).
     let writer_task = tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                _ = writer_shutdown.notified() => break,
-                msg = client_rx.recv() => {
-                    match msg {
-                        Some(msg) => {
-                            if write_frame(&mut writer, &msg).await.is_err() {
-                                break;
-                            }
-                        }
-                        None => break,
-                    }
-                }
+        while let Some(msg) = client_rx.recv().await {
+            if write_frame(&mut writer, &msg).await.is_err() {
+                break;
             }
         }
     });
+    // Reads on a task of its own: a frame read must never be cut off halfway.
+    let (mut frames, reader_task) = spawn_frame_reader::<ClientMessage, _>(reader);
 
+    let mut last_heard = Instant::now();
+    let mut check = tokio::time::interval(Duration::from_secs(1));
+    check.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         tokio::select! {
             _ = shutdown.notified() => break,
-            frame = read_frame::<_, ClientMessage>(&mut reader) => {
+            _ = check.tick() => {
+                if last_heard.elapsed() > SILENCE_TIMEOUT {
+                    info!("Player {player_id} stopped responding; dropping them.");
+                    break;
+                }
+            }
+            frame = frames.recv() => {
+                last_heard = Instant::now();
                 match frame {
-                    Ok(Some(ClientMessage::UpdateTransform { position, yaw })) => {
+                    Some(ClientMessage::UpdateTransform { position, yaw }) => {
                         let players = {
                             let mut guard = shared.lock().await;
                             if let Some(player) = guard.players.get_mut(&player_id) {
@@ -651,14 +676,43 @@ async fn handle_host_client(
                         };
                         let _ = tx_in.send(NetEvent::WorldState { players });
                     }
-                    Ok(None) | Err(_) => break,
+                    Some(ClientMessage::Ping) => {}
+                    Some(ClientMessage::Leave) | None => break,
                 }
             }
         }
     }
 
-    writer_task.abort();
+    reader_task.abort();
     cleanup_host_client(player_id, &shared, &tx_in).await;
+    // Its sender is gone now: the writer finishes what's queued, or gives up.
+    if tokio::time::timeout(GOODBYE_GRACE, writer_task)
+        .await
+        .is_err()
+    {
+        warn!("Player {player_id}'s connection didn't take the last messages.");
+    }
+}
+
+/// Reads frames on a task of its own and hands them over a channel, which
+/// closes on end of stream or a bad frame. (Reading inside a `select!` with
+/// timers can drop a half-read frame and garble the stream.)
+fn spawn_frame_reader<T, R>(
+    mut reader: R,
+) -> (mpsc::UnboundedReceiver<T>, tokio::task::JoinHandle<()>)
+where
+    T: serde::de::DeserializeOwned + Send + 'static,
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+{
+    let (tx, rx) = mpsc::unbounded_channel();
+    let task = tokio::spawn(async move {
+        while let Ok(Some(msg)) = read_frame::<_, T>(&mut reader).await {
+            if tx.send(msg).is_err() {
+                break;
+            }
+        }
+    });
+    (rx, task)
 }
 
 async fn cleanup_host_client(
@@ -701,14 +755,24 @@ async fn run_client_session(
         }
     };
 
-    let (mut reader, mut writer) = tokio::io::split(stream);
+    let (reader, mut writer) = tokio::io::split(stream);
+    let (mut frames, reader_task) = spawn_frame_reader::<ServerMessage, _>(reader);
 
-    // Wait for initial Welcome message from host.
-    match read_frame::<_, ServerMessage>(&mut reader).await {
+    // Wait for the Welcome from the host.
+    let welcome = tokio::select! {
+        frame = tokio::time::timeout(Duration::from_secs(20), frames.recv()) => frame,
+        _ = rx_out.recv() => {
+            reader_task.abort();
+            client.close().await;
+            return;
+        }
+    };
+    match welcome {
         Ok(Some(ServerMessage::Welcome { your_id, players })) => {
             let _ = tx_in.send(NetEvent::Connected { your_id, players });
         }
         Ok(Some(_)) => {
+            reader_task.abort();
             client.close().await;
             let _ = tx_in.send(NetEvent::Error(
                 "Unexpected handshake message from host.".to_string(),
@@ -722,9 +786,10 @@ async fn run_client_session(
             ));
             return;
         }
-        Err(err) => {
+        Err(_) => {
+            reader_task.abort();
             client.close().await;
-            let _ = tx_in.send(NetEvent::Error(format!("Handshake failed: {err}")));
+            let _ = tx_in.send(NetEvent::Error("The host didn't answer.".to_string()));
             return;
         }
     }
@@ -732,18 +797,19 @@ async fn run_client_session(
     let mut latest_transform: Option<([f32; 3], f32)> = None;
     let mut send_tick = tokio::time::interval(Duration::from_millis(33));
     send_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut ping_tick = tokio::time::interval(PING_EVERY);
+    ping_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut last_heard = Instant::now();
 
-    loop {
+    let reason = loop {
         tokio::select! {
-            _ = shutdown.notified() => {
-                break;
-            }
+            _ = shutdown.notified() => break None,
             cmd = rx_out.recv() => {
                 match cmd {
                     Some(OutboundCommand::UpdateLocalTransform { position, yaw }) => {
                         latest_transform = Some((position, yaw));
                     }
-                    None => break,
+                    None => break None,
                 }
             }
             _ = send_tick.tick() => {
@@ -752,44 +818,55 @@ async fn run_client_session(
                         .await
                         .is_err()
                 {
-                    let _ = tx_in.send(NetEvent::Disconnected(
-                        "Lost connection to host.".to_string(),
-                    ));
-                    break;
+                    break Some("Lost connection to host.".to_string());
                 }
             }
-            frame = read_frame::<_, ServerMessage>(&mut reader) => {
+            _ = ping_tick.tick() => {
+                if last_heard.elapsed() > SILENCE_TIMEOUT {
+                    break Some("The host stopped responding.".to_string());
+                }
+                if write_frame(&mut writer, &ClientMessage::Ping).await.is_err() {
+                    break Some("Lost connection to host.".to_string());
+                }
+            }
+            frame = frames.recv() => {
+                last_heard = Instant::now();
                 match frame {
-                    Ok(Some(ServerMessage::PlayerJoined(player))) => {
+                    Some(ServerMessage::PlayerJoined(player)) => {
                         let _ = tx_in.send(NetEvent::PlayerJoined(player));
                     }
-                    Ok(Some(ServerMessage::PlayerLeft { id })) => {
+                    Some(ServerMessage::PlayerLeft { id }) => {
                         let _ = tx_in.send(NetEvent::PlayerLeft { id });
                     }
-                    Ok(Some(ServerMessage::WorldState { players })) => {
+                    Some(ServerMessage::WorldState { players }) => {
                         let _ = tx_in.send(NetEvent::WorldState { players });
                     }
-                    Ok(Some(ServerMessage::Welcome { your_id, players })) => {
+                    Some(ServerMessage::Welcome { your_id, players }) => {
                         let _ = tx_in.send(NetEvent::Connected { your_id, players });
                     }
-                    Ok(None) => {
-                        let _ = tx_in.send(NetEvent::Disconnected(
-                            "Host ended the game.".to_string(),
-                        ));
-                        break;
-                    }
-                    Err(err) => {
-                        let _ = tx_in.send(NetEvent::Disconnected(format!(
-                            "Connection error: {err}"
-                        )));
-                        break;
+                    Some(ServerMessage::HostLeaving) | None => {
+                        break Some("Host ended the game.".to_string());
                     }
                 }
             }
         }
-    }
+    };
 
+    if reason.is_none() {
+        // We're the one leaving: say so, so the host drops us right away.
+        let _ = tokio::time::timeout(
+            GOODBYE_GRACE,
+            write_frame(&mut writer, &ClientMessage::Leave),
+        )
+        .await;
+        // The tunnel sends in the background: let it go out before closing.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+    }
+    reader_task.abort();
     client.close().await;
+    if let Some(reason) = reason {
+        let _ = tx_in.send(NetEvent::Disconnected(reason));
+    }
 }
 
 /// A player joining through Portside: everything is UDP to `127.0.0.1:port`,
@@ -900,7 +977,9 @@ async fn run_udp_client_session(
                     ServerDatagram::Players { players } => NetEvent::PlayerUpdates(players),
                     ServerDatagram::Roster { ids } => NetEvent::Roster(ids),
                     ServerDatagram::Keepalive => continue,
-                    ServerDatagram::Bye => break Some("Host ended the game.".to_string()),
+                    ServerDatagram::Msg(ServerMessage::HostLeaving) | ServerDatagram::Bye => {
+                        break Some("Host ended the game.".to_string())
+                    }
                 };
                 let _ = tx_in.send(event);
             }
@@ -946,7 +1025,7 @@ mod tests {
         assert!(addr.starts_with("tc"));
 
         let mut client = NetworkState::default();
-        client.join_game(addr);
+        client.join_game(addr.clone());
 
         let mut client_id = None;
         for _ in 0..200 {
@@ -999,8 +1078,181 @@ mod tests {
         assert!(host_saw_client, "host should receive client transform");
         assert!(client_saw_host, "client should receive host transform");
 
+        // Leaving tells the host at once.
         client.disconnect();
+        let t = Instant::now();
+        assert!(
+            wait_for(&host, Duration::from_secs(3), |e| matches!(
+                e,
+                NetEvent::PlayerLeft { id } if *id == client_id
+            )),
+            "host should see the player leave"
+        );
+        eprintln!("host saw the player leave in {:?}", t.elapsed());
+
+        // The host closing sends everyone back to the menu at once.
+        let mut second = NetworkState::default();
+        second.join_game(addr);
+        assert!(wait_for(&second, Duration::from_secs(10), |e| matches!(
+            e,
+            NetEvent::Connected { .. }
+        )));
         host.disconnect();
+        assert!(
+            wait_for(&second, Duration::from_secs(3), |e| matches!(
+                e,
+                NetEvent::Disconnected(_)
+            )),
+            "client should hear the host ended the game"
+        );
+    }
+
+    /// Waits for an event matching `want`, up to `limit`.
+    fn wait_for(net: &NetworkState, limit: Duration, want: impl Fn(&NetEvent) -> bool) -> bool {
+        let start = Instant::now();
+        while start.elapsed() < limit {
+            if net.poll_events().iter().any(&want) {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        false
+    }
+
+    /// Stops a game's networking dead, as a crash or Alt+F4 would: no goodbyes.
+    fn vanish(net: &mut NetworkState) {
+        let rt = std::mem::replace(
+            &mut net.runtime,
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
+        );
+        rt.shutdown_background();
+        net.session = None;
+    }
+
+    /// Someone whose game vanished is noticed within 15 seconds, both ways (TailCat).
+    #[test]
+    fn tailcat_vanished_player_and_host_are_noticed() {
+        let relay_rt = tokio::runtime::Runtime::new().unwrap();
+        let (region, _relay) = relay_rt
+            .block_on(tailcat::derp::start_local_relay())
+            .expect("failed to start local DERP relay");
+
+        let mut host = NetworkState::default();
+        host.start_host_with_region(Some(region));
+        let mut addr = None;
+        let start = Instant::now();
+        while addr.is_none() && start.elapsed() < Duration::from_secs(10) {
+            for ev in host.poll_events() {
+                if let NetEvent::TailcatReady(a) = ev {
+                    addr = Some(a);
+                }
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        let addr = addr.expect("no TailCat address");
+
+        let mut client = NetworkState::default();
+        client.join_game(addr.clone());
+        assert!(wait_for(&client, Duration::from_secs(10), |e| matches!(
+            e,
+            NetEvent::Connected { .. }
+        )));
+        vanish(&mut client);
+        let t = Instant::now();
+        assert!(
+            wait_for(&host, Duration::from_secs(15), |e| matches!(
+                e,
+                NetEvent::PlayerLeft { .. }
+            )),
+            "host should drop a player that vanished"
+        );
+        eprintln!("host noticed the vanished player in {:?}", t.elapsed());
+
+        let mut client = NetworkState::default();
+        client.join_game(addr);
+        assert!(wait_for(&client, Duration::from_secs(10), |e| matches!(
+            e,
+            NetEvent::Connected { .. }
+        )));
+        vanish(&mut host);
+        let t = Instant::now();
+        assert!(
+            wait_for(&client, Duration::from_secs(15), |e| matches!(
+                e,
+                NetEvent::Disconnected(_)
+            )),
+            "client should notice the host vanished"
+        );
+        eprintln!("client noticed the vanished host in {:?}", t.elapsed());
+    }
+
+    /// The same over UDP (Portside): silent peers are dropped within 15 seconds.
+    #[test]
+    fn udp_vanished_player_and_host_are_noticed() {
+        // A player that says hello and then goes silent.
+        let mut host = NetworkState::default();
+        host.start_host_with_region(None);
+        let mut port = None;
+        let start = Instant::now();
+        while port.is_none() && start.elapsed() < Duration::from_secs(5) {
+            for ev in host.poll_events() {
+                if let NetEvent::HostingStarted { udp_port, .. } = ev {
+                    port = Some(udp_port);
+                }
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let port = port.expect("host didn't start");
+        let mute = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        mute.send_to(
+            &serde_json::to_vec(&ClientDatagram::Hello).unwrap(),
+            ("127.0.0.1", port),
+        )
+        .unwrap();
+        assert!(wait_for(&host, Duration::from_secs(3), |e| matches!(
+            e,
+            NetEvent::PlayerJoined(_)
+        )));
+        let t = Instant::now();
+        assert!(
+            wait_for(&host, Duration::from_secs(15), |e| matches!(
+                e,
+                NetEvent::PlayerLeft { .. }
+            )),
+            "host should drop a silent UDP player"
+        );
+        eprintln!("host noticed the silent UDP player in {:?}", t.elapsed());
+
+        // A host that welcomes us and then goes silent.
+        let fake_host = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        let fake_port = fake_host.local_addr().unwrap().port();
+        let mut client = NetworkState::default();
+        client.join_udp(fake_port, "test");
+        let mut buf = [0u8; 2048];
+        let (_, from) = fake_host.recv_from(&mut buf).unwrap();
+        let welcome = ServerDatagram::Msg(ServerMessage::Welcome {
+            your_id: 1,
+            players: vec![],
+        });
+        fake_host
+            .send_to(&serde_json::to_vec(&welcome).unwrap(), from)
+            .unwrap();
+        assert!(wait_for(&client, Duration::from_secs(3), |e| matches!(
+            e,
+            NetEvent::Connected { .. }
+        )));
+        let t = Instant::now();
+        assert!(
+            wait_for(&client, Duration::from_secs(15), |e| matches!(
+                e,
+                NetEvent::Disconnected(_)
+            )),
+            "client should notice the host went silent"
+        );
+        eprintln!("client noticed the silent UDP host in {:?}", t.elapsed());
     }
 
     /// The way a Portside session reaches the game: UDP to a port on 127.0.0.1.

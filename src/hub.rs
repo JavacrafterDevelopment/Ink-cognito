@@ -46,7 +46,13 @@ pub struct HubPlay {
     primed: bool,
     /// The newest game someone started, and how long it's still shown.
     pub toast: Option<(Session, f32)>,
+    /// Tunnels to close in a moment, once the game's goodbye has gone through
+    /// them: (seconds left, sid we hosted or session id we joined, hosted?).
+    closing: Vec<(f32, String, bool)>,
 }
+
+/// How long a tunnel stays up after we leave, for the goodbye to get through.
+const CLOSE_AFTER: f32 = 1.0;
 
 impl Default for HubPlay {
     fn default() -> Self {
@@ -70,6 +76,7 @@ impl Default for HubPlay {
             known: HashSet::new(),
             primed: false,
             toast: None,
+            closing: Vec::new(),
         }
     }
 }
@@ -219,7 +226,7 @@ fn drive_portside(
         }
         None => {
             if let Some(sid) = hub.hosted.take() {
-                portside.stop(sid);
+                hub.closing.push((CLOSE_AFTER, sid, true));
             }
             hub.failed_port = None;
             hub.host_error = None;
@@ -229,12 +236,26 @@ fn drive_portside(
     // We left a game we joined through Portside: close its tunnel.
     if net.transport != Some(Transport::Portside) {
         if let Some(id) = hub.joined.take() {
-            portside.leave(id);
+            hub.closing.push((CLOSE_AFTER, id, false));
         }
         if hub.joining.is_some() && !net.is_connecting {
             hub.cancel_join(&portside);
         }
     }
+
+    let dt = time.delta_secs();
+    hub.closing.retain_mut(|(left, id, hosted)| {
+        *left -= dt;
+        if *left > 0.0 {
+            return true;
+        }
+        if *hosted {
+            portside.stop(std::mem::take(id));
+        } else {
+            portside.leave(std::mem::take(id));
+        }
+        false
+    });
 
     // "Playing Ink-cognito · …" next to our name in the hub.
     if snap.status == Status::Ready {

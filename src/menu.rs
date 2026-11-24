@@ -55,7 +55,8 @@ impl Plugin for MenuPlugin {
             .add_systems(OnEnter(AppState::InGame), spawn_in_game_hud)
             .add_systems(
                 Update,
-                (update_in_game_hud, update_hub_hud).run_if(in_state(AppState::InGame)),
+                (update_in_game_hud, update_hub_hud, join_toast_with_key)
+                    .run_if(in_state(AppState::InGame)),
             );
     }
 }
@@ -883,6 +884,25 @@ fn update_hub_menu(
     });
 }
 
+/// J joins the game the pop-up shows, without freeing the mouse first.
+fn join_toast_with_key(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut hub: ResMut<HubPlay>,
+    mut net: ResMut<NetworkState>,
+    portside: Res<Portside>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if !keys.just_pressed(KeyCode::KeyJ) || net.is_connecting {
+        return;
+    }
+    let Some((session, _)) = hub.toast.clone() else {
+        return;
+    };
+    net.disconnect();
+    next_state.set(AppState::MainMenu);
+    hub.start_join(&session, &mut net, &portside);
+}
+
 fn spawn_hub_join_button(parent: &mut ChildSpawnerCommands, marker: impl Bundle) {
     let style = ButtonStyle {
         normal: BTN_PRIMARY,
@@ -940,7 +960,7 @@ fn update_hub_hud(
     }
     if let (Ok(mut text), Some((session, _))) = (toast_text_q.single_mut(), &hub.toast) {
         let line = format!(
-            "{} started a game in your hub\n{}",
+            "{} started a game in your hub (J to join)\n{}",
             session.host_name,
             shorten_middle(&session.title, 34)
         );
@@ -1091,7 +1111,7 @@ fn spawn_in_game_hud(
             .with_children(|hint| {
                 hint.spawn((
                     Text::new(
-                        "WASD / Arrows: Move  |  Space: Jump  |  Shift: Sprint  |  Right-Drag or Q/E: Orbit  |  Scroll: Zoom",
+                        "WASD / Arrows: Move  |  Mouse: Look  |  Space: Jump  |  Shift: Sprint  |  Q/E: Turn  |  Esc: Free mouse",
                     ),
                     TextFont::from_font_size(13.0),
                     TextColor(TEXT_MUTED),

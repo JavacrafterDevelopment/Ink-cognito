@@ -5,6 +5,11 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 /// Virtual TCP port used inside the Tailcat tunnel for game traffic.
 pub const GAME_PORT: u16 = 7777;
 
+/// A player or host heard nothing from for this long is gone (crashed,
+/// Alt+F4'd, lost its network). Pings go every couple of seconds.
+pub const SILENCE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+pub const PING_EVERY: std::time::Duration = std::time::Duration::from_secs(2);
+
 /// Upper bound on a single serialized network frame to protect against malformed packets.
 const MAX_FRAME_BYTES: usize = 64 * 1024;
 
@@ -22,7 +27,14 @@ pub struct PlayerSnapshot {
 /// Messages sent from a joining client to the host.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClientMessage {
-    UpdateTransform { position: [f32; 3], yaw: f32 },
+    UpdateTransform {
+        position: [f32; 3],
+        yaw: f32,
+    },
+    /// "Still here", every couple of seconds, so a host notices a player that vanished.
+    Ping,
+    /// The player is leaving (sent before closing).
+    Leave,
 }
 
 /// Messages sent from the host to connected clients.
@@ -39,6 +51,8 @@ pub enum ServerMessage {
     WorldState {
         players: Vec<PlayerSnapshot>,
     },
+    /// The host is closing the game: everyone goes back to the menu.
+    HostLeaving,
 }
 
 /// What a joining player sends the host over UDP (one JSON datagram each).
