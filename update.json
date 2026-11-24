@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.3.0",
-      "published": "2026-11-24T20:18:37Z",
-      "notes": "## What's Changed\n* Paintball gameplay with LowPoly Armory assets, loadouts and menus (0.2.1) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/4\n* Fix multiplayer hit desync, add audio Options menu, and document physics/shooting by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/5\n* Add maps, game modes, ranked, UI kit menus and HUD by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/6\n* Release 0.3.0 by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/7\n\n## New Contributors\n* @Sawman24 made their first contribution in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/4\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.2.1...v0.3.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.3.0",
+      "version": "0.4.0",
+      "published": "2026-11-24T21:32:11Z",
+      "notes": "## What's Changed\n* Siege-style menu, end-of-match podium and per-body unlocks (v0.4.0) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/8\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.3.0...v0.4.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.4.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.3.0/Ink-cognito-windows-x64.zip",
-        "size": 50206327,
-        "sha256": "a2e0653a3297c67865f7e88a1583bc9bde8202af3af4218a5bddd43256f9e7b8"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.4.0/Ink-cognito-windows-x64.zip",
+        "size": 50315647,
+        "sha256": "03e73f15004b8c3a60fef760d8da205b0fcc4972cf85ae3c568560fe37b7b0a4"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -1940,20 +1940,20 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99301888,
-          "sha256": "9d4b51d31b7a4ba290e692e8cdb9429bc54fdb31f53ed0fb482bee67372d3450"
+          "size": 99670528,
+          "sha256": "f469f3a9775f10f6c5d9f26c1eeff7b4cfba05f173b54e4d8e617f40fffb706f"
         }
       ]
     },
     "stable": {
-      "version": "0.3.0",
-      "published": "2026-11-24T20:18:37Z",
-      "notes": "## What's Changed\n* Paintball gameplay with LowPoly Armory assets, loadouts and menus (0.2.1) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/4\n* Fix multiplayer hit desync, add audio Options menu, and document physics/shooting by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/5\n* Add maps, game modes, ranked, UI kit menus and HUD by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/6\n* Release 0.3.0 by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/7\n\n## New Contributors\n* @Sawman24 made their first contribution in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/4\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.2.1...v0.3.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.3.0",
+      "version": "0.4.0",
+      "published": "2026-11-24T21:32:11Z",
+      "notes": "## What's Changed\n* Siege-style menu, end-of-match podium and per-body unlocks (v0.4.0) by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/8\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.3.0...v0.4.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.4.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.3.0/Ink-cognito-windows-x64.zip",
-        "size": 50206327,
-        "sha256": "a2e0653a3297c67865f7e88a1583bc9bde8202af3af4218a5bddd43256f9e7b8"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.4.0/Ink-cognito-windows-x64.zip",
+        "size": 50315647,
+        "sha256": "03e73f15004b8c3a60fef760d8da205b0fcc4972cf85ae3c568560fe37b7b0a4"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3884,8 +3884,8 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99301888,
-          "sha256": "9d4b51d31b7a4ba290e692e8cdb9429bc54fdb31f53ed0fb482bee67372d3450"
+          "size": 99670528,
+          "sha256": "f469f3a9775f10f6c5d9f26c1eeff7b4cfba05f173b54e4d8e617f40fffb706f"
         }
       ]
     }
