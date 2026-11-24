@@ -3,6 +3,7 @@
 
 use crate::{
     files,
+    gizmo::{self, GizmoState},
     scene::CursorGround,
     state::{Editor, Field, Sel, SpawnKind, Tool},
     ui,
@@ -31,6 +32,7 @@ impl Plugin for ViewPlugin {
                     shortcuts,
                     fly_camera,
                     cursor_ground,
+                    gizmo::gizmo_input,
                     clicks,
                     draw_overlay,
                 )
@@ -255,7 +257,7 @@ fn fly_camera(
 }
 
 /// The cursor's ray, if it's over the 3D view.
-fn cursor_ray(
+pub fn cursor_ray(
     window: &Window,
     editor: &Editor,
     cam: (&Camera, &GlobalTransform),
@@ -298,13 +300,47 @@ fn cursor_ground(
 }
 
 /// The box to click on for each object and spawn.
-fn pick_boxes(editor: &Editor) -> Vec<(Sel, Vec3, Vec3)> {
-    let mut out = Vec::new();
+/// The nearest object or spawn along a ray. Turned pieces are tested against
+/// their turned boxes, not the box around them.
+fn pick(editor: &Editor, ray: Ray3d) -> Option<Sel> {
+    let mut best: Option<(f32, Sel)> = None;
+    let mut consider = |t: Option<f32>, sel: Sel| {
+        if let Some(t) = t
+            && best.is_none_or(|b| t < b.0)
+        {
+            best = Some((t, sel));
+        }
+    };
     for (i, o) in editor.map.objects.iter().enumerate() {
-        if let Some((lo, hi)) = object_bounds(o) {
-            out.push((Sel::Object(i), lo, hi));
+        let Some(piece) = ink_map::piece(&o.piece) else { continue };
+        let solids = ink_map::piece_solids(piece, Vec3::from_array(o.pos), o.rotation(), Vec3::from_array(o.scale));
+        if solids.is_empty() {
+            let (lo, hi) = object_bounds(o).unwrap();
+            consider(ray_box(ray, lo, hi), Sel::Object(i));
+        }
+        for s in solids {
+            let t = match s.shape {
+                Shape::Oriented { center, half, rot } => {
+                    let inv = rot.inverse();
+                    let local = Ray3d::new(inv * (ray.origin - center), Dir3::new_unchecked(inv * ray.direction.as_vec3()));
+                    ray_box(local, -half, half)
+                }
+                other => {
+                    let (lo, hi) = other.bounds();
+                    ray_box(ray, lo, hi)
+                }
+            };
+            consider(t, Sel::Object(i));
         }
     }
+    for (sel, lo, hi) in spawn_boxes(editor) {
+        consider(ray_box(ray, lo, hi), sel);
+    }
+    best.map(|b| b.1)
+}
+
+fn spawn_boxes(editor: &Editor) -> Vec<(Sel, Vec3, Vec3)> {
+    let mut out = Vec::new();
     for kind in SpawnKind::ALL {
         for (i, &[x, z]) in editor.spawns(kind).iter().enumerate() {
             out.push((Sel::Spawn(kind, i), Vec3::new(x - 0.45, 0.0, z - 0.45), Vec3::new(x + 0.45, 1.8, z + 0.45)));
@@ -325,13 +361,7 @@ pub fn object_bounds(o: &ink_map::Object) -> Option<(Vec3, Vec3)> {
     let mut lo = Vec3::splat(f32::MAX);
     let mut hi = Vec3::splat(f32::MIN);
     for s in solids {
-        let (a, b) = match s.shape {
-            Shape::Box { min, max } | Shape::Ramp { min, max, .. } => (min, max),
-            Shape::Cylinder { base, radius, height } => (
-                base - Vec3::new(radius, 0.0, radius),
-                base + Vec3::new(radius, height, radius),
-            ),
-        };
+        let (a, b) = s.shape.bounds();
         lo = lo.min(a);
         hi = hi.max(b);
     }
@@ -393,9 +423,15 @@ fn clicks(
     cursor: Res<CursorGround>,
     window_q: Query<&Window, With<PrimaryWindow>>,
     cam_q: Query<(&Camera, &GlobalTransform)>,
+    gizmo_state: Res<GizmoState>,
 ) {
     if mouse.just_released(MouseButton::Left) {
         drag.0 = None;
+    }
+    // A handle is being dragged: it moves the selection, not us.
+    if gizmo_state.busy() {
+        drag.0 = None;
+        return;
     }
     if let (Some((offset, moved)), Some(at)) = (drag.0, cursor.0)
         && mouse.pressed(MouseButton::Left)
@@ -437,11 +473,7 @@ fn clicks(
             let Some(ray) = cursor_ray(window, &editor, cam) else {
                 return;
             };
-            let hit = pick_boxes(&editor)
-                .into_iter()
-                .filter_map(|(sel, lo, hi)| ray_box(ray, lo, hi).map(|t| (sel, t)))
-                .min_by(|a, b| a.1.total_cmp(&b.1));
-            editor.sel = hit.map(|(s, _)| s);
+            editor.sel = pick(&editor, ray);
             if let Some(p) = editor.sel_pos() {
                 drag.0 = Some((at - Vec2::new(p.x, p.z), false));
             }
@@ -449,7 +481,13 @@ fn clicks(
     }
 }
 
-fn draw_overlay(editor: Res<Editor>, cursor: Res<CursorGround>, mut gizmos: Gizmos) {
+fn draw_overlay(
+    editor: Res<Editor>,
+    cursor: Res<CursorGround>,
+    gizmo_state: Res<GizmoState>,
+    cam_q: Query<&GlobalTransform, With<Camera>>,
+    mut gizmos: Gizmos,
+) {
     let h = editor.map.half();
     let y = 0.03;
     // The field's edge and center line.
@@ -503,10 +541,33 @@ fn draw_overlay(editor: Res<Editor>, cursor: Res<CursorGround>, mut gizmos: Gizm
         && let Some(o) = editor.map.objects.get(i)
         && let Some((lo, hi)) = object_bounds(o)
     {
-        wire_box(&mut gizmos, lo, hi, Color::srgb(1.0, 0.9, 0.1));
+        // Its collision shapes, as they'll be in the game.
+        let yellow = Color::srgb(1.0, 0.9, 0.1);
+        let piece = ink_map::piece(&o.piece).unwrap();
+        let solids = ink_map::piece_solids(piece, Vec3::from_array(o.pos), o.rotation(), Vec3::from_array(o.scale));
+        if solids.is_empty() {
+            wire_box(&mut gizmos, lo, hi, Color::srgba(1.0, 0.9, 0.1, 0.5));
+        }
+        for s in solids {
+            match s.shape {
+                Shape::Oriented { center, half, rot } => {
+                    let c = ink_map::box_corners(half).map(|p| center + rot * p);
+                    for (a, b) in [(0, 1), (2, 3), (4, 5), (6, 7), (0, 2), (1, 3), (4, 6), (5, 7), (0, 4), (1, 5), (2, 6), (3, 7)] {
+                        gizmos.line(c[a], c[b], yellow);
+                    }
+                }
+                other => {
+                    let (a, b) = other.bounds();
+                    wire_box(&mut gizmos, a, b, yellow);
+                }
+            }
+        }
         // Which way is its front (-Z).
         let at = Vec3::from_array(o.pos) + Vec3::Y * (hi.y - o.pos[1] + 0.2);
         gizmos.line(at, at + o.rotation() * Vec3::NEG_Z, Color::srgb(1.0, 0.9, 0.1));
+    }
+    if let Ok(cam) = cam_q.single() {
+        gizmo::draw(&editor, &gizmo_state, cam, &mut gizmos);
     }
     // What's about to be placed.
     if let Some(c) = cursor.0 {

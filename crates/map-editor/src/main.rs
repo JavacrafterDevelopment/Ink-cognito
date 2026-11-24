@@ -9,6 +9,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod files;
+mod gizmo;
 mod scene;
 mod state;
 mod ui;
@@ -35,7 +36,7 @@ fn main() {
                 }),
         )
         .init_resource::<Editor>()
-        .add_plugins((scene::ScenePlugin, view::ViewPlugin, ui::UiPlugin))
+        .add_plugins((scene::ScenePlugin, view::ViewPlugin, ui::UiPlugin, gizmo::GizmoPlugin))
         .add_systems(Update, update_title)
         .run();
 }

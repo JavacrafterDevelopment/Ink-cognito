@@ -4,7 +4,7 @@
 
 use crate::{
     files,
-    state::{Editor, Field, Page, SIZES, SKIES, SNAPS, Sel, SpawnKind, TINTS, Tool, nearest},
+    state::{Editor, Field, GizmoMode, Page, SIZES, SKIES, SNAPS, Sel, SpawnKind, TINTS, Tool, nearest},
     view,
 };
 use bevy::{picking::prelude::*, prelude::*};
@@ -72,6 +72,8 @@ enum Action {
     Duplicate,
     Mirror,
     Delete,
+    Gizmo(GizmoMode),
+    Level,
 }
 
 /// A button's colors.
@@ -181,6 +183,8 @@ fn on_click(click: On<PointerClick>, actions: Query<&Action>, mut editor: ResMut
         }
         Action::Solid => ed.toggle_solid(),
         Action::Scale(f) => ed.scale_by(f),
+        Action::Gizmo(m) => ed.gizmo = m,
+        Action::Level => ed.level(),
         Action::Duplicate => ed.duplicate(),
         Action::Mirror => ed.mirror(),
         Action::Delete => ed.delete(),
@@ -221,7 +225,7 @@ fn signature(ed: &Editor) -> String {
         ed.map.spawns.ffa.len(),
         ed.can_undo() as u8 * 2 + ed.can_redo() as u8,
         ed.place_yaw,
-    )
+    ) + &format!("{:?}", ed.gizmo)
 }
 
 impl Tool {
@@ -556,18 +560,26 @@ fn settings(mid: &mut ChildSpawnerCommands, ed: &Editor, blink: bool) {
                 let o = &ed.map.objects[i];
                 let name = ink_map::piece(&o.piece).map_or(o.piece.as_str(), |p| p.label);
                 label(p, name, 15.0, ACCENT);
+                label(p, format!("x {:.2}  y {:.2}  z {:.2}", o.pos[0], o.pos[1], o.pos[2]), 12.0, TEXT);
                 label(
                     p,
-                    format!("x {:.2}  y {:.2}  z {:.2}   facing {} deg", o.pos[0], o.pos[1], o.pos[2], o.yaw),
+                    format!("turn {} deg   tilt {} / {} deg", o.yaw, o.pitch, o.roll),
                     12.0,
                     TEXT,
                 );
+                row(p, |r| {
+                    button(r, "Move arrows (1)", Action::Gizmo(GizmoMode::Move), ed.gizmo == GizmoMode::Move);
+                    button(r, "Rotate rings (2)", Action::Gizmo(GizmoMode::Rotate), ed.gizmo == GizmoMode::Rotate);
+                });
                 if o.scale != [1.0; 3] {
                     label(p, format!("scale {:.2}", o.scale[0]), 12.0, TEXT);
                 }
                 row(p, |r| {
                     button(r, "Turn left", Action::Turn(1.0), false);
                     button(r, "Turn right", Action::Turn(-1.0), false);
+                    if o.pitch != 0.0 || o.roll != 0.0 {
+                        button(r, "Level", Action::Level, false);
+                    }
                 });
                 row(p, |r| {
                     button(r, "Up", Action::Raise(0.25), false);
@@ -605,7 +617,7 @@ fn settings(mid: &mut ChildSpawnerCommands, ed: &Editor, blink: bool) {
 
 fn help_bar(root: &mut ChildSpawnerCommands, ed: &Editor) {
     let tool = match ed.tool {
-        Tool::Select => "Click to select, drag to move.",
+        Tool::Select => "Click to select, drag it or its arrows / rings (1 move, 2 rotate).",
         Tool::Place(_) => "Click to place, Shift+click to stack, R / Shift+R turn.",
         Tool::Spawn(_) => "Click to place a spawn.",
     };

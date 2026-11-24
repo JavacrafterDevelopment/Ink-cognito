@@ -70,6 +70,12 @@ impl Colliders {
                 } => segment_cylinder(from, to, base, radius, height),
                 // Paint rolls off slopes: only the ground under them counts.
                 Shape::Ramp { .. } => None,
+                Shape::Oriented { center, half, rot } => {
+                    // In the box's own space it's a plain box.
+                    let inv = rot.inverse();
+                    segment_box(inv * (from - center), inv * (to - center), -half, half)
+                        .map(|(t, n)| (t, rot * n))
+                }
             };
             if let Some((t, normal)) = hit {
                 consider(RayHit {
@@ -91,35 +97,38 @@ impl Colliders {
         for c in &self.0 {
             match c.shape {
                 Shape::Box { min, max } => {
-                    let closest = Vec2::new(pos.x.clamp(min.x, max.x), pos.z.clamp(min.z, max.z));
-                    let p = Vec2::new(pos.x, pos.z);
-                    let d = p - closest;
-                    let dist2 = d.length_squared();
-                    let overlap = dist2 < radius * radius
-                        || (p.x > min.x && p.x < max.x && p.y > min.z && p.y < max.z);
-                    if !overlap {
-                        continue;
+                    let (stand, push) = player_vs_box(Vec2::new(pos.x, pos.z), min, max, radius, feet, top);
+                    if let Some(y) = stand {
+                        floor = floor.max(y);
                     }
-                    if feet >= max.y - 0.25 {
-                        floor = floor.max(max.y);
-                    } else if top > min.y {
-                        let push = if dist2 > 1e-8 {
-                            let dist = dist2.sqrt();
-                            d / dist * (radius - dist)
-                        } else {
-                            // Center inside the box: leave by the nearest side.
-                            let exits = [
-                                (p.x - min.x, Vec2::new(-(p.x - min.x + radius), 0.0)),
-                                (max.x - p.x, Vec2::new(max.x - p.x + radius, 0.0)),
-                                (p.y - min.z, Vec2::new(0.0, -(p.y - min.z + radius))),
-                                (max.z - p.y, Vec2::new(0.0, max.z - p.y + radius)),
-                            ];
-                            exits
-                                .into_iter()
-                                .min_by(|a, b| a.0.total_cmp(&b.0))
-                                .map(|e| e.1)
-                                .unwrap_or_default()
-                        };
+                    pos.x += push.x;
+                    pos.z += push.y;
+                }
+                Shape::Oriented { center, half, rot } => {
+                    if ink_map::is_upright(rot) {
+                        // Work in the box's own (turned) space, then turn the push back.
+                        let local = rot.inverse() * (*pos - center);
+                        let (stand, push) = player_vs_box(
+                            Vec2::new(local.x, local.z),
+                            Vec3::new(-half.x, center.y - half.y, -half.z),
+                            Vec3::new(half.x, center.y + half.y, half.z),
+                            radius,
+                            feet,
+                            top,
+                        );
+                        if let Some(y) = stand {
+                            floor = floor.max(y);
+                        }
+                        let push = rot * Vec3::new(push.x, 0.0, push.y);
+                        pos.x += push.x;
+                        pos.z += push.z;
+                    } else {
+                        // Tilted: players bump the box around it.
+                        let (min, max) = c.shape.bounds();
+                        let (stand, push) = player_vs_box(Vec2::new(pos.x, pos.z), min, max, radius, feet, top);
+                        if let Some(y) = stand {
+                            floor = floor.max(y);
+                        }
                         pos.x += push.x;
                         pos.z += push.y;
                     }
@@ -221,10 +230,67 @@ impl Colliders {
                         touched = true;
                     }
                 }
+                Shape::Oriented { center, half, rot } => {
+                    let local = rot.inverse() * (*p - center);
+                    let h = half + Vec3::splat(radius);
+                    if local.abs().cmplt(h).all() {
+                        // Out through the nearest face.
+                        let mut best = (f32::MAX, local);
+                        for axis in 0..3 {
+                            for sign in [-1.0f32, 1.0] {
+                                let gap = h[axis] - sign * local[axis];
+                                if gap < best.0 {
+                                    let mut q = local;
+                                    q[axis] = sign * h[axis];
+                                    best = (gap, q);
+                                }
+                            }
+                        }
+                        *p = center + rot * best.1;
+                        touched = true;
+                    }
+                }
             }
         }
         touched
     }
+}
+
+/// A standing player (center `p` on the ground plane) against a box lined up
+/// with the axes it's given in. Returns the height to stand on, if the player
+/// is on top, and how far to push them out on the ground plane.
+fn player_vs_box(p: Vec2, min: Vec3, max: Vec3, radius: f32, feet: f32, top: f32) -> (Option<f32>, Vec2) {
+    let closest = Vec2::new(p.x.clamp(min.x, max.x), p.y.clamp(min.z, max.z));
+    let d = p - closest;
+    let dist2 = d.length_squared();
+    let overlap = dist2 < radius * radius || (p.x > min.x && p.x < max.x && p.y > min.z && p.y < max.z);
+    if !overlap {
+        return (None, Vec2::ZERO);
+    }
+    if feet >= max.y - 0.25 {
+        return (Some(max.y), Vec2::ZERO);
+    }
+    if top <= min.y {
+        return (None, Vec2::ZERO);
+    }
+    let push = if dist2 > 1e-8 {
+        let dist = dist2.sqrt();
+        d / dist * (radius - dist)
+    } else {
+        // Center inside the box: leave by the nearest side.
+        let exits = [
+            (p.x - min.x, Vec2::new(-(p.x - min.x + radius), 0.0)),
+            (max.x - p.x, Vec2::new(max.x - p.x + radius, 0.0)),
+            (p.y - min.z, Vec2::new(0.0, -(p.y - min.z + radius))),
+            (max.z - p.y, Vec2::new(0.0, max.z - p.y + radius)),
+        ];
+        exits
+            .into_iter()
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|e| e.1)
+            .unwrap_or_default()
+    };
+    (None, push)
 }
 
 /// Slab test. Returns (t, outward normal) of where the segment enters the box.
@@ -350,6 +416,42 @@ mod tests {
         assert!(p.x >= 1.42 - 1e-4);
         let mut p = Vec3::new(0.0, 3.0, 0.0);
         assert_eq!(c.resolve_player(&mut p, 0.42, 2.1, 3.9), 2.0);
+    }
+
+    #[test]
+    fn turned_boxes_collide_as_turned() {
+        // A 4 x 0.4 wall turned 45 degrees around the middle.
+        let rot = Quat::from_rotation_y(std::f32::consts::FRAC_PI_4);
+        let c = Colliders(vec![Collider {
+            shape: Shape::Oriented {
+                center: Vec3::new(0.0, 1.0, 0.0),
+                half: Vec3::new(2.0, 1.0, 0.2),
+                rot,
+            },
+            decals: true,
+        }]);
+        // A shot along x through the middle hits the wall's face...
+        let hit = c
+            .segment_hit(Vec3::new(-5.0, 1.0, 0.0), Vec3::new(5.0, 1.0, 0.0))
+            .unwrap();
+        assert!(hit.point.x.abs() < 0.4, "{}", hit.point);
+        assert!((hit.normal - rot * Vec3::NEG_Z).length() < 1e-4 || (hit.normal - rot * Vec3::Z).length() < 1e-4);
+        // ...but one past where the old bounding box reached misses.
+        assert!(c
+            .segment_hit(Vec3::new(-5.0, 1.0, -1.3), Vec3::new(-0.6, 1.0, -1.3))
+            .is_none());
+        // A player standing in the old bounding box's empty corner isn't pushed.
+        let mut p = Vec3::new(1.2, 0.9, 1.2);
+        c.resolve_player(&mut p, 0.3, 0.0, 1.8);
+        assert_eq!(p, Vec3::new(1.2, 0.9, 1.2));
+        // One walking into the face is pushed out along its normal.
+        let mut p = Vec3::new(0.1, 0.9, -0.1);
+        c.resolve_player(&mut p, 0.3, 0.0, 1.8);
+        let local = rot.inverse() * (p - Vec3::new(0.0, 0.9, 0.0));
+        assert!(local.z.abs() >= 0.5 - 1e-3, "{local}");
+        // Standing on top.
+        let mut p = Vec3::new(0.5, 2.9, -0.5);
+        assert!((c.resolve_player(&mut p, 0.3, 2.05, 3.8) - 2.0).abs() < 1e-4);
     }
 
     #[test]
