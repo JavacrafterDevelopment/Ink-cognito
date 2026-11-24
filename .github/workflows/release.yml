@@ -83,7 +83,7 @@ jobs:
     needs: version
     if: needs.version.outputs.mode != 'none'
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -94,7 +94,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Test
-        run: cargo test --locked --target x86_64-pc-windows-msvc
+        run: cargo test --release --locked --target x86_64-pc-windows-msvc
 
       - name: Build
         run: cargo build --release --locked --target x86_64-pc-windows-msvc
@@ -119,45 +119,8 @@ jobs:
             release/Ink-cognito-windows-x64.zip
             release/release-entry.json
 
-  build-macos:
-    needs: version
-    if: needs.version.outputs.mode != 'none'
-    runs-on: macos-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Test
-        run: cargo test --locked
-
-      - name: Build (Apple Silicon and Intel, universal)
-        run: |
-          cargo build --release --locked --target aarch64-apple-darwin
-          cargo build --release --locked --target x86_64-apple-darwin
-          mkdir -p target/release-universal
-          lipo -create -output target/release-universal/ink-cognito \
-            target/aarch64-apple-darwin/release/ink-cognito \
-            target/x86_64-apple-darwin/release/ink-cognito
-
-      - name: Package
-        run: ./tools/package-macos.sh target/release-universal/ink-cognito dist
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist-macos
-          path: |
-            dist/Ink-cognito-macos.zip
-            dist/Ink-cognito-macos.dmg
-            dist/release-entry-macos.json
-
   publish:
-    needs: [version, build-windows, build-macos]
+    needs: [version, build-windows]
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -168,19 +131,13 @@ jobs:
           name: dist-windows
           path: release
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist-macos
-          path: dist
-
       - name: Publish release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = '${{ needs.version.outputs.tag }}'
-          $assets = @('release/Ink-cognito-windows-x64.zip', 'dist/Ink-cognito-macos.zip')
-          if (Test-Path 'dist/Ink-cognito-macos.dmg') { $assets += 'dist/Ink-cognito-macos.dmg' }
+          $assets = @('release/Ink-cognito-windows-x64.zip')
           if ('${{ needs.version.outputs.mode }}' -eq 'upload') {
             gh release upload $tag @assets --clobber
           } else {
@@ -191,10 +148,9 @@ jobs:
           }
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
-      # update.json (Windows) and update-macos.json (macOS) live on their own
-      # `updates` branch so releases never add commits to main. The Launcher
-      # reads them from raw.githubusercontent.com.
-      - name: Publish update.json and update-macos.json
+      # update.json (Windows) lives on its own `updates` branch so releases never
+      # add commits to main. The Launcher reads it from raw.githubusercontent.com.
+      - name: Publish update.json
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -221,10 +177,6 @@ jobs:
             -UpdateJson updates-branch/update.json -Prerelease:$info.isPrerelease `
             -Notes "$($info.body)" -Published $published
 
-          ./tools/publish-update.ps1 -Entry dist/release-entry-macos.json -Repo $repo -Tag $tag `
-            -UpdateJson updates-branch/update-macos.json -Prerelease:$info.isPrerelease `
-            -Notes "$($info.body)" -Published $published
-
-          git -C updates-branch add update.json update-macos.json
-          git -C updates-branch commit -m "update.json and update-macos.json for $tag"
+          git -C updates-branch add update.json
+          git -C updates-branch commit -m "update.json for $tag"
           git -C updates-branch push origin HEAD:refs/heads/updates
