@@ -54,7 +54,9 @@ change the field's size, edge, sky and ground.
 | Zoom | Mouse wheel |
 | Place | Pick a piece or spawn on the left, click in the field (Shift+click stacks it on top of what's there) |
 | Select / move | Select tool, click a piece or spawn, drag it |
-| Turn | R / Shift+R (step set on the left: 90, 45 or 15 degrees) |
+| Move arrows | 1: drag the red (X), green (Y, up / down) or blue (Z) arrow on the selection |
+| Rotate rings | 2: drag a red, green or blue ring to turn or tilt the selection on that axis |
+| Turn | R / Shift+R (step set on the left: 90, 45 or 15 degrees; while placing, turns the piece about to be placed) |
 | Raise / lower | Page Up / Page Down |
 | Mirror | M: a copy turned round the middle, for the other team's half |
 | Delete | Delete |
@@ -68,8 +70,8 @@ Linux), where the game reads custom maps when it starts. Open lists those and th
 maps; **Save** on a built-in map writes its file in `assets/maps`, which is how the built-in
 maps are changed in the source (the game compiles them in, so rebuild it to play the change).
 Pieces marked scenery have nothing to collide with; turn any placed piece into scenery with
-the **Solid** button. Collision shapes are boxes lined up with the field, so pieces turned by
-45 or 15 degrees collide as the box around them.
+the **Solid** button. Pieces turned to any angle collide as turned boxes; **Level** in the
+Selected panel takes the tilt off a piece.
 
 ## How to play
 

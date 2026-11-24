@@ -150,6 +150,12 @@ pub struct Object {
     /// Turn around the vertical axis, degrees (counterclockwise seen from above).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub yaw: f32,
+    /// Tilt forward / back (around the piece's own X axis after the yaw), degrees.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub pitch: f32,
+    /// Tilt sideways (around the piece's own Z axis), degrees.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub roll: f32,
     #[serde(default = "white", skip_serializing_if = "is_one")]
     pub scale: [f32; 3],
     /// False: just scenery, nothing collides with it.
@@ -163,13 +169,37 @@ impl Object {
             piece: piece.to_string(),
             pos,
             yaw,
+            pitch: 0.0,
+            roll: 0.0,
             scale: [1.0; 3],
             solid: true,
         }
     }
 
+    /// Yaw, then pitch, then roll.
     pub fn rotation(&self) -> Quat {
-        Quat::from_rotation_y(yaw_radians(self.yaw))
+        let yaw = Quat::from_rotation_y(yaw_radians(self.yaw));
+        if self.pitch == 0.0 && self.roll == 0.0 {
+            return yaw;
+        }
+        yaw * Quat::from_rotation_x(self.pitch.to_radians()) * Quat::from_rotation_z(self.roll.to_radians())
+    }
+
+    /// Sets yaw, pitch and roll (degrees, to a thousandth) from a rotation.
+    pub fn set_rotation(&mut self, rot: Quat) {
+        let (y, x, z) = rot.normalize().to_euler(bevy_math::EulerRot::YXZ);
+        let deg = |r: f32| {
+            let d = ((r.to_degrees() * 1000.0).round() / 1000.0).rem_euclid(360.0);
+            if (d - 360.0).abs() < 1e-3 { 0.0 } else { d }
+        };
+        // Pitch reads best as -90..90.
+        let tilt = |r: f32| {
+            let d = deg(r);
+            if d > 180.0 { d - 360.0 } else { d }
+        };
+        self.yaw = deg(y);
+        self.pitch = tilt(x);
+        self.roll = tilt(z);
     }
 }
 
@@ -298,6 +328,8 @@ impl MapFile {
         for o in &mut m.objects {
             o.pos = rs(o.pos);
             o.yaw = r(o.yaw);
+            o.pitch = r(o.pitch);
+            o.roll = r(o.roll);
             o.scale = rs(o.scale);
         }
         for list in [&mut m.spawns.blue, &mut m.spawns.orange, &mut m.spawns.ffa] {
@@ -371,12 +403,44 @@ pub enum Shape {
         max: Vec3,
         rise: Vec2,
     },
+    /// A box turned any way: `center`, half its size along its own axes, and
+    /// its rotation. Used for pieces not turned by a quarter turn.
+    Oriented {
+        center: Vec3,
+        half: Vec3,
+        rot: Quat,
+    },
 }
 
 impl Shape {
+    /// The axis-aligned box around it.
+    pub fn bounds(&self) -> (Vec3, Vec3) {
+        match *self {
+            Shape::Box { min, max } | Shape::Ramp { min, max, .. } => (min, max),
+            Shape::Cylinder { base, radius, height } => (
+                base - Vec3::new(radius, 0.0, radius),
+                base + Vec3::new(radius, height, radius),
+            ),
+            Shape::Oriented { center, half, rot } => {
+                let mut lo = Vec3::splat(f32::MAX);
+                let mut hi = Vec3::splat(f32::MIN);
+                for c in box_corners(half) {
+                    let p = center + rot * c;
+                    lo = lo.min(p);
+                    hi = hi.max(p);
+                }
+                (lo, hi)
+            }
+        }
+    }
+
     /// The footprint on the ground (x, z), for the minimap.
     pub fn footprint(&self) -> Rect {
         match *self {
+            Shape::Oriented { .. } => {
+                let (lo, hi) = self.bounds();
+                Rect::new(lo.x, lo.z, hi.x, hi.z)
+            }
             Shape::Box { min, max } | Shape::Ramp { min, max, .. } => {
                 Rect::new(min.x, min.z, max.x, max.z)
             }
@@ -393,8 +457,40 @@ impl Shape {
         match *self {
             Shape::Box { max, .. } | Shape::Ramp { max, .. } => max.y,
             Shape::Cylinder { base, height, .. } => base.y + height,
+            Shape::Oriented { .. } => self.bounds().1.y,
         }
     }
+}
+
+/// The eight corners of a box centered on 0 with half size `half`.
+pub fn box_corners(half: Vec3) -> [Vec3; 8] {
+    let h = half;
+    [
+        Vec3::new(-h.x, -h.y, -h.z),
+        Vec3::new(h.x, -h.y, -h.z),
+        Vec3::new(-h.x, h.y, -h.z),
+        Vec3::new(h.x, h.y, -h.z),
+        Vec3::new(-h.x, -h.y, h.z),
+        Vec3::new(h.x, -h.y, h.z),
+        Vec3::new(-h.x, h.y, h.z),
+        Vec3::new(h.x, h.y, h.z),
+    ]
+}
+
+/// Whether `rot` only turns around the vertical axis.
+pub fn is_upright(rot: Quat) -> bool {
+    (rot * Vec3::Y).y > 0.9999
+}
+
+/// Whether `rot` is an upright quarter turn (0, 90, 180 or 270 degrees), where
+/// boxes stay lined up with the field.
+pub fn is_quarter_turn(rot: Quat) -> bool {
+    if !is_upright(rot) {
+        return false;
+    }
+    let f = rot * Vec3::X;
+    // Lined up with x or z.
+    f.x.abs() > 0.9999 || f.z.abs() > 0.9999
 }
 
 /// A collision shape and whether paint sticks to it.
@@ -427,12 +523,31 @@ pub struct Built {
 }
 
 /// The collision shapes of `piece` placed at `at`, turned `rot`, scaled `scale`.
+///
+/// Quarter turns give boxes lined up with the field (exact, and what the
+/// built-in maps use). Other turns give oriented boxes; a tilted cylinder or
+/// ramp becomes the oriented box around it.
 pub fn piece_solids(piece: &Piece, at: Vec3, rot: Quat, scale: Vec3) -> Vec<Solid> {
+    let quarter = is_quarter_turn(rot);
+    let upright = is_upright(rot);
+    let oriented = |min: [f32; 3], max: [f32; 3]| {
+        let (min, max) = (Vec3::from_array(min) * scale, Vec3::from_array(max) * scale);
+        Shape::Oriented {
+            center: at + rot * ((min + max) * 0.5),
+            half: (max - min).abs() * 0.5,
+            rot,
+        }
+    };
     piece
         .parts
         .iter()
         .map(|part| {
             let shape = match *part {
+                Part::Box(min, max) if !quarter => oriented(min, max),
+                Part::Cyl(cx, cz, r, y0, h) if !upright => {
+                    oriented([cx - r, y0, cz - r], [cx + r, y0 + h, cz + r])
+                }
+                Part::Ramp(min, max) if !upright => oriented(min, max),
                 Part::Box(min, max) => {
                     let (lo, hi) = turned(rot, Vec3::from_array(min) * scale, Vec3::from_array(max) * scale);
                     Shape::Box {
@@ -687,6 +802,27 @@ mod tests {
             }
             assert_eq!(MapFile::from_json(&canonical).unwrap(), map.tidied());
         }
+    }
+
+    #[test]
+    fn odd_turns_and_tilts_give_turned_boxes() {
+        let wall = piece("tall_wall").unwrap();
+        let mut o = Object::new("tall_wall", [0.0; 3], 90.0);
+        let quarter = piece_solids(wall, Vec3::ZERO, o.rotation(), Vec3::ONE);
+        assert!(matches!(quarter[0].shape, Shape::Box { .. }));
+        o.yaw = 30.0;
+        let s = piece_solids(wall, Vec3::ZERO, o.rotation(), Vec3::ONE);
+        let Shape::Oriented { half, .. } = s[0].shape else { panic!() };
+        assert!((half - Vec3::new(1.006, 1.0, 0.306)).length() < 1e-4);
+        // A tilted can (a cylinder) becomes the box around it.
+        let can = piece("can").unwrap();
+        let mut o = Object::new("can", [0.0; 3], 0.0);
+        o.pitch = 90.0;
+        let s = piece_solids(can, Vec3::ZERO, o.rotation(), Vec3::ONE);
+        let Shape::Oriented { .. } = s[0].shape else { panic!() };
+        // Lying down, it's low and long.
+        let (lo, hi) = s[0].shape.bounds();
+        assert!(hi.y - lo.y < 1.2 && hi.z - lo.z > 1.2, "{lo} {hi}");
     }
 
     #[test]

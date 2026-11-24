@@ -44,6 +44,15 @@ pub enum Tool {
     Spawn(SpawnKind),
 }
 
+/// What the handles on the selection do.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GizmoMode {
+    /// Three arrows: drag one to move along it.
+    Move,
+    /// Three rings: drag one to turn around it.
+    Rotate,
+}
+
 /// What's selected.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Sel {
@@ -118,6 +127,7 @@ pub struct Editor {
     pub open_list: Option<Vec<(String, PathBuf)>>,
     /// A New or Open waiting for a second click because of unsaved changes.
     pub discard_armed: bool,
+    pub gizmo: GizmoMode,
     undo: Vec<MapFile>,
     redo: Vec<MapFile>,
 }
@@ -147,6 +157,7 @@ impl Editor {
             structure: 0,
             open_list: None,
             discard_armed: false,
+            gizmo: GizmoMode::Move,
             undo: Vec::new(),
             redo: Vec::new(),
         }
@@ -244,7 +255,8 @@ impl Editor {
         let mut o = Object::new(piece.id, [at.x, 0.0, at.y], self.place_yaw);
         o.solid = !self.place_scenery;
         self.map.objects.push(o);
-        self.sel = Some(Sel::Object(self.map.objects.len() - 1));
+        // Not selected: turning while placing turns the next piece, not this one.
+        self.sel = None;
         self.structure += 1;
     }
 
@@ -290,6 +302,7 @@ impl Editor {
         let step = self.turn_value() * dir;
         if let Some(Sel::Object(i)) = self.sel
             && i < self.map.objects.len()
+            && !matches!(self.tool, Tool::Place(_))
         {
             self.snapshot();
             let o = &mut self.map.objects[i];
@@ -297,6 +310,50 @@ impl Editor {
             self.place_yaw = o.yaw;
         } else {
             self.place_yaw = (self.place_yaw + step).rem_euclid(360.0);
+        }
+    }
+
+    /// Moves the selection to `at` (spawns stay on the ground). No snapshot.
+    pub fn move_sel_to3(&mut self, at: Vec3) {
+        match self.sel {
+            Some(Sel::Object(i)) => {
+                if let Some(o) = self.map.objects.get_mut(i) {
+                    o.pos = [at.x, at.y.max(-3.0), at.z];
+                    self.dirty = true;
+                }
+            }
+            Some(Sel::Spawn(..)) => self.move_sel_to(Vec2::new(at.x, at.z)),
+            None => {}
+        }
+    }
+
+    /// The selected piece's rotation.
+    pub fn sel_rotation(&self) -> Option<Quat> {
+        match self.sel {
+            Some(Sel::Object(i)) => self.map.objects.get(i).map(|o| o.rotation()),
+            _ => None,
+        }
+    }
+
+    /// Turns the selected piece to `rot`. No snapshot.
+    pub fn set_sel_rotation(&mut self, rot: Quat) {
+        if let Some(Sel::Object(i)) = self.sel
+            && let Some(o) = self.map.objects.get_mut(i)
+        {
+            o.set_rotation(rot);
+            self.dirty = true;
+        }
+    }
+
+    /// Takes the tilt off the selected piece (keeps its yaw).
+    pub fn level(&mut self) {
+        if let Some(Sel::Object(i)) = self.sel
+            && i < self.map.objects.len()
+        {
+            self.snapshot();
+            let o = &mut self.map.objects[i];
+            o.pitch = 0.0;
+            o.roll = 0.0;
         }
     }
 
@@ -392,7 +449,12 @@ impl Editor {
                 let mut o = self.map.objects[i].clone();
                 o.pos[0] = -o.pos[0];
                 o.pos[2] = -o.pos[2];
-                o.yaw = (o.yaw + 180.0).rem_euclid(360.0);
+                if o.pitch == 0.0 && o.roll == 0.0 {
+                    o.yaw = (o.yaw + 180.0).rem_euclid(360.0);
+                } else {
+                    let rot = Quat::from_rotation_y(std::f32::consts::PI) * o.rotation();
+                    o.set_rotation(rot);
+                }
                 self.map.objects.push(o);
                 self.sel = Some(Sel::Object(self.map.objects.len() - 1));
                 self.structure += 1;
@@ -536,6 +598,7 @@ mod tests {
         assert_eq!(ed.map.objects.len(), 2);
         ed.sel = Some(Sel::Object(1));
         ed.delete();
+        assert_eq!(ed.sel, None);
         assert_eq!(ed.map.objects.len(), 1);
         ed.undo();
         assert_eq!(ed.map.objects[1].pos, [3.0, 0.0, 4.0]);
@@ -546,6 +609,7 @@ mod tests {
         let mut ed = Editor::default();
         ed.place_yaw = 90.0;
         ed.place_piece(ink_map::piece("snake").unwrap(), Vec2::new(4.0, 10.0));
+        ed.sel = Some(Sel::Object(0));
         ed.mirror();
         let o = &ed.map.objects[1];
         assert_eq!(o.pos, [-4.0, 0.0, -10.0]);
@@ -553,6 +617,35 @@ mod tests {
         ed.map.spawns.blue = vec![[1.0, 20.0], [-2.0, 21.0]];
         ed.mirror_team_spawns();
         assert_eq!(ed.map.spawns.orange, vec![[-1.0, -20.0], [2.0, -21.0]]);
+    }
+
+    #[test]
+    fn turning_while_placing_leaves_the_placed_piece_alone() {
+        let mut ed = Editor::default();
+        let piece = ink_map::piece("crate").unwrap();
+        ed.tool = Tool::Place(piece);
+        ed.place_piece(piece, Vec2::ZERO);
+        assert_eq!(ed.sel, None);
+        ed.turn(1.0);
+        assert_eq!(ed.map.objects[0].yaw, 0.0);
+        assert_eq!(ed.place_yaw, 90.0);
+        // Even with something selected, the place tool turns the next piece.
+        ed.sel = Some(Sel::Object(0));
+        ed.turn(1.0);
+        assert_eq!(ed.map.objects[0].yaw, 0.0);
+        assert_eq!(ed.place_yaw, 180.0);
+    }
+
+    #[test]
+    fn tilts_round_trip_through_a_rotation() {
+        let mut o = ink_map::Object::new("crate", [0.0; 3], 30.0);
+        o.pitch = 20.0;
+        o.roll = -15.0;
+        let rot = o.rotation();
+        let mut back = o.clone();
+        back.set_rotation(rot);
+        assert!(back.rotation().angle_between(rot) < 1e-3, "{back:?}");
+        assert!((back.yaw - 30.0).abs() < 1e-2 && (back.pitch - 20.0).abs() < 1e-2 && (back.roll + 15.0).abs() < 1e-2, "{back:?}");
     }
 
     #[test]
