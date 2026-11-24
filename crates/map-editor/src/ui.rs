@@ -242,7 +242,7 @@ fn rebuild_ui(
     mut last: Local<String>,
 ) {
     // The text cursor blinks.
-    let blink = editor.focus.is_some() && (time.elapsed_secs() * 2.0) as u32 % 2 == 0;
+    let blink = editor.focus.is_some() && ((time.elapsed_secs() * 2.0) as u32).is_multiple_of(2);
     let sig = format!("{}{blink}", signature(&editor));
     if *last == sig {
         return;
@@ -290,6 +290,10 @@ fn rebuild_ui(
 
 fn label(p: &mut ChildSpawnerCommands, text: impl Into<String>, size: f32, color: Color) {
     p.spawn((
+        Node {
+            flex_shrink: 0.0,
+            ..default()
+        },
         Text::new(text.into()),
         TextFont::from_font_size(size),
         TextColor(color),
@@ -311,6 +315,7 @@ fn button_sized(p: &mut ChildSpawnerCommands, text: impl Into<String>, action: A
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             flex_grow: if grow { 1.0 } else { 0.0 },
+            flex_shrink: 0.0,
             border_radius: BorderRadius::all(Val::Px(4.0)),
             ..default()
         },
@@ -367,6 +372,8 @@ fn text_field(p: &mut ChildSpawnerCommands, ed: &Editor, field: Field, value: &s
     p.spawn((
         Node {
             width,
+            flex_shrink: 0.0,
+            flex_direction: FlexDirection::Column,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(5.0)),
             border: UiRect::all(Val::Px(1.0)),
             border_radius: BorderRadius::all(Val::Px(4.0)),
@@ -423,6 +430,8 @@ fn top_bar(root: &mut ChildSpawnerCommands, ed: &Editor, blink: bool) {
             Node {
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
+                min_width: Val::Px(0.0),
+                flex_direction: FlexDirection::Column,
                 margin: UiRect::left(Val::Px(12.0)),
                 overflow: Overflow::clip(),
                 ..default()
@@ -470,7 +479,7 @@ fn palette(mid: &mut ChildSpawnerCommands, ed: &Editor) {
             let snap = SNAPS[ed.snap];
             let snap = if snap == 0.0 { "off".to_string() } else { format!("{snap} m") };
             button(r, format!("Snap: {snap}"), Action::Snap, false);
-            button(r, format!("Turn: {}°", crate::state::TURN_STEPS[ed.turn_step]), Action::TurnStep, false);
+            button(r, format!("Turn: {} deg", crate::state::TURN_STEPS[ed.turn_step]), Action::TurnStep, false);
         });
         row(p, |r| {
             button_sized(
@@ -482,7 +491,7 @@ fn palette(mid: &mut ChildSpawnerCommands, ed: &Editor) {
                 true,
             )
         });
-        label(p, format!("Facing {}°", ed.place_yaw), 12.0, MUTED);
+        label(p, format!("Facing {} deg", ed.place_yaw), 12.0, MUTED);
     });
 }
 
@@ -549,7 +558,7 @@ fn settings(mid: &mut ChildSpawnerCommands, ed: &Editor, blink: bool) {
                 label(p, name, 15.0, ACCENT);
                 label(
                     p,
-                    format!("x {:.2}  y {:.2}  z {:.2}   facing {}°", o.pos[0], o.pos[1], o.pos[2], o.yaw),
+                    format!("x {:.2}  y {:.2}  z {:.2}   facing {} deg", o.pos[0], o.pos[1], o.pos[2], o.yaw),
                     12.0,
                     TEXT,
                 );
@@ -614,7 +623,7 @@ fn help_bar(root: &mut ChildSpawnerCommands, ed: &Editor) {
         label(
             b,
             format!(
-                "{tool}   Hold right mouse + WASD to fly (Q/E down/up, Shift fast), wheel to zoom.   R turn  M mirror  Del delete  PgUp/PgDn raise  G snap  Ctrl+Z/Y undo/redo  Ctrl+D duplicate  Ctrl+S save  Esc stop"
+                "{tool}   Right mouse + WASD: fly (Q/E down/up, Shift fast). Wheel: zoom.   M mirror  Del delete  PgUp/PgDn raise  G snap  Ctrl+Z/Y undo/redo  Ctrl+D copy  Ctrl+S save"
             ),
             12.0,
             MUTED,

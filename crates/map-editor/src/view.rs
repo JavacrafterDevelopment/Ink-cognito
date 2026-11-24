@@ -150,6 +150,7 @@ fn shortcuts(keys: Res<ButtonInput<KeyCode>>, mut editor: ResMut<Editor>, mouse:
             editor.open_list = None;
         } else if editor.tool != Tool::Select {
             editor.tool = Tool::Select;
+            editor.status = "Select: click a piece or spawn to select it, drag to move it.".into();
         } else {
             editor.sel = None;
         }

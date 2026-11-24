@@ -185,7 +185,8 @@ impl MapId {
     pub const THREE_LANES: MapId = MapId::new("ThreeLanes");
     pub const PINE_HOLLOW: MapId = MapId::new("PineHollow");
 
-    /// The maps that come with the game.
+    /// The maps that come with the game (`ink_map::BUILT_IN_IDS` lists the same names).
+    #[allow(dead_code)]
     pub const BUILT_IN: [MapId; 5] = [
         MapId::SPLAT_PARK,
         MapId::DOCKYARD,
