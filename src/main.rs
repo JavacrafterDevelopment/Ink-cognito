@@ -1,9 +1,12 @@
+mod hub;
 mod menu;
 mod net;
+mod portside;
 mod protocol;
 mod world;
 
 use bevy::prelude::*;
+use hub::HubPlugin;
 use menu::MenuPlugin;
 use net::NetworkState;
 use world::WorldPlugin;
@@ -27,6 +30,6 @@ fn main() {
         }))
         .init_state::<AppState>()
         .init_resource::<NetworkState>()
-        .add_plugins((WorldPlugin, MenuPlugin))
+        .add_plugins((WorldPlugin, MenuPlugin, HubPlugin))
         .run();
 }

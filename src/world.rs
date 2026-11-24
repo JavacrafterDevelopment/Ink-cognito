@@ -241,10 +241,7 @@ fn build_baseplate_texture() -> Image {
     )
 }
 
-fn animate_menu_camera(
-    time: Res<Time>,
-    mut camera_q: Query<&mut Transform, With<MainCamera>>,
-) {
+fn animate_menu_camera(time: Res<Time>, mut camera_q: Query<&mut Transform, With<MainCamera>>) {
     let Ok(mut transform) = camera_q.single_mut() else {
         return;
     };
@@ -369,23 +366,31 @@ fn poll_network_events(
     for event in events {
         match event {
             NetEvent::HostingStarted {
-                tailcat_addr,
+                udp_port,
                 local_player,
             } => {
                 net.is_connecting = false;
                 net.error_text = None;
-                net.tailcat_addr = Some(tailcat_addr);
+                net.udp_port = Some(udp_port);
                 net.local_player_id = Some(local_player.id);
-                net.status_text = "Hosting via Tailcat".to_string();
+                net.status_text = "Hosting".to_string();
                 net.players.clear();
                 net.players.insert(local_player.id, local_player);
                 next_state.set(AppState::InGame);
+            }
+            NetEvent::TailcatReady(addr) => {
+                net.tailcat_addr = Some(addr);
+                net.tailcat_error = None;
+            }
+            NetEvent::TailcatFailed(err) => {
+                warn!("{err}");
+                net.tailcat_error = Some(err);
             }
             NetEvent::Connected { your_id, players } => {
                 net.is_connecting = false;
                 net.error_text = None;
                 net.local_player_id = Some(your_id);
-                net.status_text = "Connected via Tailcat".to_string();
+                net.status_text = "Connected".to_string();
                 net.players.clear();
                 for player in players {
                     net.players.insert(player.id, player);
@@ -409,6 +414,19 @@ fn poll_network_events(
                     }
                     net.players.insert(player.id, player);
                 }
+            }
+            NetEvent::PlayerUpdates(players) => {
+                let local_id = net.local_player_id;
+                for player in players {
+                    if Some(player.id) != local_id {
+                        net.players.insert(player.id, player);
+                    }
+                }
+            }
+            NetEvent::Roster(ids) => {
+                let local_id = net.local_player_id;
+                net.players
+                    .retain(|id, _| Some(*id) == local_id || ids.contains(id));
             }
             NetEvent::Error(err) => {
                 net.disconnect();
