@@ -676,7 +676,8 @@ mod tests {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/maps");
         for id in BUILT_IN_IDS {
             let path = dir.join(format!("{id}.json"));
-            let text = std::fs::read_to_string(&path).unwrap();
+            // Line endings don't count (a Windows checkout may have CRLF).
+            let text = std::fs::read_to_string(&path).unwrap().replace("\r\n", "\n");
             let map = MapFile::from_json(&text).unwrap();
             let canonical = map.to_json();
             if std::env::var_os("INK_MAP_REFORMAT").is_some() {
