@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "channels": {
+    "beta": {
+      "version": "0.1.0",
+      "published": "2026-11-24T09:05:49Z",
+      "notes": "## What's Changed\n* Rewrite README as UTF-8 and remove readme.txt by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/1\n* Build launchable Windows and macOS packages on release by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/2\n\n## New Contributors\n* @JavacrafterDevelopment made their first contribution in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/1\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/commits/v0.1.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.1.0",
+      "package": {
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.1.0/Ink-cognito-windows-x64.zip",
+        "size": 32190227,
+        "sha256": "aba0a56a89ffd9aa96d2b85b0938a014614076e06f6df96c095f49f1aa6c6ade"
+      },
+      "exe": "ink-cognito.exe",
+      "files": [
+        {
+          "path": "ink-cognito.exe",
+          "size": 96284160,
+          "sha256": "3fa0743f96205cd55eb7d5426b20b54a8b13525feddc4c2a314a1cb3686623ba"
+        }
+      ]
+    },
+    "stable": {
+      "version": "0.1.0",
+      "published": "2026-11-24T09:05:49Z",
+      "notes": "## What's Changed\n* Rewrite README as UTF-8 and remove readme.txt by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/1\n* Build launchable Windows and macOS packages on release by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/2\n\n## New Contributors\n* @JavacrafterDevelopment made their first contribution in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/1\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/commits/v0.1.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.1.0",
+      "package": {
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.1.0/Ink-cognito-windows-x64.zip",
+        "size": 32190227,
+        "sha256": "aba0a56a89ffd9aa96d2b85b0938a014614076e06f6df96c095f49f1aa6c6ade"
+      },
+      "exe": "ink-cognito.exe",
+      "files": [
+        {
+          "path": "ink-cognito.exe",
+          "size": 96284160,
+          "sha256": "3fa0743f96205cd55eb7d5426b20b54a8b13525feddc4c2a314a1cb3686623ba"
+        }
+      ]
+    }
+  }
+}
