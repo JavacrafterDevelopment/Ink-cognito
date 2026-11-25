@@ -38,11 +38,11 @@ pub const FLASH_RECHARGE: f32 = 22.0;
 /// throw counter, and the thrower's hits on a player are summed into one
 /// `HitEvent` per frame (see `combat::move_projectiles`).
 const BOMB_BALLS: u32 = 850;
-const BOMB_BALL_SPEED: f32 = 13.0;
+/// Three times the old 13 m/s, so the burst snaps out instead of drifting.
+const BOMB_BALL_SPEED: f32 = 39.0;
 const BOMB_BALL_GRAVITY: f32 = 6.0;
-/// Per ball. Far more balls than the old 56 at 14 each, so each one does
-/// about as much less, keeping a bomb's total paint (and its lethality) the same.
-const BOMB_BALL_DAMAGE: f32 = 14.0 * 56.0 / BOMB_BALLS as f32;
+/// Per ball.
+const BOMB_BALL_DAMAGE: f32 = 20.0;
 /// Bomb balls only fly this long (they're done well before; it just bounds how
 /// many can be alive at once).
 const BOMB_BALL_LIFE: f32 = 1.6;
