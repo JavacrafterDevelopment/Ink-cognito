@@ -11,7 +11,8 @@
 //! - **Flashbang** (Q): bursts into a cloud of paint. The thrower's screen
 //!   checks who is close with a clear line to it and sends each of them a
 //!   `HitEvent` with `flash` set (no damage); they get paint over most of
-//!   their screen for 10 seconds.
+//!   their screen for 10 seconds. The paint is the thrower's team colour,
+//!   so flashing yourself paints your screen your own colour.
 
 use crate::{
     AppState, Overlay,
@@ -32,11 +33,19 @@ use std::collections::{HashMap, HashSet, VecDeque};
 pub const BOMB_RECHARGE: f32 = 18.0;
 /// Seconds for a used flashbang to come back.
 pub const FLASH_RECHARGE: f32 = 22.0;
-/// How many paintballs a paint bomb bursts into.
-const BOMB_BALLS: u32 = 56;
+/// How many paintballs a paint bomb bursts into. Nothing per ball goes over
+/// the network: every screen bursts the same bomb itself from the thrower's
+/// throw counter, and the thrower's hits on a player are summed into one
+/// `HitEvent` per frame (see `combat::move_projectiles`).
+const BOMB_BALLS: u32 = 850;
 const BOMB_BALL_SPEED: f32 = 13.0;
 const BOMB_BALL_GRAVITY: f32 = 6.0;
-const BOMB_BALL_DAMAGE: f32 = 14.0;
+/// Per ball. Far more balls than the old 56 at 14 each, so each one does
+/// about as much less, keeping a bomb's total paint (and its lethality) the same.
+const BOMB_BALL_DAMAGE: f32 = 14.0 * 56.0 / BOMB_BALLS as f32;
+/// Bomb balls only fly this long (they're done well before; it just bounds how
+/// many can be alive at once).
+const BOMB_BALL_LIFE: f32 = 1.6;
 const BOMB_FUSE: f32 = 1.7;
 const FLASH_FUSE: f32 = 1.4;
 /// Players within this many meters (with nothing in between) get painted.
@@ -98,6 +107,8 @@ pub struct Throwables {
 struct FlashOverlay {
     /// Seconds left.
     left: f32,
+    /// Whose paint it is (the thrower's team).
+    paint: Option<Team>,
     root: Option<Entity>,
 }
 
@@ -440,12 +451,14 @@ fn move_grenades(
                     spawn_paintball(
                         &mut commands,
                         &mut fx,
+                        &mut materials,
                         g.owner,
                         g.team,
                         point + dir * 0.12,
                         dir * BOMB_BALL_SPEED,
                         BOMB_BALL_GRAVITY,
                         BOMB_BALL_DAMAGE,
+                        BOMB_BALL_LIFE,
                     );
                 }
             }
@@ -466,7 +479,7 @@ fn move_grenades(
                     && local_state.0.health > 0.0
                     && sees(lt.translation + Vec3::Y * (EYE_OFFSET - lp.crouch * CROUCH_DROP))
                 {
-                    paint_screen(&mut flash_overlay);
+                    paint_screen(&mut flash_overlay, g.team);
                 }
                 for (rt, remote) in &remote_q {
                     if !enemies(g.owner, remote.id) || !remote.alive() {
@@ -495,8 +508,9 @@ fn move_grenades(
     }
 }
 
-fn paint_screen(overlay: &mut FlashOverlay) {
+fn paint_screen(overlay: &mut FlashOverlay, paint: Team) {
     overlay.left = FLASH_SECONDS;
+    overlay.paint = Some(paint);
 }
 
 /// Flashbangs others say went off next to us.
@@ -527,7 +541,7 @@ fn receive_flashes(
             continue;
         }
         if book.record(hit.attacker, hit.hit_id) {
-            paint_screen(&mut overlay);
+            paint_screen(&mut overlay, Team::of(hit.attacker));
         }
     }
 }
@@ -551,12 +565,13 @@ fn update_flash_overlay(
         if let Some(old) = overlay.root.take() {
             commands.entity(old).despawn();
         }
-        let team = net.local_player_id.map(Team::of).unwrap_or(Team::Blue);
-        // The paint is the other team's colour.
-        let paint = match team {
-            Team::Blue => Team::Orange,
-            Team::Orange => Team::Blue,
-        };
+        // The thrower's colour: an enemy's flash is theirs, our own is ours.
+        let paint = overlay.paint.unwrap_or_else(|| {
+            match net.local_player_id.map(Team::of).unwrap_or(Team::Blue) {
+                Team::Blue => Team::Orange,
+                Team::Orange => Team::Blue,
+            }
+        });
         overlay.root = Some(spawn_flash_overlay(&mut commands, &fx, paint));
     }
 
