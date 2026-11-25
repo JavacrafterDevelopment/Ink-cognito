@@ -393,10 +393,13 @@ async fn relay_hit(
     if !enemies(sender_id, hit.victim) {
         return;
     }
-    if !hit.damage.is_finite() || hit.damage <= 0.0 {
+    if hit.flash {
+        hit.damage = 0.0;
+    } else if !hit.damage.is_finite() || hit.damage <= 0.0 {
         return;
+    } else {
+        hit.damage = hit.damage.min(150.0);
     }
-    hit.damage = hit.damage.min(150.0);
 
     let mut guard = shared.lock().await;
     if !guard.seen_hits.record(hit.attacker, hit.hit_id) {
@@ -1649,6 +1652,7 @@ mod tests {
             velocity: [0.0, 0.0, -30.0],
             point: [0.0, 1.2, 0.0],
             water: false,
+            flash: false,
         };
         client.send_hit(c_hit);
         // Duplicate send should be deduplicated by the host.
@@ -1678,6 +1682,7 @@ mod tests {
             velocity: [0.0, 0.0, 30.0],
             point: [1.0, 1.1, 2.0],
             water: false,
+            flash: false,
         };
         host.send_hit(h_hit);
         assert!(

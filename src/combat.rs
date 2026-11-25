@@ -738,6 +738,80 @@ fn spawn_projectile(
     }
 }
 
+/// A paintball that isn't from a gun (a paint bomb's burst): it hits and
+/// splats like any other, and the owner's screen reports its hits.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn spawn_paintball(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    owner: PlayerId,
+    team: Team,
+    origin: Vec3,
+    velocity: Vec3,
+    gravity: f32,
+    damage: f32,
+) {
+    commands.spawn((
+        WorldAssetRoot(fx.balls[&team].clone()),
+        Transform::from_translation(origin).with_scale(Vec3::splat(2.2)),
+        Projectile {
+            owner,
+            team,
+            water: false,
+            velocity,
+            gravity,
+            damage,
+            age: 0.0,
+        },
+        DespawnOnExit(AppState::InGame),
+    ));
+}
+
+/// A burst of team paint in the air (grenades going off).
+pub(crate) fn paint_burst_fx(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
+    point: Vec3,
+    team: Team,
+    size: f32,
+) {
+    let paint = Paint::Team(team);
+    player_hit_fx(commands, fx, materials, point, Vec3::Y, paint);
+    player_hit_fx(commands, fx, materials, point, Vec3::NEG_Y, paint);
+    let puff = fx.material(paint, PUFF, materials);
+    spawn_particle(
+        commands,
+        fx,
+        puff,
+        point,
+        Vec3::Y * 0.5,
+        0.3 * size,
+        2.2 * size,
+        0.6,
+        0.0,
+    );
+    let ring = fx.material(paint, RING, materials);
+    spawn_particle(
+        commands,
+        fx,
+        ring,
+        point,
+        Vec3::ZERO,
+        0.2 * size,
+        3.0 * size,
+        0.35,
+        0.0,
+    );
+}
+
+impl Fx {
+    /// The paint splat textures (for paint over the screen).
+    pub(crate) fn splat_images(&self) -> &[Handle<Image>] {
+        &self.splats
+    }
+}
+
 fn muzzle_fx(
     commands: &mut Commands,
     fx: &mut Fx,
@@ -1027,6 +1101,7 @@ fn move_projectiles(
                         velocity: ball.velocity.to_array(),
                         point: point.to_array(),
                         water: ball.water,
+                        flash: false,
                     });
                 }
                 let s = fx.sounds.player_hit.clone();
@@ -1075,7 +1150,14 @@ fn process_incoming_hits(
     if net.pending_hits.is_empty() {
         return;
     }
-    let incoming = std::mem::take(&mut net.pending_hits);
+    // Flashbang hits stay queued for the grenades module.
+    let (flashes, incoming): (Vec<_>, Vec<_>) = std::mem::take(&mut net.pending_hits)
+        .into_iter()
+        .partition(|h| h.flash);
+    net.pending_hits = flashes;
+    if incoming.is_empty() {
+        return;
+    }
     let Ok((lt, lp)) = local_q.single() else {
         return;
     };

@@ -310,11 +310,13 @@ pub enum KeyAction {
     Shoot,
     Aim,
     Reload,
+    PaintBomb,
+    Flashbang,
     Scoreboard,
 }
 
 impl KeyAction {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 13] = [
         Self::MoveForward,
         Self::MoveBackward,
         Self::MoveLeft,
@@ -325,6 +327,8 @@ impl KeyAction {
         Self::Shoot,
         Self::Aim,
         Self::Reload,
+        Self::PaintBomb,
+        Self::Flashbang,
         Self::Scoreboard,
     ];
 
@@ -340,6 +344,8 @@ impl KeyAction {
             Self::Shoot => "Shoot",
             Self::Aim => "Aim Down Sights",
             Self::Reload => "Reload",
+            Self::PaintBomb => "Paint Bomb",
+            Self::Flashbang => "Flashbang",
             Self::Scoreboard => "Scoreboard",
         }
     }
@@ -359,6 +365,8 @@ pub struct KeybindSettings {
     pub shoot: InputBinding,
     pub aim: InputBinding,
     pub reload: InputBinding,
+    pub paint_bomb: InputBinding,
+    pub flashbang: InputBinding,
     pub scoreboard: InputBinding,
 }
 
@@ -375,6 +383,8 @@ impl Default for KeybindSettings {
             shoot: InputBinding::Mouse(MouseButton::Left),
             aim: InputBinding::Mouse(MouseButton::Right),
             reload: InputBinding::Key(KeyCode::KeyR),
+            paint_bomb: InputBinding::Key(KeyCode::KeyG),
+            flashbang: InputBinding::Key(KeyCode::KeyQ),
             scoreboard: InputBinding::Key(KeyCode::Tab),
         }
     }
@@ -393,6 +403,8 @@ impl KeybindSettings {
             KeyAction::Shoot => self.shoot,
             KeyAction::Aim => self.aim,
             KeyAction::Reload => self.reload,
+            KeyAction::PaintBomb => self.paint_bomb,
+            KeyAction::Flashbang => self.flashbang,
             KeyAction::Scoreboard => self.scoreboard,
         }
     }
@@ -409,6 +421,8 @@ impl KeybindSettings {
             KeyAction::Shoot => self.shoot = binding,
             KeyAction::Aim => self.aim = binding,
             KeyAction::Reload => self.reload = binding,
+            KeyAction::PaintBomb => self.paint_bomb = binding,
+            KeyAction::Flashbang => self.flashbang = binding,
             KeyAction::Scoreboard => self.scoreboard = binding,
         }
     }

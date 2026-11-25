@@ -4,6 +4,7 @@
 mod arena;
 mod combat;
 mod game_mode;
+mod grenades;
 mod hub;
 mod hud;
 mod loadout;
@@ -108,6 +109,7 @@ fn main() {
             PlayerModelPlugin,
             RagdollPlugin,
             CombatPlugin,
+            grenades::GrenadesPlugin,
             HudPlugin,
             PausePlugin,
             LoadoutUiPlugin,
