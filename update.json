@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.5",
-      "published": "2026-11-25T05:10:01Z",
-      "notes": "## What's Changed\n* Release 0.6.5: paint bomb, lasting wall paint, time-of-day lighting, live map editing by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/19\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.4...v0.6.5",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.5",
+      "version": "0.6.6",
+      "published": "2026-11-25T05:32:12Z",
+      "notes": "## What's Changed\n* Release 0.6.6: random footsteps, lower crouch, faster paint bomb by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/20\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.5...v0.6.6",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.6",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.5/Ink-cognito-windows-x64.zip",
-        "size": 85580280,
-        "sha256": "814ec578fe80f38ccdb11967cbdd4b8d4e000653998bcc934047deddef3fb0e5"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.6/Ink-cognito-windows-x64.zip",
+        "size": 85668878,
+        "sha256": "72a80270e3c7efa6946be95705010ba83544b90541820da40b05e36649cc96e9"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -17,6 +17,26 @@
           "path": "assets/ASSETS-README.txt",
           "size": 4229,
           "sha256": "2a50af039494024506dd95b8eb01c13a798af3c24e5cc9953c900583517ef5d6"
+        },
+        {
+          "path": "assets/audio/footsteps/footstep_01.flac",
+          "size": 24163,
+          "sha256": "58e887b16aa0eb9bb2051194ea7a8fc9d26d1e1fc50877cc6ab440eb70ce0092"
+        },
+        {
+          "path": "assets/audio/footsteps/footstep_02.flac",
+          "size": 31584,
+          "sha256": "40e8d31019e31ca02a5d56fb1b3066c31f668abbbdbb44177057574cdd465ddf"
+        },
+        {
+          "path": "assets/audio/footsteps/footstep_03.flac",
+          "size": 33687,
+          "sha256": "cda57cd9e0801c544d4660b186d35e15ca562ff8e2bcf30e7f925ddeacd8df3e"
+        },
+        {
+          "path": "assets/audio/footsteps/footstep_04.flac",
+          "size": 29998,
+          "sha256": "34fdda4ff0abed35edadcfbbe06b560031b939629762c06b338b36bcf3d4c0fa"
         },
         {
           "path": "assets/audio/footsteps/step_dirt_01.ogg",
@@ -3045,25 +3065,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101590016,
-          "sha256": "fbbf76d935f6c7e435085d75916e9fbd38addf9d5652bc398cdb96440b4d8d37"
+          "size": 101593600,
+          "sha256": "14941066240503a39ef17dc142f2c5e990883ab982ea42716226683b4e71c6bc"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 98467840,
-          "sha256": "74565bd343a90840d6fbd7ae09ff281ac4de16d5e6c055b42dca93860f46d756"
+          "sha256": "b726e5e4447426222be216486859137c953bd6da69fc9befab46aade5bf12f13"
         }
       ]
     },
     "stable": {
-      "version": "0.6.5",
-      "published": "2026-11-25T05:10:01Z",
-      "notes": "## What's Changed\n* Release 0.6.5: paint bomb, lasting wall paint, time-of-day lighting, live map editing by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/19\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.4...v0.6.5",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.5",
+      "version": "0.6.6",
+      "published": "2026-11-25T05:32:12Z",
+      "notes": "## What's Changed\n* Release 0.6.6: random footsteps, lower crouch, faster paint bomb by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/20\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.5...v0.6.6",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.6",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.5/Ink-cognito-windows-x64.zip",
-        "size": 85580280,
-        "sha256": "814ec578fe80f38ccdb11967cbdd4b8d4e000653998bcc934047deddef3fb0e5"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.6/Ink-cognito-windows-x64.zip",
+        "size": 85668878,
+        "sha256": "72a80270e3c7efa6946be95705010ba83544b90541820da40b05e36649cc96e9"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3071,6 +3091,26 @@
           "path": "assets/ASSETS-README.txt",
           "size": 4229,
           "sha256": "2a50af039494024506dd95b8eb01c13a798af3c24e5cc9953c900583517ef5d6"
+        },
+        {
+          "path": "assets/audio/footsteps/footstep_01.flac",
+          "size": 24163,
+          "sha256": "58e887b16aa0eb9bb2051194ea7a8fc9d26d1e1fc50877cc6ab440eb70ce0092"
+        },
+        {
+          "path": "assets/audio/footsteps/footstep_02.flac",
+          "size": 31584,
+          "sha256": "40e8d31019e31ca02a5d56fb1b3066c31f668abbbdbb44177057574cdd465ddf"
+        },
+        {
+          "path": "assets/audio/footsteps/footstep_03.flac",
+          "size": 33687,
+          "sha256": "cda57cd9e0801c544d4660b186d35e15ca562ff8e2bcf30e7f925ddeacd8df3e"
+        },
+        {
+          "path": "assets/audio/footsteps/footstep_04.flac",
+          "size": 29998,
+          "sha256": "34fdda4ff0abed35edadcfbbe06b560031b939629762c06b338b36bcf3d4c0fa"
         },
         {
           "path": "assets/audio/footsteps/step_dirt_01.ogg",
@@ -6099,13 +6139,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101590016,
-          "sha256": "fbbf76d935f6c7e435085d75916e9fbd38addf9d5652bc398cdb96440b4d8d37"
+          "size": 101593600,
+          "sha256": "14941066240503a39ef17dc142f2c5e990883ab982ea42716226683b4e71c6bc"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 98467840,
-          "sha256": "74565bd343a90840d6fbd7ae09ff281ac4de16d5e6c055b42dca93860f46d756"
+          "sha256": "b726e5e4447426222be216486859137c953bd6da69fc9befab46aade5bf12f13"
         }
       ]
     }
