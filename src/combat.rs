@@ -1313,12 +1313,19 @@ fn update_viewmodel(
     overlay: Res<Overlay>,
     loadout: Res<Loadout>,
     time: Res<Time>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keybinds: Res<crate::settings::KeybindSettings>,
     player_q: Query<&LocalPlayer>,
     mut vm_q: Query<(&mut Transform, &mut Visibility), With<ViewModel>>,
+    mut sprint_blend: Local<f32>,
+    mut bob_phase: Local<f32>,
+    mut bob_amount: Local<f32>,
 ) {
     let Ok((mut tf, mut vis)) = vm_q.single_mut() else {
         return;
     };
+    let dt = time.delta_secs().min(0.05);
     let alive = local_state.0.health > 0.0;
     let podium = net.match_state.phase == crate::protocol::Phase::MatchOver;
     *vis = if alive && !podium && !overlay.loadout && !overlay.settings {
@@ -1326,15 +1333,53 @@ fn update_viewmodel(
     } else {
         Visibility::Hidden
     };
-    let speed = player_q.single().map(|p| p.speed).unwrap_or(0.0);
-    let t = time.elapsed_secs();
-    let bob = (1.0 - combat.aim_blend) * (speed / 10.0).min(1.0);
+    let (speed, grounded, crouch) = player_q
+        .single()
+        .map(|p| (p.speed, p.grounded, p.crouch))
+        .unwrap_or((0.0, true, 0.0));
+
+    // Sprinting: holding sprint, actually moving fast, on the ground, not
+    // aiming, crouching or reloading. Eased so the gun swings in and out.
+    let sprinting = alive
+        && !overlay.blocks_input()
+        && keybinds.pressed(crate::settings::KeyAction::Sprint, &keys, &mouse)
+        && speed > 4.0
+        && grounded
+        && crouch < 0.5
+        && !combat.aiming
+        && combat.reloading.is_none();
+    let sprint_target = if sprinting { 1.0 } else { 0.0 };
+    let sprint_rate = if sprinting { 9.0 } else { 12.0 };
+    *sprint_blend += (sprint_target - *sprint_blend) * (1.0 - (-sprint_rate * dt).exp());
+    let sb = *sprint_blend;
+
+    // Weapon bob (Battlefield / CoD style): the phase advances with how fast
+    // we move, so steps and gun bounce stay in sync; it fades out in the air
+    // and while aiming down sights.
+    let moving = (speed / 10.0).min(1.0);
+    let bob_target = if grounded { moving * (1.0 - combat.aim_blend * 0.85) } else { 0.0 };
+    *bob_amount += (bob_target - *bob_amount) * (1.0 - (-10.0 * dt).exp());
+    let freq = 1.55 + sb * 0.55; // steps per metre-ish, quicker cadence when sprinting
+    *bob_phase = (*bob_phase + speed * freq * dt) % TAU;
+    let ph = *bob_phase;
+    let amt = *bob_amount;
+    // Figure-eight: side to side once per stride, down on every footfall.
+    let side = ph.sin();
+    let vert = -(ph * 2.0).cos() * 0.5 - 0.5; // 0 at mid-stride, -1 at footfall
+    let walk_amp = 1.0 - sb;
     let sway = Vec3::new(
-        (t * 6.0).sin() * 0.012,
-        (t * 12.0).sin().abs() * -0.012,
-        0.0,
-    ) * bob;
+        side * (0.012 * walk_amp + 0.032 * sb),
+        vert * (0.010 * walk_amp + 0.026 * sb),
+        vert * -0.012 * sb,
+    ) * amt;
+    let bob_yaw = side * (0.015 * walk_amp + 0.07 * sb) * amt;
+    let bob_roll = side * (0.02 * walk_amp + 0.09 * sb) * amt;
+    let bob_pitch = vert * (0.01 * walk_amp + 0.05 * sb) * amt;
+
     let mut pos = HIP_POS.lerp(aim_pos(combat.kind, loadout.sight), combat.aim_blend) + sway;
+    // Sprint pose: pull the gun in toward the chest and lower it, barrel
+    // swung across to the left.
+    pos += Vec3::new(-0.07, -0.06, 0.08) * sb;
     pos.z += combat.recoil * 0.035;
     // Reloading: dip the gun.
     let reload_dip = if let Some(left) = combat.reloading {
@@ -1346,7 +1391,13 @@ fn update_viewmodel(
     };
     pos.y -= reload_dip * 0.12;
     tf.translation = pos;
-    tf.rotation = Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
+    // Camera-space sprint tilt: yaw left (barrel points left), roll the top
+    // of the gun inward, and dip the muzzle a little.
+    let sprint_rot = Quat::from_rotation_y(0.95 * sb + bob_yaw)
+        * Quat::from_rotation_x(-0.22 * sb + bob_pitch)
+        * Quat::from_rotation_z(0.35 * sb + bob_roll);
+    tf.rotation = sprint_rot
+        * Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
         * Quat::from_rotation_z(combat.recoil * 0.06 - reload_dip * 0.5);
 }
 
