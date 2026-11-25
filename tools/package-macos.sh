@@ -79,6 +79,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <string>${VERSION}</string>
   <key>LSApplicationCategoryType</key>
   <string>public.app-category.games</string>
+  <key>LSRequiresNativeExecution</key>
+  <true/>
   <key>LSMinimumSystemVersion</key>
   <string>11.0</string>
   <key>NSHighResolutionCapable</key>

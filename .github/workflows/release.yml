@@ -20,7 +20,7 @@
 # .cargo/config.toml), so the folder is just ink-cognito.exe, plus the map
 # editor (ink-map-editor.exe, a separate program that shares the assets).
 #
-# macOS: one universal app (Apple Silicon and Intel), Ink-cognito.app, ad-hoc
+# macOS: Apple Silicon only (no Intel build), Ink-cognito.app, ad-hoc
 # signed, with the map editor inside it and the assets in Contents/Resources.
 #
 # The release carries Ink-cognito-windows-x64.zip and Ink-cognito-macos.zip
@@ -145,29 +145,20 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: aarch64-apple-darwin
 
       - uses: Swatinem/rust-cache@v2
 
       # The runner is Apple Silicon: test the arm64 build, sharing its
-      # artifacts with the build below instead of compiling a third time.
+      # artifacts with the build below instead of compiling twice.
       - name: Test
         run: cargo test --release --locked --workspace --target aarch64-apple-darwin
 
-      - name: Build (Apple Silicon and Intel, universal)
-        run: |
-          cargo build --release --locked --workspace --target aarch64-apple-darwin
-          cargo build --release --locked --workspace --target x86_64-apple-darwin
-          mkdir -p target/release-universal
-          for bin in ink-cognito ink-map-editor; do
-            lipo -create -output "target/release-universal/$bin" \
-              "target/aarch64-apple-darwin/release/$bin" \
-              "target/x86_64-apple-darwin/release/$bin"
-            lipo -info "target/release-universal/$bin"
-          done
+      - name: Build (Apple Silicon)
+        run: cargo build --release --locked --workspace --target aarch64-apple-darwin
 
       - name: Package
-        run: ./tools/package-macos.sh target/release-universal/ink-cognito dist target/release-universal/ink-map-editor
+        run: ./tools/package-macos.sh target/aarch64-apple-darwin/release/ink-cognito dist target/aarch64-apple-darwin/release/ink-map-editor
 
       - name: Check the package
         run: |
