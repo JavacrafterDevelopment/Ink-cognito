@@ -1,5 +1,5 @@
-//! Persistent game settings (Display, Audio, Crosshair, Keybinds) and the
-//! multi-section Options screen.
+//! Persistent game settings (Display, Audio, Crosshair, Mouse & View, Keybinds)
+//! and the multi-section Options screen.
 //!
 //! Opens as a top-bar tab in the Main Menu (keeping the top bar clickable) and
 //! as a full-screen overlay from the in-game Escape pause menu.
@@ -27,6 +27,7 @@ pub struct SettingsPlugin;
 impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SettingsUiState>()
+            .insert_resource(load_view_settings())
             .add_observer(on_settings_click)
             .add_observer(on_slider_press)
             .add_observer(on_slider_over)
@@ -37,6 +38,7 @@ impl Plugin for SettingsPlugin {
                     show_settings_screen,
                     sync_sfx_volume,
                     apply_display_settings,
+                    persist_view_settings,
                 ),
             );
     }
@@ -219,6 +221,127 @@ impl CrosshairSettings {
     pub fn sanitized(mut self) -> Self {
         self.style = self.style.min(CROSSHAIRS.len() as u8 - 1);
         self
+    }
+}
+
+/// Persisted mouse-look and camera settings (sensitivity, ADS sensitivity,
+/// invert-Y, field of view). Stored in its own `view.json` beside
+/// `settings.json` and saved automatically whenever it changes.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ViewSettings {
+    /// Hip-fire mouse sensitivity multiplier (1.0 = the original feel).
+    pub sensitivity: f32,
+    /// Extra multiplier applied while aiming down sights, on top of the
+    /// usual slow-down from the sight's zoom (1.0 = unchanged).
+    pub ads_sensitivity: f32,
+    /// Moving the mouse up looks down.
+    pub invert_y: bool,
+    /// Vertical field of view in degrees.
+    pub fov_degrees: f32,
+}
+
+impl Default for ViewSettings {
+    fn default() -> Self {
+        Self {
+            sensitivity: 1.0,
+            ads_sensitivity: 1.0,
+            invert_y: false,
+            fov_degrees: crate::world::BASE_FOV.to_degrees().round(),
+        }
+    }
+}
+
+impl ViewSettings {
+    pub fn sanitized(mut self) -> Self {
+        let defaults = Self::default();
+        for slider in ViewSlider::ALL {
+            let v = slider.get(&self);
+            let v = if v.is_finite() {
+                v
+            } else {
+                slider.get(&defaults)
+            };
+            slider.set(&mut self, v);
+        }
+        self
+    }
+
+    /// Vertical field of view in radians, for the camera projection.
+    pub fn fov_radians(&self) -> f32 {
+        self.fov_degrees.to_radians()
+    }
+
+    /// Mouse sensitivity multiplier at the given aim-down-sights blend (0..=1).
+    pub fn look_multiplier(&self, aim_blend: f32) -> f32 {
+        let ads = 1.0 + (self.ads_sensitivity - 1.0) * aim_blend.clamp(0.0, 1.0);
+        self.sensitivity * ads
+    }
+
+    /// Sign applied to vertical mouse motion.
+    pub fn y_sign(&self) -> f32 {
+        if self.invert_y { -1.0 } else { 1.0 }
+    }
+}
+
+/// The adjustable sliders in the Mouse & View section.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ViewSlider {
+    Sensitivity,
+    AdsSensitivity,
+    Fov,
+}
+
+impl ViewSlider {
+    const ALL: [Self; 3] = [Self::Sensitivity, Self::AdsSensitivity, Self::Fov];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Sensitivity => "Mouse Sensitivity",
+            Self::AdsSensitivity => "ADS Sensitivity",
+            Self::Fov => "Field of View",
+        }
+    }
+
+    /// (min, max, step) for this slider.
+    fn range(self) -> (f32, f32, f32) {
+        match self {
+            Self::Sensitivity => (0.1, 3.0, 0.05),
+            Self::AdsSensitivity => (0.1, 2.0, 0.05),
+            Self::Fov => (50.0, 110.0, 1.0),
+        }
+    }
+
+    fn get(self, s: &ViewSettings) -> f32 {
+        match self {
+            Self::Sensitivity => s.sensitivity,
+            Self::AdsSensitivity => s.ads_sensitivity,
+            Self::Fov => s.fov_degrees,
+        }
+    }
+
+    fn set(self, s: &mut ViewSettings, value: f32) {
+        let (min, max, step) = self.range();
+        let snapped = ((value.clamp(min, max) - min) / step).round() * step + min;
+        let v = snapped.clamp(min, max);
+        match self {
+            Self::Sensitivity => s.sensitivity = v,
+            Self::AdsSensitivity => s.ads_sensitivity = v,
+            Self::Fov => s.fov_degrees = v,
+        }
+    }
+
+    fn step(self, s: &mut ViewSettings, steps: f32) {
+        let (_, _, step) = self.range();
+        let next = self.get(s) + steps * step;
+        self.set(s, next);
+    }
+
+    fn readout(self, s: &ViewSettings) -> String {
+        match self {
+            Self::Sensitivity | Self::AdsSensitivity => format!("{:.2}x", self.get(s)),
+            Self::Fov => format!("{:.0} deg", self.get(s)),
+        }
     }
 }
 
@@ -460,17 +583,25 @@ pub enum SettingsTab {
     Display,
     Audio,
     Crosshair,
+    View,
     Keybinds,
 }
 
 impl SettingsTab {
-    const ALL: [Self; 4] = [Self::Display, Self::Audio, Self::Crosshair, Self::Keybinds];
+    const ALL: [Self; 5] = [
+        Self::Display,
+        Self::Audio,
+        Self::Crosshair,
+        Self::View,
+        Self::Keybinds,
+    ];
 
     fn label(self) -> &'static str {
         match self {
             Self::Display => "Display",
             Self::Audio => "Audio",
             Self::Crosshair => "Crosshair",
+            Self::View => "Mouse & View",
             Self::Keybinds => "Keybinds",
         }
     }
@@ -480,6 +611,7 @@ impl SettingsTab {
             Self::Display => "Window mode and screen presentation",
             Self::Audio => "Volume levels  •  Click or drag bars to adjust",
             Self::Crosshair => "Choose the aiming reticle shown in-game",
+            Self::View => "Look sensitivity and field of view  •  Click or drag bars to adjust",
             Self::Keybinds => "Click a control and press any key or mouse button to rebind",
         }
     }
@@ -489,6 +621,7 @@ impl SettingsTab {
             Self::Display => "Reset Display",
             Self::Audio => "Reset Audio",
             Self::Crosshair => "Reset Crosshair",
+            Self::View => "Reset Mouse & View",
             Self::Keybinds => "Reset Keybinds",
         }
     }
@@ -519,6 +652,8 @@ enum SettingsAction {
     StepAudio(AudioChannel, f32),
     ToggleMute,
     SetCrosshair(u8),
+    StepView(ViewSlider, f32),
+    ToggleInvertY,
     StartRebind(KeyAction),
     ResetTab(SettingsTab),
     Done,
@@ -528,6 +663,13 @@ enum SettingsAction {
 #[derive(Component, Clone, Copy)]
 struct SliderSegment {
     channel: AudioChannel,
+    value: f32,
+}
+
+/// Interactive notch inside a Mouse & View slider bar.
+#[derive(Component, Clone, Copy)]
+struct ViewSliderSegment {
+    slider: ViewSlider,
     value: f32,
 }
 
@@ -548,6 +690,39 @@ fn save_path() -> Option<PathBuf> {
         })
     })?;
     Some(base.join("Ink-cognito").join("settings.json"))
+}
+
+fn view_save_path() -> Option<PathBuf> {
+    save_path().map(|p| p.with_file_name("view.json"))
+}
+
+pub fn load_view_settings() -> ViewSettings {
+    view_save_path()
+        .and_then(|p| std::fs::read(p).ok())
+        .and_then(|bytes| serde_json::from_slice::<ViewSettings>(&bytes).ok())
+        .map(ViewSettings::sanitized)
+        .unwrap_or_default()
+}
+
+fn save_view_settings(view: &ViewSettings) {
+    let Some(path) = view_save_path() else {
+        return;
+    };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Ok(json) = serde_json::to_vec_pretty(view)
+        && let Err(err) = std::fs::write(&path, json)
+    {
+        warn!("Couldn't save view settings to {}: {err}", path.display());
+    }
+}
+
+/// Writes `view.json` whenever the Mouse & View settings change.
+fn persist_view_settings(view: Res<ViewSettings>) {
+    if view.is_changed() && !view.is_added() {
+        save_view_settings(&view);
+    }
 }
 
 pub fn load_saved_settings() -> SavedSettings {
@@ -686,6 +861,7 @@ fn on_settings_click(
     mut display: ResMut<DisplaySettings>,
     mut crosshair: ResMut<CrosshairSettings>,
     mut keybinds: ResMut<KeybindSettings>,
+    mut view: ResMut<ViewSettings>,
     mut overlay: ResMut<Overlay>,
 ) {
     if click.button != PointerButton::Primary {
@@ -720,6 +896,8 @@ fn on_settings_click(
             crosshair.style = style.min(CROSSHAIRS.len() as u8 - 1);
             save_all_settings(&audio, &display, &crosshair, &keybinds);
         }
+        SettingsAction::StepView(slider, steps) => slider.step(&mut view, steps),
+        SettingsAction::ToggleInvertY => view.invert_y = !view.invert_y,
         SettingsAction::StartRebind(key_action) => {
             ui.listening = Some(key_action);
             ui.skip_capture_frame = true;
@@ -729,6 +907,7 @@ fn on_settings_click(
                 SettingsTab::Display => *display = DisplaySettings::default(),
                 SettingsTab::Audio => *audio = AudioSettings::default(),
                 SettingsTab::Crosshair => *crosshair = CrosshairSettings::default(),
+                SettingsTab::View => *view = ViewSettings::default(),
                 SettingsTab::Keybinds => {
                     ui.listening = None;
                     *keybinds = KeybindSettings::default();
@@ -747,7 +926,9 @@ fn on_settings_click(
 fn on_slider_press(
     press: On<PointerPress>,
     segments: Query<&SliderSegment>,
+    view_segments: Query<&ViewSliderSegment>,
     mut audio: ResMut<AudioSettings>,
+    mut view: ResMut<ViewSettings>,
 ) {
     if press.button != PointerButton::Primary {
         return;
@@ -755,19 +936,27 @@ fn on_slider_press(
     if let Ok(seg) = segments.get(press.entity) {
         audio.set(seg.channel, seg.value);
     }
+    if let Ok(seg) = view_segments.get(press.entity) {
+        seg.slider.set(&mut view, seg.value);
+    }
 }
 
 fn on_slider_over(
     over: On<PointerOver>,
     mouse: Res<ButtonInput<MouseButton>>,
     segments: Query<&SliderSegment>,
+    view_segments: Query<&ViewSliderSegment>,
     mut audio: ResMut<AudioSettings>,
+    mut view: ResMut<ViewSettings>,
 ) {
     if !mouse.pressed(MouseButton::Left) {
         return;
     }
     if let Ok(seg) = segments.get(over.entity) {
         audio.set(seg.channel, seg.value);
+    }
+    if let Ok(seg) = view_segments.get(over.entity) {
+        seg.slider.set(&mut view, seg.value);
     }
 }
 
@@ -782,6 +971,7 @@ fn show_settings_screen(
     display: Res<DisplaySettings>,
     crosshair: Res<CrosshairSettings>,
     keybinds: Res<KeybindSettings>,
+    view: Res<ViewSettings>,
     assets: Res<AssetServer>,
     root_q: Query<Entity, With<SettingsRoot>>,
     mut was_open: Local<bool>,
@@ -808,6 +998,7 @@ fn show_settings_screen(
         || display.is_changed()
         || crosshair.is_changed()
         || keybinds.is_changed()
+        || view.is_changed()
         || *was_embedded != embedded;
 
     if *was_open && !any_changed && !root_q.is_empty() {
@@ -827,6 +1018,7 @@ fn show_settings_screen(
         &display,
         &crosshair,
         &keybinds,
+        &view,
         &assets,
     );
 }
@@ -852,6 +1044,7 @@ fn spawn_settings_view(
     display: &DisplaySettings,
     crosshair: &CrosshairSettings,
     keybinds: &KeybindSettings,
+    view: &ViewSettings,
     assets: &AssetServer,
 ) {
     let root_node = if embedded {
@@ -1064,6 +1257,7 @@ fn spawn_settings_view(
                             SettingsTab::Crosshair => {
                                 spawn_crosshair_section(body, crosshair, assets)
                             }
+                            SettingsTab::View => spawn_view_section(body, view),
                             SettingsTab::Keybinds => {
                                 spawn_keybinds_section(body, keybinds, ui.listening)
                             }
@@ -1236,6 +1430,198 @@ fn spawn_crosshair_section(
                 });
             }
         });
+}
+
+fn spawn_view_section(parent: &mut ChildSpawnerCommands, view: &ViewSettings) {
+    for slider in ViewSlider::ALL {
+        spawn_view_slider_row(parent, slider, view);
+    }
+
+    // Invert-Y toggle row
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
+                margin: UiRect::top(Val::Px(4.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                border_radius: BorderRadius::all(Val::Px(10.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.03, 0.05, 0.08, 0.72)),
+            BorderColor::all(BORDER_SUBTLE),
+            Pickable::IGNORE,
+        ))
+        .with_children(|row| {
+            row.spawn((
+                Text::new("Invert Y-Axis"),
+                TextFont::from_font_size(15.0),
+                TextColor(TEXT_PRIMARY),
+                Pickable::IGNORE,
+            ));
+            row.spawn((
+                Node {
+                    width: Val::Px(120.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|wrap| {
+                spawn_button(
+                    wrap,
+                    if view.invert_y { "On" } else { "Off" },
+                    SettingsAction::ToggleInvertY,
+                    style_for(view.invert_y),
+                    34.0,
+                    14.0,
+                    false,
+                );
+            });
+        });
+
+    parent.spawn((
+        Text::new(
+            "ADS sensitivity scales your look speed while aiming down sights, on top of the sight's zoom.",
+        ),
+        TextFont::from_font_size(12.0),
+        TextColor(TEXT_MUTED),
+        Pickable::IGNORE,
+    ));
+}
+
+fn spawn_view_slider_row(
+    parent: &mut ChildSpawnerCommands,
+    slider: ViewSlider,
+    view: &ViewSettings,
+) {
+    let (min, max, _) = slider.range();
+    let val = slider.get(view);
+    const NOTCHES: u32 = 20;
+
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|group| {
+            group
+                .spawn((
+                    Node {
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|top| {
+                    top.spawn((
+                        Text::new(slider.label()),
+                        TextFont::from_font_size(15.0),
+                        TextColor(TEXT_PRIMARY),
+                        Pickable::IGNORE,
+                    ));
+                    top.spawn((
+                        Text::new(slider.readout(view)),
+                        TextFont::from_font_size(14.0),
+                        TextColor(TEXT_STATUS),
+                        Pickable::IGNORE,
+                    ));
+                });
+
+            // Controls row: [-] [notched slider bar] [+]
+            group
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(8.0),
+                    ..default()
+                })
+                .with_children(|row| {
+                    for (label, steps) in [("-", -1.0_f32), ("+", 1.0_f32)] {
+                        if steps > 0.0 {
+                            spawn_view_track(row, slider, val, min, max, NOTCHES);
+                        }
+                        row.spawn((
+                            Node {
+                                width: Val::Px(34.0),
+                                height: Val::Px(30.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                border_radius: BorderRadius::all(Val::Px(7.0)),
+                                ..default()
+                            },
+                            BackgroundColor(ButtonStyle::SECONDARY.normal),
+                            ButtonStyle::SECONDARY,
+                            SettingsAction::StepView(slider, steps),
+                        ))
+                        .with_children(|btn| {
+                            btn.spawn((
+                                Text::new(label),
+                                TextFont::from_font_size(18.0),
+                                TextColor(TEXT_PRIMARY),
+                                Pickable::IGNORE,
+                            ));
+                        });
+                    }
+                });
+        });
+}
+
+fn spawn_view_track(
+    row: &mut ChildSpawnerCommands,
+    slider: ViewSlider,
+    val: f32,
+    min: f32,
+    max: f32,
+    notches: u32,
+) {
+    row.spawn((
+        Node {
+            flex_grow: 1.0,
+            height: Val::Px(26.0),
+            padding: UiRect::all(Val::Px(3.0)),
+            flex_direction: FlexDirection::Row,
+            column_gap: Val::Px(2.0),
+            align_items: AlignItems::Stretch,
+            border: UiRect::all(Val::Px(1.0)),
+            border_radius: BorderRadius::all(Val::Px(8.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.03, 0.05, 0.08, 0.92)),
+        BorderColor::all(BORDER_SUBTLE),
+    ))
+    .with_children(|track| {
+        let span = max - min;
+        for step in 0..=notches {
+            let step_val = min + span * step as f32 / notches as f32;
+            let filled = val + span * 0.001 >= step_val;
+            let color = if filled {
+                BTN_PRIMARY
+            } else {
+                Color::srgba(0.16, 0.21, 0.29, 0.75)
+            };
+            track.spawn((
+                Node {
+                    flex_grow: 1.0,
+                    height: Val::Percent(100.0),
+                    border_radius: BorderRadius::all(Val::Px(3.0)),
+                    ..default()
+                },
+                BackgroundColor(color),
+                ViewSliderSegment {
+                    slider,
+                    value: step_val,
+                },
+            ));
+        }
+    });
 }
 
 fn spawn_keybinds_section(
@@ -1716,6 +2102,32 @@ mod tests {
         s.set(AudioChannel::Music, 0.6);
         assert!(!s.muted);
         assert!((s.music - 0.6).abs() < 1e-5);
+    }
+
+    #[test]
+    fn view_settings_clamp_snap_and_roundtrip() {
+        let s = ViewSettings {
+            sensitivity: 9.0,
+            ads_sensitivity: f32::NAN,
+            invert_y: true,
+            fov_degrees: 10.0,
+        }
+        .sanitized();
+        assert_eq!(s.sensitivity, 3.0);
+        assert_eq!(s.ads_sensitivity, 1.0);
+        assert_eq!(s.fov_degrees, 50.0);
+        assert_eq!(s.y_sign(), -1.0);
+
+        let mut s = ViewSettings::default();
+        ViewSlider::Sensitivity.step(&mut s, 1.0);
+        assert!((s.sensitivity - 1.05).abs() < 1e-4);
+        ViewSlider::Fov.set(&mut s, 90.4);
+        assert_eq!(s.fov_degrees, 90.0);
+        assert!((s.look_multiplier(0.0) - 1.05).abs() < 1e-4);
+
+        let json = serde_json::to_string(&s).unwrap();
+        let back: ViewSettings = serde_json::from_str(&json).unwrap();
+        assert_eq!(s, back);
     }
 
     #[test]

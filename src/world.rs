@@ -33,9 +33,11 @@ const WALK_SPEED: f32 = 6.5;
 const SPRINT_SPEED: f32 = 10.0;
 const JUMP_SPEED: f32 = 7.2;
 const GRAVITY: f32 = 22.0;
-const MOUSE_SENSITIVITY: f32 = 0.0022;
+/// Radians of look per mouse count at a 1.0x sensitivity setting.
+const BASE_MOUSE_SENSITIVITY: f32 = 0.0022;
 const MAX_PITCH: f32 = 1.5;
-/// Vertical field of view, radians.
+/// Default vertical field of view, radians (the player's FOV setting
+/// overrides this in game; see `settings::ViewSettings`).
 pub const BASE_FOV: f32 = 1.13;
 
 pub struct WorldPlugin;
@@ -557,6 +559,7 @@ fn update_game_camera(
     time: Res<Time>,
     overlay: Res<Overlay>,
     combat: Res<Combat>,
+    view: Res<crate::settings::ViewSettings>,
     mut mouse_motion: MessageReader<MouseMotion>,
     cursor_q: Query<&CursorOptions, With<PrimaryWindow>>,
     player_q: Query<(&Transform, &LocalPlayer), Without<MainCamera>>,
@@ -571,17 +574,18 @@ fn update_game_camera(
         .single()
         .is_ok_and(|c| c.grab_mode != CursorGrabMode::None);
     let zoom = 1.0 + (combat.stats.zoom - 1.0) * combat.aim_blend;
+    let sensitivity = BASE_MOUSE_SENSITIVITY * view.look_multiplier(combat.aim_blend) / zoom;
     for motion in mouse_motion.read() {
         if captured && !overlay.blocks_input() {
-            rig.yaw -= motion.delta.x * MOUSE_SENSITIVITY / zoom;
-            rig.pitch -= motion.delta.y * MOUSE_SENSITIVITY / zoom;
+            rig.yaw -= motion.delta.x * sensitivity;
+            rig.pitch -= motion.delta.y * sensitivity * view.y_sign();
         }
     }
     rig.yaw %= std::f32::consts::TAU;
     rig.pitch = rig.pitch.clamp(-MAX_PITCH, MAX_PITCH);
 
     if let Projection::Perspective(p) = projection.as_mut() {
-        p.fov = BASE_FOV / zoom;
+        p.fov = view.fov_radians() / zoom;
     }
 
     // Eliminated: watch our ragdoll from above while waiting to respawn.
