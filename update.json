@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.1",
-      "published": "2026-11-25T00:33:14Z",
-      "notes": "## What's Changed\n* Menu overhaul: tabbed Loadout/Options, multi-section Settings, Keybinds, Crosshairs & Custom Loadouts by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/13\n* Bump version to 0.6.1 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/14\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.0...v0.6.1",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.1",
+      "version": "0.6.2",
+      "published": "2026-11-25T02:03:00Z",
+      "notes": "## What's Changed\n* Use basicshot/elimination sounds, network spatial footsteps (0.6.2) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/15\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.1...v0.6.2",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.2",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.1/Ink-cognito-windows-x64.zip",
-        "size": 79769504,
-        "sha256": "835c1e5954c56ea7e039c8b6e22ea8c9d662ed217502f27e7f8a9613c712b272"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.2/Ink-cognito-windows-x64.zip",
+        "size": 79894843,
+        "sha256": "153588af3594782992d71b3f28ce2563e78a4cf4813de1b3ebad57d8a4cc84be"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -62,6 +62,11 @@
           "path": "assets/audio/game/eliminated_buzzer.ogg",
           "size": 17278,
           "sha256": "2b6845033414fa5935475efe8d27c8d4760774e27c3205c365276e97f6cc976f"
+        },
+        {
+          "path": "assets/audio/game/elimination.flac",
+          "size": 32714,
+          "sha256": "fa3d97428402fa8925071a5427853916560aec303f0d61a4e553f81c1864c176"
         },
         {
           "path": "assets/audio/game/flag_captured.ogg",
@@ -157,6 +162,11 @@
           "path": "assets/audio/water/water_stream_loop.ogg",
           "size": 24273,
           "sha256": "8e5202ff83143c42842e7e3627a0b4cdef0db086583145ed86ba2641fd67e262"
+        },
+        {
+          "path": "assets/audio/weapons/basicshot.flac",
+          "size": 21855,
+          "sha256": "50565cdc3b05d93c7e771ea860331ddd1c7aea08344927815eb1d77e1c663a6a"
         },
         {
           "path": "assets/audio/weapons/dry_fire.ogg",
@@ -1965,25 +1975,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99912704,
-          "sha256": "d6e2290726d1cc2c55789486d38c8732985526cc68383814ddf882054bb150ff"
+          "size": 99993088,
+          "sha256": "3e6dcc4c5fd62bda9b36cf566a542645303fc58b214c8f817650f1c0b4a63426"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 89944576,
-          "sha256": "5bb5505f8d2a1a0e6eb64f6d5ca399b1734ff315df9215b03a08b22fa1cb8230"
+          "size": 90003456,
+          "sha256": "31fc72ab3d892f74f5c80c487a3f3800c95ad6f36525339a16288128562d6d3e"
         }
       ]
     },
     "stable": {
-      "version": "0.6.1",
-      "published": "2026-11-25T00:33:14Z",
-      "notes": "## What's Changed\n* Menu overhaul: tabbed Loadout/Options, multi-section Settings, Keybinds, Crosshairs & Custom Loadouts by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/13\n* Bump version to 0.6.1 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/14\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.0...v0.6.1",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.1",
+      "version": "0.6.2",
+      "published": "2026-11-25T02:03:00Z",
+      "notes": "## What's Changed\n* Use basicshot/elimination sounds, network spatial footsteps (0.6.2) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/15\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.1...v0.6.2",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.2",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.1/Ink-cognito-windows-x64.zip",
-        "size": 79769504,
-        "sha256": "835c1e5954c56ea7e039c8b6e22ea8c9d662ed217502f27e7f8a9613c712b272"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.2/Ink-cognito-windows-x64.zip",
+        "size": 79894843,
+        "sha256": "153588af3594782992d71b3f28ce2563e78a4cf4813de1b3ebad57d8a4cc84be"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -2036,6 +2046,11 @@
           "path": "assets/audio/game/eliminated_buzzer.ogg",
           "size": 17278,
           "sha256": "2b6845033414fa5935475efe8d27c8d4760774e27c3205c365276e97f6cc976f"
+        },
+        {
+          "path": "assets/audio/game/elimination.flac",
+          "size": 32714,
+          "sha256": "fa3d97428402fa8925071a5427853916560aec303f0d61a4e553f81c1864c176"
         },
         {
           "path": "assets/audio/game/flag_captured.ogg",
@@ -2131,6 +2146,11 @@
           "path": "assets/audio/water/water_stream_loop.ogg",
           "size": 24273,
           "sha256": "8e5202ff83143c42842e7e3627a0b4cdef0db086583145ed86ba2641fd67e262"
+        },
+        {
+          "path": "assets/audio/weapons/basicshot.flac",
+          "size": 21855,
+          "sha256": "50565cdc3b05d93c7e771ea860331ddd1c7aea08344927815eb1d77e1c663a6a"
         },
         {
           "path": "assets/audio/weapons/dry_fire.ogg",
@@ -3939,13 +3959,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99912704,
-          "sha256": "d6e2290726d1cc2c55789486d38c8732985526cc68383814ddf882054bb150ff"
+          "size": 99993088,
+          "sha256": "3e6dcc4c5fd62bda9b36cf566a542645303fc58b214c8f817650f1c0b4a63426"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 89944576,
-          "sha256": "5bb5505f8d2a1a0e6eb64f6d5ca399b1734ff315df9215b03a08b22fa1cb8230"
+          "size": 90003456,
+          "sha256": "31fc72ab3d892f74f5c80c487a3f3800c95ad6f36525339a16288128562d6d3e"
         }
       ]
     }
