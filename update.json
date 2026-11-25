@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.0",
-      "published": "2026-11-25T00:04:33Z",
-      "notes": "## What's Changed\n* Map editor: turned hitboxes, move/rotate handles, tilt, placement fix by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/11\n* Bump version to 0.6.0 by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/12\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.5.0...v0.6.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.0",
+      "version": "0.6.1",
+      "published": "2026-11-25T00:33:14Z",
+      "notes": "## What's Changed\n* Menu overhaul: tabbed Loadout/Options, multi-section Settings, Keybinds, Crosshairs & Custom Loadouts by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/13\n* Bump version to 0.6.1 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/14\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.0...v0.6.1",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.1",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.0/Ink-cognito-windows-x64.zip",
-        "size": 79718074,
-        "sha256": "efcf63e3dd1542a5295e2dab40effd0892b2b336ba9412a72c8965aab6bc4050"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.1/Ink-cognito-windows-x64.zip",
+        "size": 79769504,
+        "sha256": "835c1e5954c56ea7e039c8b6e22ea8c9d662ed217502f27e7f8a9613c712b272"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -1965,25 +1965,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99774976,
-          "sha256": "08f49fe7793fb223189e874c02649672178292d128666d9a73883393a42b44f6"
+          "size": 99912704,
+          "sha256": "d6e2290726d1cc2c55789486d38c8732985526cc68383814ddf882054bb150ff"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 89944576,
-          "sha256": "6e107a06a653c057d1da20cdbed35f92f76a20eb1a2a67cc2a5ca36ec530eec0"
+          "sha256": "5bb5505f8d2a1a0e6eb64f6d5ca399b1734ff315df9215b03a08b22fa1cb8230"
         }
       ]
     },
     "stable": {
-      "version": "0.6.0",
-      "published": "2026-11-25T00:04:33Z",
-      "notes": "## What's Changed\n* Map editor: turned hitboxes, move/rotate handles, tilt, placement fix by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/11\n* Bump version to 0.6.0 by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/12\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.5.0...v0.6.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.0",
+      "version": "0.6.1",
+      "published": "2026-11-25T00:33:14Z",
+      "notes": "## What's Changed\n* Menu overhaul: tabbed Loadout/Options, multi-section Settings, Keybinds, Crosshairs & Custom Loadouts by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/13\n* Bump version to 0.6.1 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/14\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.0...v0.6.1",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.1",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.0/Ink-cognito-windows-x64.zip",
-        "size": 79718074,
-        "sha256": "efcf63e3dd1542a5295e2dab40effd0892b2b336ba9412a72c8965aab6bc4050"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.1/Ink-cognito-windows-x64.zip",
+        "size": 79769504,
+        "sha256": "835c1e5954c56ea7e039c8b6e22ea8c9d662ed217502f27e7f8a9613c712b272"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3939,13 +3939,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99774976,
-          "sha256": "08f49fe7793fb223189e874c02649672178292d128666d9a73883393a42b44f6"
+          "size": 99912704,
+          "sha256": "d6e2290726d1cc2c55789486d38c8732985526cc68383814ddf882054bb150ff"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 89944576,
-          "sha256": "6e107a06a653c057d1da20cdbed35f92f76a20eb1a2a67cc2a5ca36ec530eec0"
+          "sha256": "5bb5505f8d2a1a0e6eb64f6d5ca399b1734ff315df9215b03a08b22fa1cb8230"
         }
       ]
     }
