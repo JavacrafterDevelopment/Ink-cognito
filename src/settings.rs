@@ -436,10 +436,11 @@ pub enum KeyAction {
     PaintBomb,
     Flashbang,
     Scoreboard,
+    Chat,
 }
 
 impl KeyAction {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::MoveForward,
         Self::MoveBackward,
         Self::MoveLeft,
@@ -453,6 +454,7 @@ impl KeyAction {
         Self::PaintBomb,
         Self::Flashbang,
         Self::Scoreboard,
+        Self::Chat,
     ];
 
     pub fn label(self) -> &'static str {
@@ -470,6 +472,7 @@ impl KeyAction {
             Self::PaintBomb => "Paint Bomb",
             Self::Flashbang => "Flashbang",
             Self::Scoreboard => "Scoreboard",
+            Self::Chat => "Chat",
         }
     }
 }
@@ -491,6 +494,7 @@ pub struct KeybindSettings {
     pub paint_bomb: InputBinding,
     pub flashbang: InputBinding,
     pub scoreboard: InputBinding,
+    pub chat: InputBinding,
 }
 
 impl Default for KeybindSettings {
@@ -509,6 +513,7 @@ impl Default for KeybindSettings {
             paint_bomb: InputBinding::Key(KeyCode::KeyG),
             flashbang: InputBinding::Key(KeyCode::KeyQ),
             scoreboard: InputBinding::Key(KeyCode::Tab),
+            chat: InputBinding::Key(KeyCode::Enter),
         }
     }
 }
@@ -529,6 +534,7 @@ impl KeybindSettings {
             KeyAction::PaintBomb => self.paint_bomb,
             KeyAction::Flashbang => self.flashbang,
             KeyAction::Scoreboard => self.scoreboard,
+            KeyAction::Chat => self.chat,
         }
     }
 
@@ -547,6 +553,7 @@ impl KeybindSettings {
             KeyAction::PaintBomb => self.paint_bomb = binding,
             KeyAction::Flashbang => self.flashbang = binding,
             KeyAction::Scoreboard => self.scoreboard = binding,
+            KeyAction::Chat => self.chat = binding,
         }
     }
 

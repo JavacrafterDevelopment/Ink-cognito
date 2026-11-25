@@ -76,7 +76,7 @@ pub fn player_name(id: PlayerId, local: Option<PlayerId>) -> String {
 }
 
 /// A player's colour: their team's, or neutral in free-for-all.
-fn player_color(ms: &MatchState, id: PlayerId) -> Color {
+pub fn player_color(ms: &MatchState, id: PlayerId) -> Color {
     if ms.settings.mode.teams() {
         team_color(Team::of(id)).lighter(0.15)
     } else {
@@ -954,7 +954,7 @@ fn update_center(
             img.image = assets.load(CROSSHAIRS[crosshair_settings.style as usize].1);
         }
         // Fades while aiming down a sight (the sight is the crosshair then).
-        let a = if alive && !overlay.blocks_input() {
+        let a = if alive && !overlay.menu_open() {
             0.9 * (1.0 - combat.aim_blend * 0.3)
         } else {
             0.0

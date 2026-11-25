@@ -2,6 +2,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod arena;
+mod chat;
 mod combat;
 mod game_mode;
 mod grenades;
@@ -60,10 +61,17 @@ pub struct Overlay {
     pub loadout: bool,
     /// The options / audio settings screen (from the main menu or the Escape menu).
     pub settings: bool,
+    /// Typing a chat line (Enter by default). The mouse stays captured.
+    pub chat: bool,
 }
 
 impl Overlay {
     pub fn blocks_input(&self) -> bool {
+        self.menu_open() || self.chat
+    }
+
+    /// A menu is open (the mouse is free then). Chat isn't a menu.
+    pub fn menu_open(&self) -> bool {
         self.pause || self.loadout || self.settings
     }
 }
@@ -115,6 +123,7 @@ fn main() {
             LoadoutUiPlugin,
             SettingsPlugin,
             MusicPlugin,
+            chat::ChatPlugin,
         ))
         .run();
 }

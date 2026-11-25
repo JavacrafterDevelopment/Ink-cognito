@@ -48,7 +48,9 @@ fn escape_key(
     if !keys.just_pressed(KeyCode::Escape) {
         return;
     }
-    if settings_ui.is_listening() || loadout_screen.is_some_and(|s| s.is_renaming()) {
+    // Escape while typing closes the chat box instead (see `chat.rs`).
+    if settings_ui.is_listening() || loadout_screen.is_some_and(|s| s.is_renaming()) || overlay.chat
+    {
         return;
     }
     if overlay.settings {
