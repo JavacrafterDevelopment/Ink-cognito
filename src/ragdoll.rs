@@ -731,7 +731,8 @@ fn host_ragdolls(
     if sync.send_timer < SEND_EVERY {
         return;
     }
-    sync.send_timer = 0.0;
+    // Keep the leftover so the send rate doesn't round to whole frames.
+    sync.send_timer = (sync.send_timer - SEND_EVERY).min(SEND_EVERY);
     let full = sync.full_timer >= FULL_EVERY;
     if full {
         sync.full_timer = 0.0;

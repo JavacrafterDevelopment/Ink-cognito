@@ -3,6 +3,7 @@
 
 mod arena;
 mod combat;
+mod frame_rate;
 mod game_mode;
 mod grenades;
 mod hub;
@@ -79,6 +80,11 @@ fn main() {
                 title: "Ink-cognito".to_string(),
                 resolution: (1280, 720).into(),
                 mode: saved_settings.display.window_mode.to_window_mode(),
+                present_mode: if saved_settings.display.vsync {
+                    bevy::window::PresentMode::AutoVsync
+                } else {
+                    bevy::window::PresentMode::AutoNoVsync
+                },
                 ..default()
             }),
             ..default()
@@ -115,6 +121,7 @@ fn main() {
             LoadoutUiPlugin,
             SettingsPlugin,
             MusicPlugin,
+            frame_rate::FrameRatePlugin,
         ))
         .run();
 }
