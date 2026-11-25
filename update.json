@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.3",
-      "published": "2026-11-25T03:48:26Z",
-      "notes": "## What's Changed\n* Add 214 new models to the map editor with shape-matched hitboxes by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/16\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.2...v0.6.3",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.3",
+      "version": "0.6.4",
+      "published": "2026-11-25T04:33:35Z",
+      "notes": "## What's Changed\n* Combine six feature branches: movement, sprint pose, view settings, headshots, grenades, ragdolls by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/17\n* Release 0.6.4 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/18\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.3...v0.6.4",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.4",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.3/Ink-cognito-windows-x64.zip",
-        "size": 82207862,
-        "sha256": "1e2118dc904962cc9190cd7ed2dc95f749949eade28719cd5eb9be30bdd07e03"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.4/Ink-cognito-windows-x64.zip",
+        "size": 82348710,
+        "sha256": "5ec79057e2445f99d421b8071349f34b603a333e19858921d67942c2eff6521b"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3045,25 +3045,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101068288,
-          "sha256": "57de0a6514951db774244577274de7a7d1d3d8b56db92039691bb4e420f6e649"
+          "size": 101475328,
+          "sha256": "015937f2f54c75cf40e6470b5e581b121fa9807316d3754d91cc81ac0c48f3bf"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 91125248,
-          "sha256": "9ff3b8c05bdaab0450afcd04f69bf98161dac96d7d5ca829daeaaa558ff26aad"
+          "sha256": "2345144ca49871d53cb1d9ff06b3dddb43b446b72f20fb17bb49d639b0845b9c"
         }
       ]
     },
     "stable": {
-      "version": "0.6.3",
-      "published": "2026-11-25T03:48:26Z",
-      "notes": "## What's Changed\n* Add 214 new models to the map editor with shape-matched hitboxes by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/16\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.2...v0.6.3",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.3",
+      "version": "0.6.4",
+      "published": "2026-11-25T04:33:35Z",
+      "notes": "## What's Changed\n* Combine six feature branches: movement, sprint pose, view settings, headshots, grenades, ragdolls by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/17\n* Release 0.6.4 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/18\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.3...v0.6.4",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.4",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.3/Ink-cognito-windows-x64.zip",
-        "size": 82207862,
-        "sha256": "1e2118dc904962cc9190cd7ed2dc95f749949eade28719cd5eb9be30bdd07e03"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.4/Ink-cognito-windows-x64.zip",
+        "size": 82348710,
+        "sha256": "5ec79057e2445f99d421b8071349f34b603a333e19858921d67942c2eff6521b"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -6099,13 +6099,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101068288,
-          "sha256": "57de0a6514951db774244577274de7a7d1d3d8b56db92039691bb4e420f6e649"
+          "size": 101475328,
+          "sha256": "015937f2f54c75cf40e6470b5e581b121fa9807316d3754d91cc81ac0c48f3bf"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 91125248,
-          "sha256": "9ff3b8c05bdaab0450afcd04f69bf98161dac96d7d5ca829daeaaa558ff26aad"
+          "sha256": "2345144ca49871d53cb1d9ff06b3dddb43b446b72f20fb17bb49d639b0845b9c"
         }
       ]
     }
