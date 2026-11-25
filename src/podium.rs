@@ -74,13 +74,15 @@ fn top_three(ms: &MatchState) -> Vec<(PlayerId, u32)> {
 }
 
 /// "BLUE TEAM WINS", "PLAYER 3 WINS", "DRAW".
-fn headline(ms: &MatchState, local: Option<PlayerId>) -> String {
+fn headline(net: &NetworkState) -> String {
+    let ms = &net.match_state;
+    let local = net.local_player_id;
     match ms.settings.mode {
         GameMode::FreeForAll => match ms.board.first() {
             Some(l) if ms.winner != WIN_DRAW => {
                 format!(
                     "{} WIN{}",
-                    player_name(l[0], local).to_uppercase(),
+                    player_name(net, l[0]).to_uppercase(),
                     if Some(l[0]) == local { "" } else { "S" }
                 )
             }
@@ -257,7 +259,7 @@ fn build_podium(
             ));
             if ms.winner != WIN_DRAW {
                 top.spawn((
-                    Text::new(headline(ms, me)),
+                    Text::new(headline(&net)),
                     fonts.heading(40.0),
                     TextColor(TEXT_PRIMARY),
                     Pickable::IGNORE,
@@ -329,7 +331,7 @@ fn build_podium(
                     TEXT_PRIMARY
                 };
                 l.spawn((
-                    Text::new(player_name(id, me).to_uppercase()),
+                    Text::new(player_name(&net, id).to_uppercase()),
                     fonts.heading(26.0),
                     TextColor(color),
                     Pickable::IGNORE,
