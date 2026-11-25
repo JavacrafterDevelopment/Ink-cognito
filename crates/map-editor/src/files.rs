@@ -103,9 +103,10 @@ pub fn save(editor: &mut Editor) {
     }
 }
 
-/// Saves to the custom maps folder under the file name box's name.
+/// Saves to the custom maps folder under the file name box's name (or, for
+/// someone editing another person's map live, to their Downloads folder).
 pub fn save_copy(editor: &mut Editor) {
-    let Some(dir) = ink_map::custom_maps_dir() else {
+    let Some(dir) = editor.live.save_dir.clone().or_else(ink_map::custom_maps_dir) else {
         editor.status = "Couldn't find the settings folder to save maps in.".into();
         return;
     };
@@ -132,7 +133,10 @@ fn write(editor: &mut Editor, path: PathBuf) {
     match std::fs::write(&path, editor.map.to_json()) {
         Ok(()) => {
             let problems = editor.map.problems();
-            editor.status = if problems.is_empty() {
+            let in_game = ink_map::custom_maps_dir().is_some_and(|d| path.starts_with(d));
+            editor.status = if problems.is_empty() && !in_game {
+                format!("Saved {}.", path.display())
+            } else if problems.is_empty() {
                 format!("Saved {}. Restart the game to see it in the map picker.", path.display())
             } else {
                 format!("Saved {}, but: {}.", path.display(), problems.join("; "))
@@ -143,4 +147,25 @@ fn write(editor: &mut Editor, path: PathBuf) {
         }
         Err(e) => editor.status = format!("Couldn't save {}: {e}", path.display()),
     }
+}
+
+/// The user's Downloads folder, where a live editing guest's
+/// copies go by default.
+pub fn downloads_dir() -> Option<PathBuf> {
+    let home = std::env::var_os("USERPROFILE")
+        .filter(|_| cfg!(windows))
+        .or_else(|| std::env::var_os("HOME"))
+        .map(PathBuf::from)?;
+    // Linux desktops can move it: ~/.config/user-dirs.dirs says where.
+    if cfg!(all(unix, not(target_os = "macos")))
+        && let Ok(text) = std::fs::read_to_string(home.join(".config/user-dirs.dirs"))
+        && let Some(line) = text.lines().find(|l| l.trim_start().starts_with("XDG_DOWNLOAD_DIR="))
+    {
+        let value = line.trim_start()["XDG_DOWNLOAD_DIR=".len()..].trim().trim_matches('"');
+        let path = value.replace("$HOME", &home.to_string_lossy());
+        if !path.is_empty() {
+            return Some(PathBuf::from(path));
+        }
+    }
+    Some(home.join("Downloads"))
 }

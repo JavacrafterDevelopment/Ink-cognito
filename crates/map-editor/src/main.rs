@@ -4,12 +4,18 @@
 //! Fly around with the right mouse button held and WASD, pick a piece on the
 //! left and click in the field to place it, click a piece to select and drag
 //! it. Maps save to the game's custom maps folder, where the game finds them.
+//!
+//! Live edit (top bar) edits a map together with friends: one hosts, others
+//! join through Portside or a TailCat address (see `live.rs`).
 
 // Release builds on Windows open no console window beside the editor.
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod files;
 mod gizmo;
+mod live;
+mod live_net;
+mod live_sync;
 mod scene;
 mod state;
 mod ui;
@@ -36,7 +42,7 @@ fn main() {
                 }),
         )
         .init_resource::<Editor>()
-        .add_plugins((scene::ScenePlugin, view::ViewPlugin, ui::UiPlugin, gizmo::GizmoPlugin))
+        .add_plugins((scene::ScenePlugin, view::ViewPlugin, ui::UiPlugin, gizmo::GizmoPlugin, live::LivePlugin))
         .add_systems(Update, update_title)
         .run();
 }
