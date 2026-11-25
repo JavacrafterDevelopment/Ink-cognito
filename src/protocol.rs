@@ -53,6 +53,11 @@ pub struct PlayerState {
     pub flags: u8,
     /// Ranked points (shown next to the name in ranked matches).
     pub rank_points: u16,
+    /// Counts paint bombs thrown: others throw one from where this player
+    /// looks each time it goes up (wraps).
+    pub bombs: u8,
+    /// Counts flashbangs thrown, the same way.
+    pub flashes: u8,
 }
 
 /// `PlayerState::flags`: crouching.
@@ -76,6 +81,8 @@ impl Default for PlayerState {
             killer: 0,
             flags: 0,
             rank_points: 0,
+            bombs: 0,
+            flashes: 0,
         }
     }
 }
@@ -403,6 +410,10 @@ pub struct HitEvent {
     /// Landed in the head zone (damage already includes the bonus).
     #[serde(default)]
     pub headshot: bool,
+    /// A flashbang went off next to the victim: no damage, paint over their
+    /// screen instead.
+    #[serde(default)]
+    pub flash: bool,
 }
 
 /// Messages sent from a joining client to the host.
@@ -614,6 +625,8 @@ mod tests {
                     killer: 39,
                     flags: 15,
                     rank_points: 1234,
+                    bombs: 255,
+                    flashes: 255,
                 },
             })
             .collect();
