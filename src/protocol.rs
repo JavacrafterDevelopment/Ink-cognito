@@ -626,10 +626,28 @@ pub fn encode_server_datagrams(msg: &ServerMessage) -> Vec<Vec<u8>> {
     }
     let ids = players.iter().map(|p| p.id).collect();
     out.extend(serde_json::to_vec(&ServerDatagram::Roster { ids }));
-    for chunk in players.chunks(4) {
-        out.extend(serde_json::to_vec(&ServerDatagram::Players {
+    // As many players per datagram as fit (a player's state is ~250 bytes of
+    // JSON, and grows whenever `PlayerState` gets a field).
+    let encode = |chunk: &[PlayerSnapshot]| {
+        serde_json::to_vec(&ServerDatagram::Players {
             players: chunk.to_vec(),
-        }));
+        })
+        .unwrap_or_default()
+    };
+    let mut start = 0;
+    while start < players.len() {
+        let mut end = start + 1;
+        let mut packet = encode(&players[start..end]);
+        while end < players.len() {
+            let bigger = encode(&players[start..end + 1]);
+            if bigger.len() > MAX_DATAGRAM {
+                break;
+            }
+            packet = bigger;
+            end += 1;
+        }
+        out.push(packet);
+        start = end;
     }
     out
 }
