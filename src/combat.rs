@@ -15,7 +15,7 @@ use crate::{
     net::NetworkState,
     player_model::{PlayerModelAssets, Rig},
     protocol::{FLAG_CROUCH, HitEvent, MAX_HEALTH, PlayerId, PlayerState, Team, enemies},
-    ragdoll::{RagdollStart, spawn_ragdoll},
+    ragdoll::{BodyHit, Ragdoll, RagdollStart, spawn_ragdoll},
     settings::{AudioSettings, SfxAudio},
     world::{
         CROUCH_DROP, CameraRig, EYE_OFFSET, LocalPlayer, MainCamera, PLAYER_GROUND_Y, RemotePlayer,
@@ -1066,6 +1066,8 @@ fn hits_player(from: Vec3, to: Vec3, center: Vec3, crouched: bool) -> Option<(f3
 enum Target {
     Local,
     Remote(PlayerId),
+    /// An eliminated player's body.
+    Body(Entity, BodyHit),
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -1084,6 +1086,7 @@ fn move_projectiles(
     local_q: Query<(&Transform, &LocalPlayer), Without<Projectile>>,
     remote_q: Query<(&Transform, &RemotePlayer), Without<Projectile>>,
     mut balls: Query<(Entity, &mut Transform, &mut Projectile)>,
+    mut bodies: Query<(Entity, &mut Ragdoll)>,
 ) {
     let dt = time.delta_secs().min(0.05);
     let now = time.elapsed_secs();
@@ -1132,6 +1135,15 @@ fn move_projectiles(
                 best_t = t;
                 headshot = head;
                 target = Some(Target::Remote(remote.id));
+            }
+        }
+        // Bodies: any paint knocks them around.
+        for (body, rd) in &bodies {
+            if let Some(hit) = rd.ball_hit(from, to)
+                && hit.t < best_t
+            {
+                best_t = hit.t;
+                target = Some(Target::Body(body, hit));
             }
         }
 
@@ -1185,6 +1197,24 @@ fn move_projectiles(
                 }
                 let s = fx.sounds.player_hit.clone();
                 play_sfx(&mut commands, &s, 0.6 * falloff(listener, point), &settings);
+                commands.entity(entity).despawn();
+            }
+            Some(Target::Body(body, hit)) => {
+                let point = from.lerp(to, best_t);
+                let normal = -ball.velocity.normalize_or(Vec3::Z);
+                player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+                // The host moves the body for everyone (and a body the host
+                // hasn't sent us yet moves here).
+                if let Ok((_, mut rd)) = bodies.get_mut(body) {
+                    rd.shove(&hit, ball.velocity, ball.damage);
+                }
+                let s = fx.sounds.player_hit.clone();
+                play_sfx(
+                    &mut commands,
+                    &s,
+                    0.45 * falloff(listener, point),
+                    &settings,
+                );
                 commands.entity(entity).despawn();
             }
             None => {
@@ -1336,10 +1366,10 @@ fn take_damage(
     spawn_ragdoll(
         commands,
         player_assets,
-        Team::of(player.id),
+        player.id,
+        state.deaths,
         RagdollStart::from_rest(&model),
         velocity,
-        player.id ^ state.deaths,
     );
 }
 
@@ -1411,10 +1441,10 @@ fn remote_eliminations(
                 spawn_ragdoll(
                     &mut commands,
                     &player_assets,
-                    Team::of(remote.id),
+                    remote.id,
+                    deaths,
                     start,
                     push,
-                    remote.id ^ deaths,
                 );
             }
         }

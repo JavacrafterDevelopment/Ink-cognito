@@ -7,8 +7,10 @@ over [TailCat](https://crates.io/crates/tailcat): one player hosts and shares a 
 address, and everyone else joins by pasting that address. No port forwarding is needed.
 
 The game is in early development. Each player has 100 health; health starts coming back
-7 seconds after the last hit. An eliminated player drops as a ragdoll (gone after 15 seconds)
-and respawns 5 seconds later, at a spawn away from enemies.
+7 seconds after the last hit. An eliminated player drops as a ragdoll and respawns 5 seconds later, at a spawn away from
+enemies. The host simulates every body, so all players see them fall the same way; paintballs
+knock bodies around, limbs and bodies pile on each other, and a body sinks away once its player
+has respawned three times.
 
 ### Modes
 
