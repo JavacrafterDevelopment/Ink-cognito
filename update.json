@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.7",
-      "published": "2026-11-25T07:24:49Z",
-      "notes": "## What's Changed\n* Release 0.6.7: throwables, flash rework, frame-rate independence, Portside names, chat, City map by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/21\n* Fix 0.6.7 release build (loadout test, City spawns) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/22\n* Fix 0.6.7 release: fit world state datagrams by size by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/23\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.6...v0.6.7",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.7",
+      "version": "0.6.8",
+      "published": "2026-11-25T09:44:31Z",
+      "notes": "## What's Changed\n* 0.6.8: macOS build back in the release; Ultra Bang keeps rolling, 9 bursts of 400 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/24\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.7...v0.6.8",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.8",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.7/Ink-cognito-windows-x64.zip",
-        "size": 86565472,
-        "sha256": "62bcf0a163e51a01209d09ffe5916e8ffd9dc91cfc0d9499f2028cbbb27cdc4d"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.8/Ink-cognito-windows-x64.zip",
+        "size": 86563369,
+        "sha256": "694ebfa623a683362375b1d16fe6ef00f34a34565331f8bbcf0c8f9960ad88ab"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3090,25 +3090,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101926400,
-          "sha256": "d7ab3b525849377f861cbef391f0d36763e2b745f5a9b077a64ccdb4c3764bd2"
+          "size": 101921792,
+          "sha256": "9cc1312d99ed009ee221f5127da3eedf201341560296b93387768bcdbfb6f3e1"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 98471424,
-          "sha256": "0dda2e885fcd750dff29dce4a8ee20c638e91d06e9c617f4dc34519051ab0802"
+          "size": 98472960,
+          "sha256": "0513fc7f148e009ba9b60b2a24ecdda0a9b84f11e6b6fa845dfa22335db11ca9"
         }
       ]
     },
     "stable": {
-      "version": "0.6.7",
-      "published": "2026-11-25T07:24:49Z",
-      "notes": "## What's Changed\n* Release 0.6.7: throwables, flash rework, frame-rate independence, Portside names, chat, City map by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/21\n* Fix 0.6.7 release build (loadout test, City spawns) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/22\n* Fix 0.6.7 release: fit world state datagrams by size by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/23\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.6...v0.6.7",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.7",
+      "version": "0.6.8",
+      "published": "2026-11-25T09:44:31Z",
+      "notes": "## What's Changed\n* 0.6.8: macOS build back in the release; Ultra Bang keeps rolling, 9 bursts of 400 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/24\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.7...v0.6.8",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.8",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.7/Ink-cognito-windows-x64.zip",
-        "size": 86565472,
-        "sha256": "62bcf0a163e51a01209d09ffe5916e8ffd9dc91cfc0d9499f2028cbbb27cdc4d"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.8/Ink-cognito-windows-x64.zip",
+        "size": 86563369,
+        "sha256": "694ebfa623a683362375b1d16fe6ef00f34a34565331f8bbcf0c8f9960ad88ab"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -6189,13 +6189,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101926400,
-          "sha256": "d7ab3b525849377f861cbef391f0d36763e2b745f5a9b077a64ccdb4c3764bd2"
+          "size": 101921792,
+          "sha256": "9cc1312d99ed009ee221f5127da3eedf201341560296b93387768bcdbfb6f3e1"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 98471424,
-          "sha256": "0dda2e885fcd750dff29dce4a8ee20c638e91d06e9c617f4dc34519051ab0802"
+          "size": 98472960,
+          "sha256": "0513fc7f148e009ba9b60b2a24ecdda0a9b84f11e6b6fa845dfa22335db11ca9"
         }
       ]
     }
