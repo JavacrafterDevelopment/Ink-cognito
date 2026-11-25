@@ -64,7 +64,10 @@ impl Plugin for CombatPlugin {
                     .after(WorldSystems::Move)
                     .run_if(in_state(AppState::InGame)),
             )
-            .add_systems(Update, (update_particles, limit_decals));
+            .init_resource::<BakedPaint>()
+            .add_systems(OnExit(AppState::InGame), clear_baked_paint)
+            .add_systems(Update, update_particles)
+            .add_systems(Update, bake_decals.run_if(in_state(AppState::InGame)));
     }
 }
 
@@ -87,7 +90,16 @@ pub const HEAD_PAINT_SECS: f32 = 4.0;
 /// Hit marker lengths (seconds): a normal or head hit, and an elimination.
 const HITMARKER_SECS: f32 = 0.25;
 const KILLMARKER_SECS: f32 = 0.5;
-const MAX_DECALS: usize = 350;
+/// Paint is baked into merged meshes once this many fresh splats pile up,
+/// or once the oldest has sat for `BAKE_AFTER_SECS`.
+const BAKE_AT_COUNT: usize = 192;
+const BAKE_AFTER_SECS: f32 = 0.5;
+/// Splats per merged mesh before a new one is started, so rebuilding a mesh
+/// after new paint lands stays cheap.
+const QUADS_PER_BATCH: usize = 512;
+/// Merged paint is grouped into cells this wide (meters), so transparent
+/// sorting stays local and each rebuild only touches the area that was hit.
+const BAKE_CELL: f32 = 12.0;
 
 /// Tracks outbound hit IDs and deduplicates inbound UDP hit retries on the client.
 #[derive(Resource, Default)]
@@ -475,6 +487,60 @@ pub struct PaintDecal {
     born: f32,
     /// Water dries up.
     fade: Option<f32>,
+}
+
+/// Paint that has landed and stays for the rest of the match, merged into a
+/// handful of meshes (one per splat texture, team and area) instead of one
+/// entity per splat, so a paint bomb's hundreds of balls don't cost hundreds
+/// of draw calls forever.
+#[derive(Resource, Default)]
+struct BakedPaint {
+    batches: HashMap<(AssetId<StandardMaterial>, IVec3), Vec<PaintBatch>>,
+}
+
+struct PaintBatch {
+    entity: Entity,
+    material: Handle<StandardMaterial>,
+    /// Where the batch's mesh is anchored (the first splat in it); vertices are
+    /// stored relative to this so transparent sorting has a sensible center.
+    origin: Vec3,
+    positions: Vec<[f32; 3]>,
+    normals: Vec<[f32; 3]>,
+    uvs: Vec<[f32; 2]>,
+    indices: Vec<u32>,
+}
+
+impl PaintBatch {
+    fn quads(&self) -> usize {
+        self.positions.len() / 4
+    }
+
+    /// Adds one splat: the unit decal plane (normal +Y, texture top at -Z)
+    /// under the splat's transform, matching `Plane3d`'s UVs.
+    fn push(&mut self, tf: &Transform) {
+        let base = self.positions.len() as u32;
+        let n = (tf.rotation * Vec3::Y).normalize_or(Vec3::Y).to_array();
+        for (x, z) in [(-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5), (0.5, 0.5)] {
+            let p = tf.transform_point(Vec3::new(x, 0.0, z)) - self.origin;
+            self.positions.push(p.to_array());
+            self.normals.push(n);
+            self.uvs.push([x + 0.5, z + 0.5]);
+        }
+        // Counter-clockwise seen from +Y (corners: 0 = -x-z, 1 = +x-z, 2 = -x+z, 3 = +x+z).
+        self.indices
+            .extend_from_slice(&[base, base + 2, base + 3, base, base + 3, base + 1]);
+    }
+
+    fn mesh(&self) -> Mesh {
+        Mesh::new(
+            bevy::mesh::PrimitiveTopology::TriangleList,
+            bevy::asset::RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions.clone())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs.clone())
+        .with_inserted_indices(bevy::mesh::Indices::U32(self.indices.clone()))
+    }
 }
 
 #[derive(Component)]
@@ -1560,7 +1626,11 @@ fn update_viewmodel(
     // we move, so steps and gun bounce stay in sync; it fades out in the air
     // and while aiming down sights.
     let moving = (speed / 10.0).min(1.0);
-    let bob_target = if grounded { moving * (1.0 - combat.aim_blend * 0.85) } else { 0.0 };
+    let bob_target = if grounded {
+        moving * (1.0 - combat.aim_blend * 0.85)
+    } else {
+        0.0
+    };
     *bob_amount += (bob_target - *bob_amount) * (1.0 - (-10.0 * dt).exp());
     let freq = 1.55 + sb * 0.55; // steps per metre-ish, quicker cadence when sprinting
     *bob_phase = (*bob_phase + speed * freq * dt) % TAU;
@@ -1829,26 +1899,89 @@ fn update_particles(
     }
 }
 
-fn limit_decals(mut commands: Commands, time: Res<Time>, decals: Query<(Entity, &PaintDecal)>) {
+/// Dries up water, and merges settled paint into `BakedPaint` so splats on
+/// walls and floors stay for the whole match.
+fn bake_decals(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut baked: ResMut<BakedPaint>,
+    decals: Query<(
+        Entity,
+        &PaintDecal,
+        &Transform,
+        &MeshMaterial3d<StandardMaterial>,
+    )>,
+) {
     let now = time.elapsed_secs();
-    let mut count = 0;
-    for (e, d) in &decals {
-        if let Some(fade) = d.fade
-            && now - d.born > fade
-        {
-            commands.entity(e).despawn();
-            continue;
+    let mut fresh = 0;
+    let mut oldest = now;
+    for (e, d, _, _) in &decals {
+        match d.fade {
+            Some(fade) if now - d.born > fade => commands.entity(e).despawn(),
+            Some(_) => {}
+            None => {
+                fresh += 1;
+                oldest = oldest.min(d.born);
+            }
         }
-        count += 1;
     }
-    if count <= MAX_DECALS {
+    if fresh == 0 || (fresh < BAKE_AT_COUNT && now - oldest < BAKE_AFTER_SECS) {
         return;
     }
-    let mut all: Vec<(f32, Entity)> = decals.iter().map(|(e, d)| (d.born, e)).collect();
-    all.sort_by(|a, b| a.0.total_cmp(&b.0));
-    for (_, e) in all.into_iter().take(count - MAX_DECALS) {
+
+    let mut touched: HashSet<(AssetId<StandardMaterial>, IVec3, usize)> = HashSet::new();
+    for (e, d, tf, mat) in &decals {
+        if d.fade.is_some() {
+            continue;
+        }
+        let cell = (tf.translation / BAKE_CELL).floor().as_ivec3();
+        let key = (mat.id(), cell);
+        let list = baked.batches.entry(key).or_default();
+        if list.last().is_none_or(|b| b.quads() >= QUADS_PER_BATCH) {
+            list.push(PaintBatch {
+                entity: Entity::PLACEHOLDER,
+                material: mat.0.clone(),
+                origin: tf.translation,
+                positions: Vec::with_capacity(QUADS_PER_BATCH * 4),
+                normals: Vec::with_capacity(QUADS_PER_BATCH * 4),
+                uvs: Vec::with_capacity(QUADS_PER_BATCH * 4),
+                indices: Vec::with_capacity(QUADS_PER_BATCH * 6),
+            });
+        }
+        let idx = list.len() - 1;
+        list[idx].push(tf);
+        touched.insert((key.0, key.1, idx));
         commands.entity(e).despawn();
     }
+
+    // Respawn each changed batch with its rebuilt mesh, so its bounds (for
+    // culling) are worked out fresh. Batches are few and rebuilt rarely.
+    for (mat_id, cell, idx) in touched {
+        let Some(batch) = baked
+            .batches
+            .get_mut(&(mat_id, cell))
+            .and_then(|l| l.get_mut(idx))
+        else {
+            continue;
+        };
+        if batch.entity != Entity::PLACEHOLDER {
+            commands.entity(batch.entity).try_despawn();
+        }
+        batch.entity = commands
+            .spawn((
+                Mesh3d(meshes.add(batch.mesh())),
+                MeshMaterial3d(batch.material.clone()),
+                Transform::from_translation(batch.origin),
+                DespawnOnExit(AppState::InGame),
+            ))
+            .id();
+    }
+}
+
+/// The merged paint entities go with the match; forget them too.
+fn clear_baked_paint(mut baked: ResMut<BakedPaint>) {
+    baked.batches.clear();
 }
 
 #[cfg(test)]
