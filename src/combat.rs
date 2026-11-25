@@ -318,6 +318,10 @@ const RING: u8 = 102;
 const SHRAPNEL: u8 = 103;
 /// One in this many paint bomb balls leaves a splat and effects where it lands.
 const SHRAPNEL_SPLAT_EVERY: u32 = 8;
+/// Of the rest, one in this many still leaves a plain splat (no particles or
+/// sound), so a bomb paints the area it covers. Cheap now that settled paint
+/// is merged into a few meshes (see `bake_decals`).
+const SHRAPNEL_DECAL_EVERY: u32 = 3;
 /// Splat sounds from paint bomb balls per frame, at most.
 const SHRAPNEL_SOUNDS_PER_FRAME: u32 = 2;
 const DRIP: u8 = 50;
@@ -1269,15 +1273,19 @@ fn move_projectiles(
                     } else {
                         ball.damage
                     };
-                    let e = shrapnel_hits
-                        .entry((ball.owner, victim_id))
-                        .or_insert((0.0, Vec3::ZERO, point));
+                    let e = shrapnel_hits.entry((ball.owner, victim_id)).or_insert((
+                        0.0,
+                        Vec3::ZERO,
+                        point,
+                    ));
                     e.0 += damage;
                     e.1 += ball.velocity;
                 } else {
-                    shrapnel_hits
-                        .entry((ball.owner, victim_id))
-                        .or_insert((0.0, ball.velocity, point));
+                    shrapnel_hits.entry((ball.owner, victim_id)).or_insert((
+                        0.0,
+                        ball.velocity,
+                        point,
+                    ));
                 }
                 commands.entity(entity).despawn();
             }
@@ -1351,6 +1359,21 @@ fn move_projectiles(
                     // splats the rest leave, and only a couple a frame make
                     // a sound, so a burst doesn't flood the scene.
                     let full = !ball.shrapnel || fx.pick(SHRAPNEL_SPLAT_EVERY as usize) == 0;
+                    if !full && hit.decals && fx.pick(SHRAPNEL_DECAL_EVERY as usize) == 0 {
+                        // Paint now stays for the match (merged by
+                        // `bake_decals`), so more balls leave a plain splat
+                        // with no particles or sound.
+                        let n = hit.normal.normalize_or(Vec3::Y);
+                        spawn_decal(
+                            &mut commands,
+                            &mut fx,
+                            &mut materials,
+                            now,
+                            hit.point,
+                            n,
+                            paint,
+                        );
+                    }
                     if full {
                         let mut volume = falloff(listener, hit.point);
                         if ball.shrapnel {
@@ -1878,6 +1901,55 @@ fn player_hit_fx(
     spawn_particle(commands, fx, ring, point, Vec3::ZERO, 0.1, 0.6, 0.25, 0.0);
 }
 
+/// Leaves one paint splat (or a drip on a wall) at `point`, which `bake_decals`
+/// later merges into the match's lasting paint.
+fn spawn_decal(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
+    now: f32,
+    point: Vec3,
+    n: Vec3,
+    paint: Paint,
+) {
+    let water = paint == Paint::Water;
+    let wall = n.y.abs() < 0.5;
+    let (kind, rotation) = if wall && fx.rand() < 0.6 {
+        // Drips run down walls.
+        let count = fx.drips.len();
+        let i = DRIP + fx.pick(count) as u8;
+        let up = (Vec3::Y - n * n.y).normalize_or(Vec3::Y);
+        // The decal plane's +Y is the normal; its -Z (texture top) points up.
+        let rot = Quat::from_mat3(&Mat3::from_cols(up.cross(n).normalize_or(Vec3::X), n, -up));
+        (i, rot)
+    } else {
+        let count = fx.splats.len();
+        let i = fx.pick(count) as u8;
+        let rot = Quat::from_rotation_arc(Vec3::Y, n) * Quat::from_rotation_y(fx.range(0.0, TAU));
+        (i, rot)
+    };
+    let mat = fx.material(paint, kind, materials);
+    let size = if water {
+        fx.range(0.3, 0.5)
+    } else {
+        fx.range(0.25, 0.45)
+    };
+    commands.spawn((
+        Mesh3d(fx.decal.clone()),
+        MeshMaterial3d(mat),
+        Transform {
+            translation: point + n * 0.006,
+            rotation,
+            scale: Vec3::splat(size),
+        },
+        PaintDecal {
+            born: now,
+            fade: water.then_some(5.0),
+        },
+        DespawnOnExit(AppState::InGame),
+    ));
+}
+
 #[allow(clippy::too_many_arguments)]
 fn impact_fx(
     commands: &mut Commands,
@@ -1895,42 +1967,7 @@ fn impact_fx(
     let water = paint == Paint::Water;
 
     if decal {
-        let wall = n.y.abs() < 0.5;
-        let (kind, rotation) = if wall && fx.rand() < 0.6 {
-            // Drips run down walls.
-            let count = fx.drips.len();
-            let i = DRIP + fx.pick(count) as u8;
-            let up = (Vec3::Y - n * n.y).normalize_or(Vec3::Y);
-            // The decal plane's +Y is the normal; its -Z (texture top) points up.
-            let rot = Quat::from_mat3(&Mat3::from_cols(up.cross(n).normalize_or(Vec3::X), n, -up));
-            (i, rot)
-        } else {
-            let count = fx.splats.len();
-            let i = fx.pick(count) as u8;
-            let rot =
-                Quat::from_rotation_arc(Vec3::Y, n) * Quat::from_rotation_y(fx.range(0.0, TAU));
-            (i, rot)
-        };
-        let mat = fx.material(paint, kind, materials);
-        let size = if water {
-            fx.range(0.3, 0.5)
-        } else {
-            fx.range(0.25, 0.45)
-        };
-        commands.spawn((
-            Mesh3d(fx.decal.clone()),
-            MeshMaterial3d(mat),
-            Transform {
-                translation: point + n * 0.006,
-                rotation,
-                scale: Vec3::splat(size),
-            },
-            PaintDecal {
-                born: now,
-                fade: water.then_some(5.0),
-            },
-            DespawnOnExit(AppState::InGame),
-        ));
+        spawn_decal(commands, fx, materials, now, point, n, paint);
     }
 
     let droplet = fx.material(paint, DROPLET, materials);
