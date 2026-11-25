@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.2",
-      "published": "2026-11-25T02:03:00Z",
-      "notes": "## What's Changed\n* Use basicshot/elimination sounds, network spatial footsteps (0.6.2) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/15\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.1...v0.6.2",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.2",
+      "version": "0.6.3",
+      "published": "2026-11-25T03:48:26Z",
+      "notes": "## What's Changed\n* Add 214 new models to the map editor with shape-matched hitboxes by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/16\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.2...v0.6.3",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.3",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.2/Ink-cognito-windows-x64.zip",
-        "size": 79894843,
-        "sha256": "153588af3594782992d71b3f28ce2563e78a4cf4813de1b3ebad57d8a4cc84be"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.3/Ink-cognito-windows-x64.zip",
+        "size": 82207862,
+        "sha256": "1e2118dc904962cc9190cd7ed2dc95f749949eade28719cd5eb9be30bdd07e03"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -269,6 +269,206 @@
           "sha256": "583d309cec8654bb4e0261698013852389c1712c2be32ef31853bf897111accc"
         },
         {
+          "path": "assets/models/building-blocks/details/awning_striped.glb",
+          "size": 18612,
+          "sha256": "8876afd6d2de9af9c7ba8e45c8d619fa3fa77799c3224c6ce6993261fe241c5a"
+        },
+        {
+          "path": "assets/models/building-blocks/details/balcony.glb",
+          "size": 31636,
+          "sha256": "e23820f03bbf5a645672617d9763bedf644f17def1915f54ef696bec2e00f4b1"
+        },
+        {
+          "path": "assets/models/building-blocks/details/barbed_wire_coil.glb",
+          "size": 135492,
+          "sha256": "320f7dccb3674158f3f1fbc793785e3dc96db51989629023424c181881709701"
+        },
+        {
+          "path": "assets/models/building-blocks/details/column_round.glb",
+          "size": 12536,
+          "sha256": "f3376fe43da9e4f58f174813c9051ea57b45119a9a741f017c2898fd711bd9b4"
+        },
+        {
+          "path": "assets/models/building-blocks/details/drain_pipe.glb",
+          "size": 12548,
+          "sha256": "b42bda3cb9dd06605422e374016b2769efdc72cad6573cba4b39e2d7a8171e5e"
+        },
+        {
+          "path": "assets/models/building-blocks/details/fence_chainlink_2m.glb",
+          "size": 10248,
+          "sha256": "0458755f6fcbe958546548bc4ece2e755ba202af2514d3dc18c7472d8fe7a839"
+        },
+        {
+          "path": "assets/models/building-blocks/details/fire_escape_ladder.glb",
+          "size": 38624,
+          "sha256": "ca1fe78d10ebc6046e1d7f92651e38db8b378909347a4b896d4ef8340c5af83d"
+        },
+        {
+          "path": "assets/models/building-blocks/details/pillar_square.glb",
+          "size": 7140,
+          "sha256": "42dec898106479eab127001f6504e9b45218b634baa0886662e811096317318c"
+        },
+        {
+          "path": "assets/models/building-blocks/details/railing_metal_2m.glb",
+          "size": 7160,
+          "sha256": "52948c6cbdf04ddefd3298f8df7e41eff4cf52dd3136bd72ba7551410972ef7a"
+        },
+        {
+          "path": "assets/models/building-blocks/details/scaffold_section_2m.glb",
+          "size": 28260,
+          "sha256": "5912375984dec73300e33f198c62b04ec3417ef5b41c9de086e6bfd4c282283f"
+        },
+        {
+          "path": "assets/models/building-blocks/details/shop_sign_blank.glb",
+          "size": 11664,
+          "sha256": "96f8162f9663bc22a697117bd4172294bf6d2175c92e753d9e2470b638eb5817"
+        },
+        {
+          "path": "assets/models/building-blocks/details/steel_i_beam_2m.glb",
+          "size": 5612,
+          "sha256": "5644f103f0b3a871c4c6199fc4db27c8218f3300eefa0891108c3ed2b86b2555"
+        },
+        {
+          "path": "assets/models/building-blocks/details/wall_ac_unit.glb",
+          "size": 26696,
+          "sha256": "27a786736a6d41437c5e16702fd2b5c7447eab312a05717792c27d6696bf14f6"
+        },
+        {
+          "path": "assets/models/building-blocks/details/window_shutters.glb",
+          "size": 35524,
+          "sha256": "b266f9f5b317669e02f8a214913725b0eca2852bb1b50995d769455fed1104ac"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/floor_concrete_2x2.glb",
+          "size": 2528,
+          "sha256": "ddf34103e95fc89506996ec4b77d49bff8a22ef3388a4bdf957d6fa14788e56b"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/floor_stair_opening_2x2.glb",
+          "size": 4080,
+          "sha256": "6c4c6c978f0ad98e0dd2f852fea0ab2b019c1aba35499a134f4ae07eacbe7650"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/floor_wood_2x2.glb",
+          "size": 17060,
+          "sha256": "63e7dd5dfd0c387975553caa36d80c4ad6eb50c3a71abcfc9a86058761dfd914"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/foundation_2x2.glb",
+          "size": 4748,
+          "sha256": "4a23aacc71326f8a6571a648142f5e04267f69277381ffef0d9edc23b749745d"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/porch_steps.glb",
+          "size": 10968,
+          "sha256": "61e4bc5ae2e43a8eb33ac396215783563a5ee52e997924ff470a0a542abd08e8"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/stairs_interior_storey.glb",
+          "size": 24812,
+          "sha256": "92a6d1115622b0dd5de47adbbc3e3a0b9f31fe3893f6e1ead0e8c072b2ddfcd4"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/chimney.glb",
+          "size": 6960,
+          "sha256": "b6431ec30b463bb55836bd7d5e24cade9ff41ce99caab4d822059eaeefc4da67"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_corrugated_2x2.glb",
+          "size": 18632,
+          "sha256": "f86bd5736fd810be82c1c57ae48c6cc3934e4c3f7c13f35ee33f786e672d9ac0"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_flat_2x2.glb",
+          "size": 4764,
+          "sha256": "10eb7282133f43e6a2f134fd818456597c3834306a454d84c734944b73c5865c"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_gable_end.glb",
+          "size": 2516,
+          "sha256": "2fe56d52c964f37262365f3120259db4cb865b91f6503ab6d129fe114e9eea1a"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_ridge_2x2.glb",
+          "size": 6324,
+          "sha256": "35a39b5f829c53135fd07c72c4baa11adf012e7b2673a3ed942a8630a9579dfd"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_slope_2x2.glb",
+          "size": 12484,
+          "sha256": "5140cef91e8e7878f8c3bfa68e0b5c5b2cf6b7efe96f27f338f142e2e7b7e776"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_brick_2m.glb",
+          "size": 39316,
+          "sha256": "87006f87d109e07bdd3170625321acd75bf3ddb6a17b126f1d34b6452b2a99d2"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_brick_doorway.glb",
+          "size": 9392,
+          "sha256": "c169f1ed50d59295476eb9ece6d3835d67169190728db721051d5258b62e4cdc"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_brick_window.glb",
+          "size": 89200,
+          "sha256": "88a4096bca70483e3d95034c77f6b7f2caa9dd1cbd3b5af43ba888dede8514bb"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_concrete_fence_2m.glb",
+          "size": 7860,
+          "sha256": "e25dc11d567fb3ee7e785d0deb0f1c9af7ec6f9e84b8c8135a166bb89e67c429"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_corrugated_metal_4m.glb",
+          "size": 34000,
+          "sha256": "ec23c1d189849345d94cb6f9845a29be63831335e91c7e80372ab0764adb8654"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_garage_door.glb",
+          "size": 30120,
+          "sha256": "bb77fc08a7ff083134c2908a9ffd067ac7127a94ae7eaa5baac696a12165a2f0"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_1m.glb",
+          "size": 6320,
+          "sha256": "ee244c311f6ab99f7d1e2d0329dab3bb393c7cb43dd5f69554e77b56b2937942"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_2m.glb",
+          "size": 6312,
+          "sha256": "31fdf4efe7327dcb82f6e892751e8fb88731a169f14cdd15f355ecf659f8afeb"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_damaged.glb",
+          "size": 27072,
+          "sha256": "cc8f3f6443f8b8b60f4c417b1d16ccc2750bee56185472a34c3cd27e24a79ee1"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_door.glb",
+          "size": 22740,
+          "sha256": "512e5363e8cdf93ba57507d74dc01be055004c01262abd276b6f9e802b391697"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_doorway.glb",
+          "size": 15532,
+          "sha256": "cdeb60e298123dd2a684ff71b46f64621bed8e96df6f3a56ff7f1ea530a3be0c"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_low.glb",
+          "size": 4776,
+          "sha256": "e0ea91611072066a3a7139c5d1783156b4fbd4dec67b3b95146d1b45f05c9ec4"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_window_broken.glb",
+          "size": 20904,
+          "sha256": "8dc1381c8fe46d56f864f46c5c09a14eafc3e18c6a0a825a94abd53d857d6770"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_window.glb",
+          "size": 22412,
+          "sha256": "dddab3a02865ce6ed4dd8a0ad099753b6a5f3cdaa512c6afe3764da6c73964fa"
+        },
+        {
           "path": "assets/models/bunkers/brick.glb",
           "size": 7180,
           "sha256": "e07f7eaed28438ec2158436255d22347150fcdbea5b6568e6dbd883f0b5c8e89"
@@ -312,6 +512,176 @@
           "path": "assets/models/bunkers/tree.glb",
           "size": 13612,
           "sha256": "3abcd5ea98e7c550162c641c3aa8ea9f48c0d9cf1ced562b1b87c3404c510920"
+        },
+        {
+          "path": "assets/models/environment/plants/bush_flowering.glb",
+          "size": 26044,
+          "sha256": "2c23c88dd452980856dc0b7383041cb79e58d79acc7ed559034e7e1fd8806e88"
+        },
+        {
+          "path": "assets/models/environment/plants/cactus.glb",
+          "size": 19072,
+          "sha256": "d14b1783c310c6d101c1225606a2db329b3ad94e082b580d78637701c720efbe"
+        },
+        {
+          "path": "assets/models/environment/plants/dry_grass_tuft.glb",
+          "size": 17220,
+          "sha256": "8d8d4bf9c94d50fa4ae60d3aafacc52ce4c2be586599329e9214209275e6bcd2"
+        },
+        {
+          "path": "assets/models/environment/plants/fern.glb",
+          "size": 12544,
+          "sha256": "5fdd5f2f4d09ad7c209cd3de2af59cfd462ad6442da044cf98261ea24e7134bd"
+        },
+        {
+          "path": "assets/models/environment/plants/flower_patch.glb",
+          "size": 62596,
+          "sha256": "9a2afc38abe6da911d3ae3634d93dad0c3e5f5b31ee7eb7effd9798b014a426f"
+        },
+        {
+          "path": "assets/models/environment/plants/hedge_2m.glb",
+          "size": 13980,
+          "sha256": "31e7fb57830eb1d9343db964ad73d1b112284ca416c9926285558c1fcff75005"
+        },
+        {
+          "path": "assets/models/environment/plants/moss_patch.glb",
+          "size": 18684,
+          "sha256": "a9fd11bec678870d235f9f05a921130bdcad77611d4f2a24b16d6eefcf359d8c"
+        },
+        {
+          "path": "assets/models/environment/plants/mushroom_cluster.glb",
+          "size": 30264,
+          "sha256": "4d8591c6f653a23f681ccb7975ce4fdb59946f383e1c7ec3859fc30dcfe81db6"
+        },
+        {
+          "path": "assets/models/environment/plants/reeds.glb",
+          "size": 28756,
+          "sha256": "22055216c449271e43b133700a75ecd8f79eae2209d6733bc9c3f9a66fb96e40"
+        },
+        {
+          "path": "assets/models/environment/plants/tall_grass_patch.glb",
+          "size": 32584,
+          "sha256": "881afcdff8c09fb9f4e5f831070ee975e1732d43474d144bfe61a566166d3aef"
+        },
+        {
+          "path": "assets/models/environment/rocks/boulder_cluster.glb",
+          "size": 32596,
+          "sha256": "c8c76f10e4206824c10f1fcd07e392cf95b5774acc865baf561bc944a9261653"
+        },
+        {
+          "path": "assets/models/environment/rocks/cliff_chunk.glb",
+          "size": 27188,
+          "sha256": "621c5046cdcc65b4190f4985676266c21fa2338b611a6c5515c9a03ade4a69df"
+        },
+        {
+          "path": "assets/models/environment/rocks/pebbles.glb",
+          "size": 20252,
+          "sha256": "8e221d108cf82e0fdc47c179f10b98944848169c2d3e63a5e691aadebf36d6f2"
+        },
+        {
+          "path": "assets/models/environment/rocks/rock_flat_slab.glb",
+          "size": 7220,
+          "sha256": "c7016d6329a4a97ccdfddcc612bc294adcfe95d36cd2aaac3838b14cd9793069"
+        },
+        {
+          "path": "assets/models/environment/rocks/rock_pillar.glb",
+          "size": 14148,
+          "sha256": "542a40c60ea51c3cb19d7ae43295fad3b0894d844b55f18b458fe9924a316cd1"
+        },
+        {
+          "path": "assets/models/environment/rocks/stone_wall_2m.glb",
+          "size": 63300,
+          "sha256": "4b7d3a32a05072ab55e618689c9df8d79c197bf9f10dae58b491c9eaab9a31af"
+        },
+        {
+          "path": "assets/models/environment/terrain/chopping_stump.glb",
+          "size": 19852,
+          "sha256": "fa4aa6de177b9511ce2d5a7e4bbb053b67d0bd30bb99b0703924f083a1fbff11"
+        },
+        {
+          "path": "assets/models/environment/terrain/dirt_mound.glb",
+          "size": 7192,
+          "sha256": "08929d5fda782b353e64007c49da50b8695b6a35ce48818bba1a8c10e563c20e"
+        },
+        {
+          "path": "assets/models/environment/terrain/dirt_patch.glb",
+          "size": 8740,
+          "sha256": "0ebe4be69b2fdae226d823463937d9cd1d5500377b1a10082f4a97ff2c338326"
+        },
+        {
+          "path": "assets/models/environment/terrain/sand_dune_small.glb",
+          "size": 7204,
+          "sha256": "d4d2d257306f217b4698072aa92283b0462f2554b5e2f97bdc282bb299ad42f8"
+        },
+        {
+          "path": "assets/models/environment/terrain/stepping_stones.glb",
+          "size": 32548,
+          "sha256": "a6d7688df9476b68eeb2476090a28c708b462cb8bb1e78ccddfd5637710df38c"
+        },
+        {
+          "path": "assets/models/environment/terrain/trail_marker.glb",
+          "size": 6996,
+          "sha256": "d8a17dbd0314dea76ce714cdf614a6a1bbbf2f91be0af9b088a63911d6586bae"
+        },
+        {
+          "path": "assets/models/environment/trees/bamboo_cluster.glb",
+          "size": 148580,
+          "sha256": "2d52af4b0ca9511cea59b4b1e4ac2848f92beb7ac4ef58acbeeb04b710094998"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_big_oak.glb",
+          "size": 47104,
+          "sha256": "8f385496196a46a022f35017b07b0e7f02ba63265e49f85e4452cf418d1b905e"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_birch.glb",
+          "size": 29764,
+          "sha256": "57e126e323587794d6dd51d65d32da3388b96f83e7012d52343b5b3243677b7a"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_cypress.glb",
+          "size": 12188,
+          "sha256": "7d9611867625e9721d6180b3d12b6440da1264530921a643c5608477ccd1d5d8"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_dead.glb",
+          "size": 11424,
+          "sha256": "e673df0a3e1f4cfee4a39168c1533fa7d0de68c66c713e0705ca2962c8ce0199"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_palm.glb",
+          "size": 30236,
+          "sha256": "540900292c7eef03fbdcb882c1c59aa41a9f9788cc12c02c1b73c4c5e2f19539"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_pine_snowy.glb",
+          "size": 14472,
+          "sha256": "559a7de965da3c7950821cd35c38f3a107a9b3356a26450217d0a14be67b64b9"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_small_round.glb",
+          "size": 10640,
+          "sha256": "d9cd83cbd9d2749dadcfc75be32790f29fd99dc6258ee30bc4c1f6ffd0f77a4b"
+        },
+        {
+          "path": "assets/models/environment/water/log_bridge.glb",
+          "size": 13288,
+          "sha256": "37d64df93dde678cb7356c228cf98d6738ab2433fee2806479013cd5092a1fca"
+        },
+        {
+          "path": "assets/models/environment/water/pond.glb",
+          "size": 87776,
+          "sha256": "0152597880c77e707b24257e353c457dc46f334438af06373f64c771c834362a"
+        },
+        {
+          "path": "assets/models/environment/water/puddle.glb",
+          "size": 5580,
+          "sha256": "14e1fe0716a82223ced8866ca563e73d0621ce840d167354d3a2e3465ec0b858"
+        },
+        {
+          "path": "assets/models/environment/water/stream_section_4m.glb",
+          "size": 104660,
+          "sha256": "a00ee42a03046a9029ac684fbaeacd06f09aba574896056ac12ed5b0c6179acc"
         },
         {
           "path": "assets/models/guns/attachments/barrels/barrel_bull.glb",
@@ -584,6 +954,261 @@
           "sha256": "d1ac1298e1b43e6f27dfaf38b694aa92f23c5b5e195dc2db1de48a6921d2c00d"
         },
         {
+          "path": "assets/models/industrial/machinery/conveyor_section_2m.glb",
+          "size": 36996,
+          "sha256": "5fb249725a2bbe2e388188a9d7e2a8468ce399230f34bb6e0ba06f2295587638"
+        },
+        {
+          "path": "assets/models/industrial/machinery/drum_stack.glb",
+          "size": 40932,
+          "sha256": "60709fa9ba0736506585d3cbafcd8e3ee08aabf636aa1f462d8cb187e36cbbff"
+        },
+        {
+          "path": "assets/models/industrial/machinery/electrical_box.glb",
+          "size": 15656,
+          "sha256": "010bddef543dfeeb2b93232d777f1b9d890a908380aa7ef54851b95f9455bc5a"
+        },
+        {
+          "path": "assets/models/industrial/machinery/pallet_rack_tall.glb",
+          "size": 69964,
+          "sha256": "bafc2083657feb5ac8e06d6615e9e4ac2f923e66a7a7ee3ede0fc4abf2e8be9d"
+        },
+        {
+          "path": "assets/models/industrial/machinery/pipe_elbow.glb",
+          "size": 26360,
+          "sha256": "664c7ddd8f51e90d0cc5794bff0b23a1ae11345e7d1ebcfb1a656f6c7a37ec2a"
+        },
+        {
+          "path": "assets/models/industrial/machinery/pipe_large_4m.glb",
+          "size": 17104,
+          "sha256": "7e7854947e67d076c1911d9ad710d5be603d7a1bef7e90a59647f68e09191f7f"
+        },
+        {
+          "path": "assets/models/industrial/machinery/silo.glb",
+          "size": 50852,
+          "sha256": "94e7aeb4079e2c457aec021d9137816a502f73074b18ea31e34913476841e29f"
+        },
+        {
+          "path": "assets/models/industrial/machinery/transformer.glb",
+          "size": 30848,
+          "sha256": "ac8ba89d6ee04729763bc1b2b56eed975200e4731aaa2b5125d2f8b4743ba6a4"
+        },
+        {
+          "path": "assets/models/industrial/machinery/valve_wheel.glb",
+          "size": 34828,
+          "sha256": "6a6915af8777e9b54f0e6c6fbae835d1d0fb5cb5c865b513423a86eaf669a85a"
+        },
+        {
+          "path": "assets/models/industrial/military/barrel_stack_military.glb",
+          "size": 66272,
+          "sha256": "8263d28fd54c9d078164cd5e7bdc515511b162dcc9d162e0a1dd3e2c3e50ea32"
+        },
+        {
+          "path": "assets/models/industrial/military/camo_net.glb",
+          "size": 15948,
+          "sha256": "9e044f3192cb3203edbfa7000a0fd344151f702aa926c1a9b11f8408c2fd11ab"
+        },
+        {
+          "path": "assets/models/industrial/military/concrete_block_1m.glb",
+          "size": 14760,
+          "sha256": "2e7899eaf169cce57df32f05a2e92af4d5b13fae4d90eaf5316898ad45d3346f"
+        },
+        {
+          "path": "assets/models/industrial/military/concrete_pillbox.glb",
+          "size": 12512,
+          "sha256": "c603e0669bd4500e91f6e5babc1dffef14856931bde3f405b8080ffad1118ead"
+        },
+        {
+          "path": "assets/models/industrial/military/hesco_barrier.glb",
+          "size": 57024,
+          "sha256": "cd776ec39ebfd8bf3bc85855da717943ac6f520bdd41b6c458617ed4a4f44a81"
+        },
+        {
+          "path": "assets/models/industrial/military/military_tent.glb",
+          "size": 8544,
+          "sha256": "dc45087140ee3f2958db5238d794f4d608656916f35c3c90ac5d38ae5f474829"
+        },
+        {
+          "path": "assets/models/industrial/military/radio_antenna.glb",
+          "size": 16824,
+          "sha256": "4338df7bc6d372e4e4d8cfcd69f01a68f3990be0300a55b099cf01de48bc1696"
+        },
+        {
+          "path": "assets/models/industrial/military/searchlight.glb",
+          "size": 16044,
+          "sha256": "3937df4f3d0e314e40b0ad3ce4f4510c69508fb5f7b89f4487d166aa3a0cb4d9"
+        },
+        {
+          "path": "assets/models/industrial/military/supply_crate_military.glb",
+          "size": 13180,
+          "sha256": "62e40933df0559f0c3cacbbdae37da3328f729495744f2392227aab2c3190443"
+        },
+        {
+          "path": "assets/models/industrial/military/tank_trap.glb",
+          "size": 5684,
+          "sha256": "506bc185f806a095f260eeef00acddef28e3122b2cb961be3375be56d2f7334b"
+        },
+        {
+          "path": "assets/models/industrial/structures/catwalk_2m.glb",
+          "size": 51576,
+          "sha256": "4b9a6e3ad95a26a8caeba06c5927db817317e3899f0959749a550d8ea0ece0fb"
+        },
+        {
+          "path": "assets/models/industrial/structures/metal_stairs.glb",
+          "size": 30920,
+          "sha256": "bd20bec690a7d8876a92867f948d4bb4f1aec96dc2fbf348b2754699b9b63b0c"
+        },
+        {
+          "path": "assets/models/industrial/vehicles/forklift.glb",
+          "size": 44680,
+          "sha256": "e489b3fc4e254e76a7b79b74069c33012b2e91bc0e0622b91ffc4bdab650cc79"
+        },
+        {
+          "path": "assets/models/industrial/vehicles/military_jeep.glb",
+          "size": 33860,
+          "sha256": "ae96e9537b775da4365be8e363cf47c8d8bfd8da2c7949c5c14bc6b22a29be51"
+        },
+        {
+          "path": "assets/models/industrial/vehicles/pallet_jack.glb",
+          "size": 10220,
+          "sha256": "fedf431fdce6dcfd2becc92088bbd8627692dbb9f5d547d95d0e038140f59da8"
+        },
+        {
+          "path": "assets/models/interior/bathroom/bathtub.glb",
+          "size": 12440,
+          "sha256": "0ee4c1bb8dc4ee06bcc8efb996526193ee0b406fd8b69f71353af30392cd19a0"
+        },
+        {
+          "path": "assets/models/interior/bathroom/toilet.glb",
+          "size": 11728,
+          "sha256": "be96b8bd90f89afba46487d0679388784a063941fc25ac5231a221b4c478a7f5"
+        },
+        {
+          "path": "assets/models/interior/bedroom/bed_single.glb",
+          "size": 28576,
+          "sha256": "63fda86ba3c4abd57ed600fcf29cfcb712bf3875b7fef2fadd0a862d74ed19ed"
+        },
+        {
+          "path": "assets/models/interior/bedroom/bunk_bed.glb",
+          "size": 30084,
+          "sha256": "a55a31b06b759e30e0a057457c8059db53a5a1db0eb5f247c31041e63aa33637"
+        },
+        {
+          "path": "assets/models/interior/bedroom/wardrobe.glb",
+          "size": 13220,
+          "sha256": "bbe15ab32275f819543fc0827698e2bab245e59590df4e27232891a5c189535d"
+        },
+        {
+          "path": "assets/models/interior/kitchen/dining_table.glb",
+          "size": 14020,
+          "sha256": "1dce6aaf1f977e3f25d270920461f97e6d902201b1c585b39a9a449d8c5b6c93"
+        },
+        {
+          "path": "assets/models/interior/kitchen/fridge.glb",
+          "size": 13168,
+          "sha256": "c64d8f649b987c94f3b35a73726b710db8509745b5a91049b8f4e94bf8893185"
+        },
+        {
+          "path": "assets/models/interior/kitchen/kitchen_counter_sink.glb",
+          "size": 25396,
+          "sha256": "e78f1ca9b68582f2585c165a3fcf9dd2bcd2aa95ccd9bf0b79f0fe61348bf0ca"
+        },
+        {
+          "path": "assets/models/interior/kitchen/stove.glb",
+          "size": 26184,
+          "sha256": "50fe9640367db64492772ea27f592a8f6371f94bd769aa049ddfacc7bbc6aeae"
+        },
+        {
+          "path": "assets/models/interior/kitchen/wooden_chair.glb",
+          "size": 14056,
+          "sha256": "d681002e2e4e7eb6b96bfd3cfa029d54139f11ba181560f3168c8a9c87c07db9"
+        },
+        {
+          "path": "assets/models/interior/living/armchair.glb",
+          "size": 32436,
+          "sha256": "5747c847965515e35aab1630ff527b4fde3b85318a882dac6c3dcf5b6cda2f8d"
+        },
+        {
+          "path": "assets/models/interior/living/bookshelf.glb",
+          "size": 74540,
+          "sha256": "90171bb0eadcdb773434772998ddf10ac6b718f9cace83fec8f59ffb3abe3d72"
+        },
+        {
+          "path": "assets/models/interior/living/floor_lamp.glb",
+          "size": 11072,
+          "sha256": "819d07bbd9cf635c6a5e5d6bc032bed98f1f876e6ebc5807a32c6f40fe7a8cac"
+        },
+        {
+          "path": "assets/models/interior/living/potted_plant.glb",
+          "size": 30268,
+          "sha256": "08bc158e6108317e1fb851dfae02dfa5e0ee0aca5c9567f66b3f977e7cd04b81"
+        },
+        {
+          "path": "assets/models/interior/living/radiator.glb",
+          "size": 53244,
+          "sha256": "d85c4f3934e050313d20bac321df9c1fc2c9c8162fd689368d772d7e076696dd"
+        },
+        {
+          "path": "assets/models/interior/living/rug.glb",
+          "size": 6280,
+          "sha256": "4c3feb8aad622c6399e98922a5533702ef97e18110e34204c2bb5f0939c530b9"
+        },
+        {
+          "path": "assets/models/interior/living/sofa.glb",
+          "size": 38568,
+          "sha256": "a019a4f5d2f3c85512d9da945ca5d78cb2b6b6ab1253faf4fa8829821ab9acf7"
+        },
+        {
+          "path": "assets/models/interior/living/tv_stand.glb",
+          "size": 17840,
+          "sha256": "6cee54b0571a46f259738ec52edf8279dd879b3fc3282a76e5f07d9478f169ab"
+        },
+        {
+          "path": "assets/models/interior/living/wall_clock.glb",
+          "size": 29424,
+          "sha256": "d390a1ca18dacc2c363c16d849e26aa37975cfc8bf398177fd70cea4d2048502"
+        },
+        {
+          "path": "assets/models/interior/living/wall_painting.glb",
+          "size": 7044,
+          "sha256": "fedf8a3d11baed7dff1db731d1540b51378b09fcc34d44bc317214ad3b1ef429"
+        },
+        {
+          "path": "assets/models/interior/office/computer_desk.glb",
+          "size": 19364,
+          "sha256": "beeaa06a4c96c28a57ef1163d9837456c7bbbb31c9e9035addb6dba54e61886c"
+        },
+        {
+          "path": "assets/models/interior/office/filing_cabinet.glb",
+          "size": 20844,
+          "sha256": "40a8952dd393f909e81de846701f0e6d5624f0fb9651b99e18e76562c696a0b4"
+        },
+        {
+          "path": "assets/models/interior/office/locker_row.glb",
+          "size": 52400,
+          "sha256": "a9cffe406200a5f9d59a785968a5db756761a9c1b21b6ccc2d2428f783d8e915"
+        },
+        {
+          "path": "assets/models/interior/office/metal_shelving.glb",
+          "size": 51632,
+          "sha256": "fdc4d00eae2f30447c793e5509f5e8f4ee8bb6f24a3e8888cc10cb3a0e214144"
+        },
+        {
+          "path": "assets/models/interior/office/office_chair.glb",
+          "size": 36316,
+          "sha256": "53e57165ab06fd9fe811361a04cc068e1e63d97d10291de5d25c5f9c0428ae82"
+        },
+        {
+          "path": "assets/models/interior/office/office_desk.glb",
+          "size": 16288,
+          "sha256": "963bd83d30e5eded76010a70eebbbf6cf3509f90fae1bb3ec0671a4fb29d5895"
+        },
+        {
+          "path": "assets/models/interior/office/whiteboard.glb",
+          "size": 20848,
+          "sha256": "9d3706cfb587638188988472c2e56b7265d73ebd3b8124396e3ef4c2d847e8f1"
+        },
+        {
           "path": "assets/models/map-kit/nature/bush.glb",
           "size": 16760,
           "sha256": "e0761760e1eff9526ac7ac69e228419b5480331a94c535c2d04703b32cd382ee"
@@ -779,6 +1404,181 @@
           "sha256": "bb9eaef994ea8ac97d98833da40438e1f7dc8bf82797f8901c8241316d0351ec"
         },
         {
+          "path": "assets/models/nature/autumn/bush_autumn.glb",
+          "size": 12020,
+          "sha256": "af81bc3c2d048302f8ece781fcdd0717e8af8f6b71936f53bcf9c4666ba72fa7"
+        },
+        {
+          "path": "assets/models/nature/autumn/fallen_leaves.glb",
+          "size": 16008,
+          "sha256": "3dd75d1c48e495823ecd9b6bdc8ab203f9b7718ea917a4ebbe4aa4ad9276ca6c"
+        },
+        {
+          "path": "assets/models/nature/autumn/tree_autumn_orange.glb",
+          "size": 24508,
+          "sha256": "5e53a9969f928f828f0b5da86930b37c5ea6d08408eb208f7786d5234b07cfbc"
+        },
+        {
+          "path": "assets/models/nature/autumn/tree_autumn_red.glb",
+          "size": 15448,
+          "sha256": "3e93f463cc9f594cb097e2fce735de5c4f30202239ab8fbfd8888814c5e966e4"
+        },
+        {
+          "path": "assets/models/nature/farm/hay_bale_round.glb",
+          "size": 15676,
+          "sha256": "d9165006dbfe58bf0e229f90c044bfd965bb6ad63e9cdd1cdf27194ec4f4b40a"
+        },
+        {
+          "path": "assets/models/nature/farm/produce_crate.glb",
+          "size": 36288,
+          "sha256": "a42ca15941b0226095a497be0f92d97be8889be739e80265ecf67e5088285eb4"
+        },
+        {
+          "path": "assets/models/nature/farm/ranch_fence_2m.glb",
+          "size": 9796,
+          "sha256": "5102ec5cd9106eefae73c8d5a937f80f1a01d94c99f0959212e7c8053af81662"
+        },
+        {
+          "path": "assets/models/nature/farm/sunflowers.glb",
+          "size": 59060,
+          "sha256": "30961588dfb71f6f1f6bc5e651c8a4f3cd49a4c11eac9813fa7fc2200900ac04"
+        },
+        {
+          "path": "assets/models/nature/farm/wheat_patch.glb",
+          "size": 186144,
+          "sha256": "b4eaf75ec30685cae31a2b37f43c0939b60482cf3da8c7bb815645a23dc3fecd"
+        },
+        {
+          "path": "assets/models/nature/temperate/lily_pads.glb",
+          "size": 30240,
+          "sha256": "a5e497653b2b540c607c6a5246b8f53b0b2a8ff8d44482c3d7e9ee4731d68623"
+        },
+        {
+          "path": "assets/models/nature/temperate/log_mossy.glb",
+          "size": 18732,
+          "sha256": "04314d1f3f51e74dca400fdd7d93f70f3b441f758381c1159d3ce6b74d98cbc2"
+        },
+        {
+          "path": "assets/models/nature/temperate/mushroom_giant.glb",
+          "size": 24840,
+          "sha256": "059d8f8295a1d29c243f7e3aea4313c5972dc2a6c5de52d92efaea1535fd71f6"
+        },
+        {
+          "path": "assets/models/nature/temperate/stump_mossy.glb",
+          "size": 11032,
+          "sha256": "cc7f8cf749eb621be017bd12603bedc7fe940906a187cf39da42cf76ab96839e"
+        },
+        {
+          "path": "assets/models/nature/temperate/tree_apple.glb",
+          "size": 30592,
+          "sha256": "c5028c95def79f2dff26fc9486ba82d22363378184d0dae47f04a7ab4c2eec6b"
+        },
+        {
+          "path": "assets/models/nature/temperate/tree_willow.glb",
+          "size": 29856,
+          "sha256": "0d183e1f615525f23bb081c052efa564f6db3a08af8a399aebee4c409c8f211e"
+        },
+        {
+          "path": "assets/models/nature/winter/rock_snowy.glb",
+          "size": 14132,
+          "sha256": "814c2b341d5e7a7d9bc502bdb1bc6c5a0ecfd8e9f82706b292588fe34fb25ec7"
+        },
+        {
+          "path": "assets/models/nature/winter/snow_pile.glb",
+          "size": 14116,
+          "sha256": "3a21d33f3e85470b11c72be140763d612d6fa6af4360ea1419e2e6f71e0fb003"
+        },
+        {
+          "path": "assets/models/nature/winter/tree_bare_snowy.glb",
+          "size": 16048,
+          "sha256": "ba286b7e83b798a00a9fd31a0c9a0f2e713d3235cce0f3c0d0cde4b8eabda81b"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/big_can.glb",
+          "size": 23260,
+          "sha256": "5b12f9fcc9ef9bdc210f9cf28f4a2685eb759b39ba49401227d612dba2e5a844"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/big_dorito.glb",
+          "size": 4072,
+          "sha256": "0fb14658f4fe7afe38512a987fbe9563e9a3ca35801a050c3cec540c108d5e6c"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/pin.glb",
+          "size": 13236,
+          "sha256": "32dea50abd3e0f48c75b728cee85d297861030bcd22e06f3640a44f24ae4877a"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/snake_corner.glb",
+          "size": 17120,
+          "sha256": "9358ec388624a8cb379f38bb092df5644494f5e86888710dfbc094f339f76ec3"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/tombstone.glb",
+          "size": 15132,
+          "sha256": "820d1d382534b51196d3583786a6b645ad1f76b4c5f9758c3c776d590efadbec"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/wall_with_ports.glb",
+          "size": 13180,
+          "sha256": "e14023811f5f1e9aa9c479a5f786fe4758fe8dbba269a14fb4e80087c25bcb89"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/wedge.glb",
+          "size": 4716,
+          "sha256": "93a0d80092dfb2cf7b1d3ab49f316c8feb9f6ef5610bc5985031b9ad47e67829"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/ammo_station.glb",
+          "size": 23284,
+          "sha256": "c3381c6fa611e066bfc6114621d56cf581124fce61ff54137f7e4037e84790c6"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/capture_point.glb",
+          "size": 36324,
+          "sha256": "7df306b5b7b7ca20b32f49b9af6328da0e9b8445a8a89fafc23c547fd3e68126"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/respawn_beacon_blue.glb",
+          "size": 22976,
+          "sha256": "0ea991a5fb97a18c1ff603ef1b5f7f7d319a607b5d8a04f8fd99506151ea6072"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/respawn_beacon_orange.glb",
+          "size": 22988,
+          "sha256": "2534cf8645c34a717769f1eaa5efb6f1f37d504e278f7c6aa3926568eea76944"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/team_banner_blue.glb",
+          "size": 7300,
+          "sha256": "20f1ffe10eeed06f5e537d176d12b29ad6a9728305a7792944d4fd2c05f8bce2"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/team_banner_orange.glb",
+          "size": 7308,
+          "sha256": "02dd37b9d8a1d78cccfe3a23bdac1d322963528ff174096e52138b96a4c0eae5"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/trophy.glb",
+          "size": 43988,
+          "sha256": "6bd9a67972ea3492c44807941c1d2b4bec894e2243781b6ab588909bc6775399"
+        },
+        {
+          "path": "assets/models/paintball-field/practice/gear_rack.glb",
+          "size": 99408,
+          "sha256": "92d2c3e9a1ef0595a759809ba58c06f2337d113ef5777b66ddcc0e3b203ccbd2"
+        },
+        {
+          "path": "assets/models/paintball-field/practice/popup_target.glb",
+          "size": 10928,
+          "sha256": "22240182c500fc95d28381ad43435bba8e4a34bc69ded7a5eb48948e5f1e0bc2"
+        },
+        {
+          "path": "assets/models/paintball-field/practice/target_stand.glb",
+          "size": 24080,
+          "sha256": "c9a8234a48f67143fb8d84fc994cf43259f2cc782143e77167692504c59d5739"
+        },
+        {
           "path": "assets/models/pickups/air_refill_station.glb",
           "size": 16020,
           "sha256": "7c2261765089bf5e831d1c6707eeeca8a478e6afb58685d16eae8b81525001f4"
@@ -839,6 +1639,56 @@
           "sha256": "1fd5cae4e581bfdbdbba62b635dbc574943206c505c7290beb4e31367aa49511"
         },
         {
+          "path": "assets/models/props/containers/ammo_box_military.glb",
+          "size": 15448,
+          "sha256": "741d9a04a3ac414cd191ee167656a0bc035a8f5bb0a7f5c1d96899b43e4f7177"
+        },
+        {
+          "path": "assets/models/props/containers/cardboard_box.glb",
+          "size": 9376,
+          "sha256": "95a8f28cb74612ff45bb4431d243204c81d6a64c6313ecd4deac4a5b8495161c"
+        },
+        {
+          "path": "assets/models/props/containers/cardboard_pile.glb",
+          "size": 32484,
+          "sha256": "5e9c09a9a5dff24b0d79bc5f8a3d6af5439d410677db5458464fa7a7b05f8321"
+        },
+        {
+          "path": "assets/models/props/containers/crate_long.glb",
+          "size": 14712,
+          "sha256": "f7504c72a8ead33aa3113b13f505f3efbbbcf80034d7e3afbb84ba953d7074cf"
+        },
+        {
+          "path": "assets/models/props/containers/crate_small.glb",
+          "size": 10936,
+          "sha256": "28f23ba7e9db90d3ef61938ea633c6d3ca0471e6066cef5c92a7d1d567766a29"
+        },
+        {
+          "path": "assets/models/props/containers/crate_stack.glb",
+          "size": 32444,
+          "sha256": "70ad5f5cb1ec6fb6d2971ea38996ddf0b0e4e5a3c3174a781a6f6207fc457d84"
+        },
+        {
+          "path": "assets/models/props/containers/fuel_can.glb",
+          "size": 11752,
+          "sha256": "78241368d21c9cba9f65d466bbc6bf343fd3d94d6f6fdf0240cf4a710587dd46"
+        },
+        {
+          "path": "assets/models/props/containers/gas_cylinder.glb",
+          "size": 25212,
+          "sha256": "2f39fefcbbd1b928ba5574408c6d3c26dc904fb5215e393fdd1301641eb7a803"
+        },
+        {
+          "path": "assets/models/props/containers/oil_drum_rusty.glb",
+          "size": 29504,
+          "sha256": "e82f440f1b8c33b47818d266d6522fc3d2e5952a9b9025670ef0bb517d0029de"
+        },
+        {
+          "path": "assets/models/props/containers/tarp_covered_pile.glb",
+          "size": 11088,
+          "sha256": "85fc3f5aca095401192b727ec3f61fb63e1608f19bfbd6613b52a15d33887a09"
+        },
+        {
           "path": "assets/models/props/crate.glb",
           "size": 16372,
           "sha256": "e349de876d949176abdc9e680952f1ee29f75222060e3c8a27a31300880668fc"
@@ -859,6 +1709,51 @@
           "sha256": "b4c0c08366b1d278521d2d419f1d75339ba1fa909d9ddc2813422f8f90395af6"
         },
         {
+          "path": "assets/models/props/furniture/bleachers.glb",
+          "size": 18620,
+          "sha256": "42b6278125af5afb7592557e8a1eec0857f66ae0a3e161dd9b2bff5829dfcf80"
+        },
+        {
+          "path": "assets/models/props/furniture/chrono_station.glb",
+          "size": 14024,
+          "sha256": "fe1158ad27dc82f08716166e2ad9178295a75539e9d3cb942c3b2b1f9bd70629"
+        },
+        {
+          "path": "assets/models/props/furniture/event_tent_3x3.glb",
+          "size": 16264,
+          "sha256": "6301bba373174c441687a6f62dfabd99963ec4dad9d8628bcc9db82bf911e43e"
+        },
+        {
+          "path": "assets/models/props/furniture/park_bench.glb",
+          "size": 10904,
+          "sha256": "1f3019c0c06656f53ad647f942ed4e1b1badcaa7248ad1bb84e37226fcf764e6"
+        },
+        {
+          "path": "assets/models/props/furniture/picnic_table.glb",
+          "size": 9412,
+          "sha256": "597074424f653665c6afa7e344e794a5a03a54287491a5e15ff49f6e9de0e2c6"
+        },
+        {
+          "path": "assets/models/props/furniture/portable_toilet.glb",
+          "size": 17808,
+          "sha256": "5b1d534b031502b92750d2883fa5b7e48baddf9688abb03205fc85bea1ed0b32"
+        },
+        {
+          "path": "assets/models/props/furniture/referee_chair.glb",
+          "size": 20976,
+          "sha256": "f0f0f2c2d203104faf105a177a4367ae1ed652b58b68009cec52e99df42ffa6e"
+        },
+        {
+          "path": "assets/models/props/furniture/staging_table.glb",
+          "size": 19780,
+          "sha256": "8af89ffa11a622854569ef3e85d39cb47001c68fab25e52310eaf784ccb7b6c3"
+        },
+        {
+          "path": "assets/models/props/furniture/vending_machine.glb",
+          "size": 14000,
+          "sha256": "5c3508db7e05d73b87a2c2e4d41f6f7230dfb163e5db393e9c913a425b93b767"
+        },
+        {
           "path": "assets/models/props/netting_fence_section.glb",
           "size": 9056,
           "sha256": "583fc8c29c4d18183542788646a2c3e51b6a262388ec12e1ccc78fbdea677a0b"
@@ -877,6 +1772,181 @@
           "path": "assets/models/props/spawn_pad_orange.glb",
           "size": 23080,
           "sha256": "397b90ae0bfec26a544b1169bf37d0026bba26aa14310c4327389814659f2e38"
+        },
+        {
+          "path": "assets/models/props/street/bus_shelter.glb",
+          "size": 11680,
+          "sha256": "6ca1241e42f76ecbc647fc2c8b61e1bc69279c2a342b3bebbb11412f5d814c5e"
+        },
+        {
+          "path": "assets/models/props/street/dumpster.glb",
+          "size": 17792,
+          "sha256": "3974b626af9530d860a832c4c0d9acf050c668d195119b30b1cafe3cc12bb857"
+        },
+        {
+          "path": "assets/models/props/street/fire_hydrant.glb",
+          "size": 14864,
+          "sha256": "10d9e1d3e6be6e0c1a3967c3c54191192ceee36beddc9d06ae0d9ebee2bd8798"
+        },
+        {
+          "path": "assets/models/props/street/mailbox.glb",
+          "size": 6980,
+          "sha256": "3a3068305cb86534360a50d56f23ab982160cadba5cb66351c464f1a7bb590fd"
+        },
+        {
+          "path": "assets/models/props/street/power_pole.glb",
+          "size": 19416,
+          "sha256": "3746a8c91a30dcbb6d1a5d3656faa7edc982d1fc676dbb9625b98f3614635aaa"
+        },
+        {
+          "path": "assets/models/props/street/road_barrier_striped.glb",
+          "size": 18720,
+          "sha256": "2d4b15e9254232035162bae3dbfae25d87db16135f1586bca3a99c9141bbdf7f"
+        },
+        {
+          "path": "assets/models/props/street/street_lamp.glb",
+          "size": 15608,
+          "sha256": "560b10caf34aeb08b7da53c2570cf8a13ecdd2bf0c46c478c59e5b834e05a574"
+        },
+        {
+          "path": "assets/models/props/street/trash_bin.glb",
+          "size": 11692,
+          "sha256": "52922c66e8368bd4b44588254c23124ee2fd6d3d4441b6a051c83d797c915379"
+        },
+        {
+          "path": "assets/models/props/structures/sandbag_curve.glb",
+          "size": 57152,
+          "sha256": "e1ab85c2a489d83189c68ff17ccbb475cb218cec9090e4190ecb5073f32efc61"
+        },
+        {
+          "path": "assets/models/props/structures/sandbag_single.glb",
+          "size": 5704,
+          "sha256": "ec05adcbba101c2ea2bc0f7c91ad85fbdd47f63c2dfe9be97b148ec7374905ac"
+        },
+        {
+          "path": "assets/models/props/structures/water_tower_small.glb",
+          "size": 17472,
+          "sha256": "b1f29922d14b1e9dbe025c5f3e656a0d8e23287925d0b7c0c23136c5a035f4ec"
+        },
+        {
+          "path": "assets/models/props/tools/generator.glb",
+          "size": 17776,
+          "sha256": "0809b2cf578b24dd5770357b93c3e9f62d9e35efd377d24fd930432bb070ab55"
+        },
+        {
+          "path": "assets/models/props/tools/ladder_leaning.glb",
+          "size": 21852,
+          "sha256": "fb8e8044895cd2ba610b8ca513e1eb5a82b9d5f939e3cf894d74e0c9bc481914"
+        },
+        {
+          "path": "assets/models/props/tools/toolbox.glb",
+          "size": 12396,
+          "sha256": "0e463ff13fbff8f3f94a09b8b94ccfb828a859909172df40c530d8ea8713370e"
+        },
+        {
+          "path": "assets/models/props/tools/wheelbarrow.glb",
+          "size": 15592,
+          "sha256": "81ecaf54addc7c2503a4c5a63fda8d4eea0a3f899576c0236f8357b55c989d71"
+        },
+        {
+          "path": "assets/models/props/vehicles/car_wreck.glb",
+          "size": 41552,
+          "sha256": "eb4d60020d9decc3b4ecd19ce9f10fe27913ca43e45cd300d272b6e2f49d3d62"
+        },
+        {
+          "path": "assets/models/props/vehicles/fuel_tank_small.glb",
+          "size": 16316,
+          "sha256": "e11dbd76e81490e7d8b39452914218e53d87c4aac5f687a4563aadd2621eb790"
+        },
+        {
+          "path": "assets/models/props/vehicles/pickup_truck.glb",
+          "size": 24736,
+          "sha256": "5049fa77324cd5370047fc76a6e4aab78a3eb77e484605f6948c4ce45b25c474"
+        },
+        {
+          "path": "assets/models/props/vehicles/tire_single.glb",
+          "size": 14128,
+          "sha256": "4f0f8f216cc48255d7f9e8e3559c09f203ff24c62b5718ce7117dc81836ce24d"
+        },
+        {
+          "path": "assets/models/urban/roads/road_crossing_4m.glb",
+          "size": 19340,
+          "sha256": "f8898482b875ece5ea61e2b4cce3c40f123e5a5bb16a5e5452fc2b9062cc94d0"
+        },
+        {
+          "path": "assets/models/urban/roads/road_straight_4m.glb",
+          "size": 11660,
+          "sha256": "7632bdc66d8b2b674ea175eafde4b60e1c404a43f80167d6f6c0260692faae4f"
+        },
+        {
+          "path": "assets/models/urban/roads/sidewalk_2x2.glb",
+          "size": 9344,
+          "sha256": "3db865c326cbc15291dd155ed3ab055dc9671e8873df6fff18f2d2194f72cb8a"
+        },
+        {
+          "path": "assets/models/urban/street/bicycle.glb",
+          "size": 67496,
+          "sha256": "6a8dd35281c4c84bbf8da612c2665d821e7ba4e06ac25179e4c7aa316f8ef2ea"
+        },
+        {
+          "path": "assets/models/urban/street/bike_rack.glb",
+          "size": 35584,
+          "sha256": "bcef4cb6badf305a69f681cb98d1b19d4770f7054cd7465470a8031308ddad35"
+        },
+        {
+          "path": "assets/models/urban/street/billboard.glb",
+          "size": 13940,
+          "sha256": "1ed03856f3905794f02d0a342f7299d13febe8d958ebdd0e938aaa74bbad6cdf"
+        },
+        {
+          "path": "assets/models/urban/street/bollard.glb",
+          "size": 9472,
+          "sha256": "4d6307e65802399a83932bbb5f40860c9413d4cafba5e3ab498f6517e98c2f9a"
+        },
+        {
+          "path": "assets/models/urban/street/manhole_cover.glb",
+          "size": 17188,
+          "sha256": "593dfb9444321cde5a9573166764c7386ed2596527262db0fcb641d25c7a6d3a"
+        },
+        {
+          "path": "assets/models/urban/street/newspaper_box.glb",
+          "size": 13284,
+          "sha256": "37c51ca44598829ba530826ebd3a98ae3d0951aeed4029c341906a157acfe253"
+        },
+        {
+          "path": "assets/models/urban/street/parking_meter.glb",
+          "size": 12504,
+          "sha256": "08c4a8d4d266b743767cf379c3e952908e425647bec9b0d033df80b9288bcf98"
+        },
+        {
+          "path": "assets/models/urban/street/phone_booth.glb",
+          "size": 22460,
+          "sha256": "3faf563a61bf529672b5bd72a70c082de15519230df898cefbfab558ef03bd83"
+        },
+        {
+          "path": "assets/models/urban/street/picket_fence_2m.glb",
+          "size": 31720,
+          "sha256": "f2dfe388168d32b69f83375c93c74eadfdec5b7e5a87be9dd4fa194848b2e037"
+        },
+        {
+          "path": "assets/models/urban/street/planter_box.glb",
+          "size": 24668,
+          "sha256": "77df814e36a85ee3ebdd67259bde5edeea1d3a61454faecd3d63fbebe8805f0f"
+        },
+        {
+          "path": "assets/models/urban/street/stop_sign.glb",
+          "size": 14052,
+          "sha256": "c89774c7c95a24a124e07fe5c048902cf5ccefa9b994d662e83df78c6ea5c128"
+        },
+        {
+          "path": "assets/models/urban/street/traffic_light.glb",
+          "size": 29696,
+          "sha256": "3d9c817c7a123b0d59feb29ca8e48fc8ba2ecdb470fe949ee85db1760ebd3a3a"
+        },
+        {
+          "path": "assets/models/urban/street/warning_sign.glb",
+          "size": 7792,
+          "sha256": "fc51861681d077221051a3ce366a53a332810d785a3ee8d081d2b2a8391993c4"
         },
         {
           "path": "assets/models/water-guns/minnow.glb",
@@ -1975,25 +3045,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99993088,
-          "sha256": "3e6dcc4c5fd62bda9b36cf566a542645303fc58b214c8f817650f1c0b4a63426"
+          "size": 101068288,
+          "sha256": "57de0a6514951db774244577274de7a7d1d3d8b56db92039691bb4e420f6e649"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 90003456,
-          "sha256": "31fc72ab3d892f74f5c80c487a3f3800c95ad6f36525339a16288128562d6d3e"
+          "size": 91125248,
+          "sha256": "9ff3b8c05bdaab0450afcd04f69bf98161dac96d7d5ca829daeaaa558ff26aad"
         }
       ]
     },
     "stable": {
-      "version": "0.6.2",
-      "published": "2026-11-25T02:03:00Z",
-      "notes": "## What's Changed\n* Use basicshot/elimination sounds, network spatial footsteps (0.6.2) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/15\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.1...v0.6.2",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.2",
+      "version": "0.6.3",
+      "published": "2026-11-25T03:48:26Z",
+      "notes": "## What's Changed\n* Add 214 new models to the map editor with shape-matched hitboxes by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/16\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.2...v0.6.3",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.3",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.2/Ink-cognito-windows-x64.zip",
-        "size": 79894843,
-        "sha256": "153588af3594782992d71b3f28ce2563e78a4cf4813de1b3ebad57d8a4cc84be"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.3/Ink-cognito-windows-x64.zip",
+        "size": 82207862,
+        "sha256": "1e2118dc904962cc9190cd7ed2dc95f749949eade28719cd5eb9be30bdd07e03"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -2253,6 +3323,206 @@
           "sha256": "583d309cec8654bb4e0261698013852389c1712c2be32ef31853bf897111accc"
         },
         {
+          "path": "assets/models/building-blocks/details/awning_striped.glb",
+          "size": 18612,
+          "sha256": "8876afd6d2de9af9c7ba8e45c8d619fa3fa77799c3224c6ce6993261fe241c5a"
+        },
+        {
+          "path": "assets/models/building-blocks/details/balcony.glb",
+          "size": 31636,
+          "sha256": "e23820f03bbf5a645672617d9763bedf644f17def1915f54ef696bec2e00f4b1"
+        },
+        {
+          "path": "assets/models/building-blocks/details/barbed_wire_coil.glb",
+          "size": 135492,
+          "sha256": "320f7dccb3674158f3f1fbc793785e3dc96db51989629023424c181881709701"
+        },
+        {
+          "path": "assets/models/building-blocks/details/column_round.glb",
+          "size": 12536,
+          "sha256": "f3376fe43da9e4f58f174813c9051ea57b45119a9a741f017c2898fd711bd9b4"
+        },
+        {
+          "path": "assets/models/building-blocks/details/drain_pipe.glb",
+          "size": 12548,
+          "sha256": "b42bda3cb9dd06605422e374016b2769efdc72cad6573cba4b39e2d7a8171e5e"
+        },
+        {
+          "path": "assets/models/building-blocks/details/fence_chainlink_2m.glb",
+          "size": 10248,
+          "sha256": "0458755f6fcbe958546548bc4ece2e755ba202af2514d3dc18c7472d8fe7a839"
+        },
+        {
+          "path": "assets/models/building-blocks/details/fire_escape_ladder.glb",
+          "size": 38624,
+          "sha256": "ca1fe78d10ebc6046e1d7f92651e38db8b378909347a4b896d4ef8340c5af83d"
+        },
+        {
+          "path": "assets/models/building-blocks/details/pillar_square.glb",
+          "size": 7140,
+          "sha256": "42dec898106479eab127001f6504e9b45218b634baa0886662e811096317318c"
+        },
+        {
+          "path": "assets/models/building-blocks/details/railing_metal_2m.glb",
+          "size": 7160,
+          "sha256": "52948c6cbdf04ddefd3298f8df7e41eff4cf52dd3136bd72ba7551410972ef7a"
+        },
+        {
+          "path": "assets/models/building-blocks/details/scaffold_section_2m.glb",
+          "size": 28260,
+          "sha256": "5912375984dec73300e33f198c62b04ec3417ef5b41c9de086e6bfd4c282283f"
+        },
+        {
+          "path": "assets/models/building-blocks/details/shop_sign_blank.glb",
+          "size": 11664,
+          "sha256": "96f8162f9663bc22a697117bd4172294bf6d2175c92e753d9e2470b638eb5817"
+        },
+        {
+          "path": "assets/models/building-blocks/details/steel_i_beam_2m.glb",
+          "size": 5612,
+          "sha256": "5644f103f0b3a871c4c6199fc4db27c8218f3300eefa0891108c3ed2b86b2555"
+        },
+        {
+          "path": "assets/models/building-blocks/details/wall_ac_unit.glb",
+          "size": 26696,
+          "sha256": "27a786736a6d41437c5e16702fd2b5c7447eab312a05717792c27d6696bf14f6"
+        },
+        {
+          "path": "assets/models/building-blocks/details/window_shutters.glb",
+          "size": 35524,
+          "sha256": "b266f9f5b317669e02f8a214913725b0eca2852bb1b50995d769455fed1104ac"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/floor_concrete_2x2.glb",
+          "size": 2528,
+          "sha256": "ddf34103e95fc89506996ec4b77d49bff8a22ef3388a4bdf957d6fa14788e56b"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/floor_stair_opening_2x2.glb",
+          "size": 4080,
+          "sha256": "6c4c6c978f0ad98e0dd2f852fea0ab2b019c1aba35499a134f4ae07eacbe7650"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/floor_wood_2x2.glb",
+          "size": 17060,
+          "sha256": "63e7dd5dfd0c387975553caa36d80c4ad6eb50c3a71abcfc9a86058761dfd914"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/foundation_2x2.glb",
+          "size": 4748,
+          "sha256": "4a23aacc71326f8a6571a648142f5e04267f69277381ffef0d9edc23b749745d"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/porch_steps.glb",
+          "size": 10968,
+          "sha256": "61e4bc5ae2e43a8eb33ac396215783563a5ee52e997924ff470a0a542abd08e8"
+        },
+        {
+          "path": "assets/models/building-blocks/floors/stairs_interior_storey.glb",
+          "size": 24812,
+          "sha256": "92a6d1115622b0dd5de47adbbc3e3a0b9f31fe3893f6e1ead0e8c072b2ddfcd4"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/chimney.glb",
+          "size": 6960,
+          "sha256": "b6431ec30b463bb55836bd7d5e24cade9ff41ce99caab4d822059eaeefc4da67"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_corrugated_2x2.glb",
+          "size": 18632,
+          "sha256": "f86bd5736fd810be82c1c57ae48c6cc3934e4c3f7c13f35ee33f786e672d9ac0"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_flat_2x2.glb",
+          "size": 4764,
+          "sha256": "10eb7282133f43e6a2f134fd818456597c3834306a454d84c734944b73c5865c"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_gable_end.glb",
+          "size": 2516,
+          "sha256": "2fe56d52c964f37262365f3120259db4cb865b91f6503ab6d129fe114e9eea1a"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_ridge_2x2.glb",
+          "size": 6324,
+          "sha256": "35a39b5f829c53135fd07c72c4baa11adf012e7b2673a3ed942a8630a9579dfd"
+        },
+        {
+          "path": "assets/models/building-blocks/roofs/roof_slope_2x2.glb",
+          "size": 12484,
+          "sha256": "5140cef91e8e7878f8c3bfa68e0b5c5b2cf6b7efe96f27f338f142e2e7b7e776"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_brick_2m.glb",
+          "size": 39316,
+          "sha256": "87006f87d109e07bdd3170625321acd75bf3ddb6a17b126f1d34b6452b2a99d2"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_brick_doorway.glb",
+          "size": 9392,
+          "sha256": "c169f1ed50d59295476eb9ece6d3835d67169190728db721051d5258b62e4cdc"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_brick_window.glb",
+          "size": 89200,
+          "sha256": "88a4096bca70483e3d95034c77f6b7f2caa9dd1cbd3b5af43ba888dede8514bb"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_concrete_fence_2m.glb",
+          "size": 7860,
+          "sha256": "e25dc11d567fb3ee7e785d0deb0f1c9af7ec6f9e84b8c8135a166bb89e67c429"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_corrugated_metal_4m.glb",
+          "size": 34000,
+          "sha256": "ec23c1d189849345d94cb6f9845a29be63831335e91c7e80372ab0764adb8654"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_garage_door.glb",
+          "size": 30120,
+          "sha256": "bb77fc08a7ff083134c2908a9ffd067ac7127a94ae7eaa5baac696a12165a2f0"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_1m.glb",
+          "size": 6320,
+          "sha256": "ee244c311f6ab99f7d1e2d0329dab3bb393c7cb43dd5f69554e77b56b2937942"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_2m.glb",
+          "size": 6312,
+          "sha256": "31fdf4efe7327dcb82f6e892751e8fb88731a169f14cdd15f355ecf659f8afeb"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_damaged.glb",
+          "size": 27072,
+          "sha256": "cc8f3f6443f8b8b60f4c417b1d16ccc2750bee56185472a34c3cd27e24a79ee1"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_door.glb",
+          "size": 22740,
+          "sha256": "512e5363e8cdf93ba57507d74dc01be055004c01262abd276b6f9e802b391697"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_doorway.glb",
+          "size": 15532,
+          "sha256": "cdeb60e298123dd2a684ff71b46f64621bed8e96df6f3a56ff7f1ea530a3be0c"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_low.glb",
+          "size": 4776,
+          "sha256": "e0ea91611072066a3a7139c5d1783156b4fbd4dec67b3b95146d1b45f05c9ec4"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_window_broken.glb",
+          "size": 20904,
+          "sha256": "8dc1381c8fe46d56f864f46c5c09a14eafc3e18c6a0a825a94abd53d857d6770"
+        },
+        {
+          "path": "assets/models/building-blocks/walls/wall_plaster_window.glb",
+          "size": 22412,
+          "sha256": "dddab3a02865ce6ed4dd8a0ad099753b6a5f3cdaa512c6afe3764da6c73964fa"
+        },
+        {
           "path": "assets/models/bunkers/brick.glb",
           "size": 7180,
           "sha256": "e07f7eaed28438ec2158436255d22347150fcdbea5b6568e6dbd883f0b5c8e89"
@@ -2296,6 +3566,176 @@
           "path": "assets/models/bunkers/tree.glb",
           "size": 13612,
           "sha256": "3abcd5ea98e7c550162c641c3aa8ea9f48c0d9cf1ced562b1b87c3404c510920"
+        },
+        {
+          "path": "assets/models/environment/plants/bush_flowering.glb",
+          "size": 26044,
+          "sha256": "2c23c88dd452980856dc0b7383041cb79e58d79acc7ed559034e7e1fd8806e88"
+        },
+        {
+          "path": "assets/models/environment/plants/cactus.glb",
+          "size": 19072,
+          "sha256": "d14b1783c310c6d101c1225606a2db329b3ad94e082b580d78637701c720efbe"
+        },
+        {
+          "path": "assets/models/environment/plants/dry_grass_tuft.glb",
+          "size": 17220,
+          "sha256": "8d8d4bf9c94d50fa4ae60d3aafacc52ce4c2be586599329e9214209275e6bcd2"
+        },
+        {
+          "path": "assets/models/environment/plants/fern.glb",
+          "size": 12544,
+          "sha256": "5fdd5f2f4d09ad7c209cd3de2af59cfd462ad6442da044cf98261ea24e7134bd"
+        },
+        {
+          "path": "assets/models/environment/plants/flower_patch.glb",
+          "size": 62596,
+          "sha256": "9a2afc38abe6da911d3ae3634d93dad0c3e5f5b31ee7eb7effd9798b014a426f"
+        },
+        {
+          "path": "assets/models/environment/plants/hedge_2m.glb",
+          "size": 13980,
+          "sha256": "31e7fb57830eb1d9343db964ad73d1b112284ca416c9926285558c1fcff75005"
+        },
+        {
+          "path": "assets/models/environment/plants/moss_patch.glb",
+          "size": 18684,
+          "sha256": "a9fd11bec678870d235f9f05a921130bdcad77611d4f2a24b16d6eefcf359d8c"
+        },
+        {
+          "path": "assets/models/environment/plants/mushroom_cluster.glb",
+          "size": 30264,
+          "sha256": "4d8591c6f653a23f681ccb7975ce4fdb59946f383e1c7ec3859fc30dcfe81db6"
+        },
+        {
+          "path": "assets/models/environment/plants/reeds.glb",
+          "size": 28756,
+          "sha256": "22055216c449271e43b133700a75ecd8f79eae2209d6733bc9c3f9a66fb96e40"
+        },
+        {
+          "path": "assets/models/environment/plants/tall_grass_patch.glb",
+          "size": 32584,
+          "sha256": "881afcdff8c09fb9f4e5f831070ee975e1732d43474d144bfe61a566166d3aef"
+        },
+        {
+          "path": "assets/models/environment/rocks/boulder_cluster.glb",
+          "size": 32596,
+          "sha256": "c8c76f10e4206824c10f1fcd07e392cf95b5774acc865baf561bc944a9261653"
+        },
+        {
+          "path": "assets/models/environment/rocks/cliff_chunk.glb",
+          "size": 27188,
+          "sha256": "621c5046cdcc65b4190f4985676266c21fa2338b611a6c5515c9a03ade4a69df"
+        },
+        {
+          "path": "assets/models/environment/rocks/pebbles.glb",
+          "size": 20252,
+          "sha256": "8e221d108cf82e0fdc47c179f10b98944848169c2d3e63a5e691aadebf36d6f2"
+        },
+        {
+          "path": "assets/models/environment/rocks/rock_flat_slab.glb",
+          "size": 7220,
+          "sha256": "c7016d6329a4a97ccdfddcc612bc294adcfe95d36cd2aaac3838b14cd9793069"
+        },
+        {
+          "path": "assets/models/environment/rocks/rock_pillar.glb",
+          "size": 14148,
+          "sha256": "542a40c60ea51c3cb19d7ae43295fad3b0894d844b55f18b458fe9924a316cd1"
+        },
+        {
+          "path": "assets/models/environment/rocks/stone_wall_2m.glb",
+          "size": 63300,
+          "sha256": "4b7d3a32a05072ab55e618689c9df8d79c197bf9f10dae58b491c9eaab9a31af"
+        },
+        {
+          "path": "assets/models/environment/terrain/chopping_stump.glb",
+          "size": 19852,
+          "sha256": "fa4aa6de177b9511ce2d5a7e4bbb053b67d0bd30bb99b0703924f083a1fbff11"
+        },
+        {
+          "path": "assets/models/environment/terrain/dirt_mound.glb",
+          "size": 7192,
+          "sha256": "08929d5fda782b353e64007c49da50b8695b6a35ce48818bba1a8c10e563c20e"
+        },
+        {
+          "path": "assets/models/environment/terrain/dirt_patch.glb",
+          "size": 8740,
+          "sha256": "0ebe4be69b2fdae226d823463937d9cd1d5500377b1a10082f4a97ff2c338326"
+        },
+        {
+          "path": "assets/models/environment/terrain/sand_dune_small.glb",
+          "size": 7204,
+          "sha256": "d4d2d257306f217b4698072aa92283b0462f2554b5e2f97bdc282bb299ad42f8"
+        },
+        {
+          "path": "assets/models/environment/terrain/stepping_stones.glb",
+          "size": 32548,
+          "sha256": "a6d7688df9476b68eeb2476090a28c708b462cb8bb1e78ccddfd5637710df38c"
+        },
+        {
+          "path": "assets/models/environment/terrain/trail_marker.glb",
+          "size": 6996,
+          "sha256": "d8a17dbd0314dea76ce714cdf614a6a1bbbf2f91be0af9b088a63911d6586bae"
+        },
+        {
+          "path": "assets/models/environment/trees/bamboo_cluster.glb",
+          "size": 148580,
+          "sha256": "2d52af4b0ca9511cea59b4b1e4ac2848f92beb7ac4ef58acbeeb04b710094998"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_big_oak.glb",
+          "size": 47104,
+          "sha256": "8f385496196a46a022f35017b07b0e7f02ba63265e49f85e4452cf418d1b905e"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_birch.glb",
+          "size": 29764,
+          "sha256": "57e126e323587794d6dd51d65d32da3388b96f83e7012d52343b5b3243677b7a"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_cypress.glb",
+          "size": 12188,
+          "sha256": "7d9611867625e9721d6180b3d12b6440da1264530921a643c5608477ccd1d5d8"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_dead.glb",
+          "size": 11424,
+          "sha256": "e673df0a3e1f4cfee4a39168c1533fa7d0de68c66c713e0705ca2962c8ce0199"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_palm.glb",
+          "size": 30236,
+          "sha256": "540900292c7eef03fbdcb882c1c59aa41a9f9788cc12c02c1b73c4c5e2f19539"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_pine_snowy.glb",
+          "size": 14472,
+          "sha256": "559a7de965da3c7950821cd35c38f3a107a9b3356a26450217d0a14be67b64b9"
+        },
+        {
+          "path": "assets/models/environment/trees/tree_small_round.glb",
+          "size": 10640,
+          "sha256": "d9cd83cbd9d2749dadcfc75be32790f29fd99dc6258ee30bc4c1f6ffd0f77a4b"
+        },
+        {
+          "path": "assets/models/environment/water/log_bridge.glb",
+          "size": 13288,
+          "sha256": "37d64df93dde678cb7356c228cf98d6738ab2433fee2806479013cd5092a1fca"
+        },
+        {
+          "path": "assets/models/environment/water/pond.glb",
+          "size": 87776,
+          "sha256": "0152597880c77e707b24257e353c457dc46f334438af06373f64c771c834362a"
+        },
+        {
+          "path": "assets/models/environment/water/puddle.glb",
+          "size": 5580,
+          "sha256": "14e1fe0716a82223ced8866ca563e73d0621ce840d167354d3a2e3465ec0b858"
+        },
+        {
+          "path": "assets/models/environment/water/stream_section_4m.glb",
+          "size": 104660,
+          "sha256": "a00ee42a03046a9029ac684fbaeacd06f09aba574896056ac12ed5b0c6179acc"
         },
         {
           "path": "assets/models/guns/attachments/barrels/barrel_bull.glb",
@@ -2568,6 +4008,261 @@
           "sha256": "d1ac1298e1b43e6f27dfaf38b694aa92f23c5b5e195dc2db1de48a6921d2c00d"
         },
         {
+          "path": "assets/models/industrial/machinery/conveyor_section_2m.glb",
+          "size": 36996,
+          "sha256": "5fb249725a2bbe2e388188a9d7e2a8468ce399230f34bb6e0ba06f2295587638"
+        },
+        {
+          "path": "assets/models/industrial/machinery/drum_stack.glb",
+          "size": 40932,
+          "sha256": "60709fa9ba0736506585d3cbafcd8e3ee08aabf636aa1f462d8cb187e36cbbff"
+        },
+        {
+          "path": "assets/models/industrial/machinery/electrical_box.glb",
+          "size": 15656,
+          "sha256": "010bddef543dfeeb2b93232d777f1b9d890a908380aa7ef54851b95f9455bc5a"
+        },
+        {
+          "path": "assets/models/industrial/machinery/pallet_rack_tall.glb",
+          "size": 69964,
+          "sha256": "bafc2083657feb5ac8e06d6615e9e4ac2f923e66a7a7ee3ede0fc4abf2e8be9d"
+        },
+        {
+          "path": "assets/models/industrial/machinery/pipe_elbow.glb",
+          "size": 26360,
+          "sha256": "664c7ddd8f51e90d0cc5794bff0b23a1ae11345e7d1ebcfb1a656f6c7a37ec2a"
+        },
+        {
+          "path": "assets/models/industrial/machinery/pipe_large_4m.glb",
+          "size": 17104,
+          "sha256": "7e7854947e67d076c1911d9ad710d5be603d7a1bef7e90a59647f68e09191f7f"
+        },
+        {
+          "path": "assets/models/industrial/machinery/silo.glb",
+          "size": 50852,
+          "sha256": "94e7aeb4079e2c457aec021d9137816a502f73074b18ea31e34913476841e29f"
+        },
+        {
+          "path": "assets/models/industrial/machinery/transformer.glb",
+          "size": 30848,
+          "sha256": "ac8ba89d6ee04729763bc1b2b56eed975200e4731aaa2b5125d2f8b4743ba6a4"
+        },
+        {
+          "path": "assets/models/industrial/machinery/valve_wheel.glb",
+          "size": 34828,
+          "sha256": "6a6915af8777e9b54f0e6c6fbae835d1d0fb5cb5c865b513423a86eaf669a85a"
+        },
+        {
+          "path": "assets/models/industrial/military/barrel_stack_military.glb",
+          "size": 66272,
+          "sha256": "8263d28fd54c9d078164cd5e7bdc515511b162dcc9d162e0a1dd3e2c3e50ea32"
+        },
+        {
+          "path": "assets/models/industrial/military/camo_net.glb",
+          "size": 15948,
+          "sha256": "9e044f3192cb3203edbfa7000a0fd344151f702aa926c1a9b11f8408c2fd11ab"
+        },
+        {
+          "path": "assets/models/industrial/military/concrete_block_1m.glb",
+          "size": 14760,
+          "sha256": "2e7899eaf169cce57df32f05a2e92af4d5b13fae4d90eaf5316898ad45d3346f"
+        },
+        {
+          "path": "assets/models/industrial/military/concrete_pillbox.glb",
+          "size": 12512,
+          "sha256": "c603e0669bd4500e91f6e5babc1dffef14856931bde3f405b8080ffad1118ead"
+        },
+        {
+          "path": "assets/models/industrial/military/hesco_barrier.glb",
+          "size": 57024,
+          "sha256": "cd776ec39ebfd8bf3bc85855da717943ac6f520bdd41b6c458617ed4a4f44a81"
+        },
+        {
+          "path": "assets/models/industrial/military/military_tent.glb",
+          "size": 8544,
+          "sha256": "dc45087140ee3f2958db5238d794f4d608656916f35c3c90ac5d38ae5f474829"
+        },
+        {
+          "path": "assets/models/industrial/military/radio_antenna.glb",
+          "size": 16824,
+          "sha256": "4338df7bc6d372e4e4d8cfcd69f01a68f3990be0300a55b099cf01de48bc1696"
+        },
+        {
+          "path": "assets/models/industrial/military/searchlight.glb",
+          "size": 16044,
+          "sha256": "3937df4f3d0e314e40b0ad3ce4f4510c69508fb5f7b89f4487d166aa3a0cb4d9"
+        },
+        {
+          "path": "assets/models/industrial/military/supply_crate_military.glb",
+          "size": 13180,
+          "sha256": "62e40933df0559f0c3cacbbdae37da3328f729495744f2392227aab2c3190443"
+        },
+        {
+          "path": "assets/models/industrial/military/tank_trap.glb",
+          "size": 5684,
+          "sha256": "506bc185f806a095f260eeef00acddef28e3122b2cb961be3375be56d2f7334b"
+        },
+        {
+          "path": "assets/models/industrial/structures/catwalk_2m.glb",
+          "size": 51576,
+          "sha256": "4b9a6e3ad95a26a8caeba06c5927db817317e3899f0959749a550d8ea0ece0fb"
+        },
+        {
+          "path": "assets/models/industrial/structures/metal_stairs.glb",
+          "size": 30920,
+          "sha256": "bd20bec690a7d8876a92867f948d4bb4f1aec96dc2fbf348b2754699b9b63b0c"
+        },
+        {
+          "path": "assets/models/industrial/vehicles/forklift.glb",
+          "size": 44680,
+          "sha256": "e489b3fc4e254e76a7b79b74069c33012b2e91bc0e0622b91ffc4bdab650cc79"
+        },
+        {
+          "path": "assets/models/industrial/vehicles/military_jeep.glb",
+          "size": 33860,
+          "sha256": "ae96e9537b775da4365be8e363cf47c8d8bfd8da2c7949c5c14bc6b22a29be51"
+        },
+        {
+          "path": "assets/models/industrial/vehicles/pallet_jack.glb",
+          "size": 10220,
+          "sha256": "fedf431fdce6dcfd2becc92088bbd8627692dbb9f5d547d95d0e038140f59da8"
+        },
+        {
+          "path": "assets/models/interior/bathroom/bathtub.glb",
+          "size": 12440,
+          "sha256": "0ee4c1bb8dc4ee06bcc8efb996526193ee0b406fd8b69f71353af30392cd19a0"
+        },
+        {
+          "path": "assets/models/interior/bathroom/toilet.glb",
+          "size": 11728,
+          "sha256": "be96b8bd90f89afba46487d0679388784a063941fc25ac5231a221b4c478a7f5"
+        },
+        {
+          "path": "assets/models/interior/bedroom/bed_single.glb",
+          "size": 28576,
+          "sha256": "63fda86ba3c4abd57ed600fcf29cfcb712bf3875b7fef2fadd0a862d74ed19ed"
+        },
+        {
+          "path": "assets/models/interior/bedroom/bunk_bed.glb",
+          "size": 30084,
+          "sha256": "a55a31b06b759e30e0a057457c8059db53a5a1db0eb5f247c31041e63aa33637"
+        },
+        {
+          "path": "assets/models/interior/bedroom/wardrobe.glb",
+          "size": 13220,
+          "sha256": "bbe15ab32275f819543fc0827698e2bab245e59590df4e27232891a5c189535d"
+        },
+        {
+          "path": "assets/models/interior/kitchen/dining_table.glb",
+          "size": 14020,
+          "sha256": "1dce6aaf1f977e3f25d270920461f97e6d902201b1c585b39a9a449d8c5b6c93"
+        },
+        {
+          "path": "assets/models/interior/kitchen/fridge.glb",
+          "size": 13168,
+          "sha256": "c64d8f649b987c94f3b35a73726b710db8509745b5a91049b8f4e94bf8893185"
+        },
+        {
+          "path": "assets/models/interior/kitchen/kitchen_counter_sink.glb",
+          "size": 25396,
+          "sha256": "e78f1ca9b68582f2585c165a3fcf9dd2bcd2aa95ccd9bf0b79f0fe61348bf0ca"
+        },
+        {
+          "path": "assets/models/interior/kitchen/stove.glb",
+          "size": 26184,
+          "sha256": "50fe9640367db64492772ea27f592a8f6371f94bd769aa049ddfacc7bbc6aeae"
+        },
+        {
+          "path": "assets/models/interior/kitchen/wooden_chair.glb",
+          "size": 14056,
+          "sha256": "d681002e2e4e7eb6b96bfd3cfa029d54139f11ba181560f3168c8a9c87c07db9"
+        },
+        {
+          "path": "assets/models/interior/living/armchair.glb",
+          "size": 32436,
+          "sha256": "5747c847965515e35aab1630ff527b4fde3b85318a882dac6c3dcf5b6cda2f8d"
+        },
+        {
+          "path": "assets/models/interior/living/bookshelf.glb",
+          "size": 74540,
+          "sha256": "90171bb0eadcdb773434772998ddf10ac6b718f9cace83fec8f59ffb3abe3d72"
+        },
+        {
+          "path": "assets/models/interior/living/floor_lamp.glb",
+          "size": 11072,
+          "sha256": "819d07bbd9cf635c6a5e5d6bc032bed98f1f876e6ebc5807a32c6f40fe7a8cac"
+        },
+        {
+          "path": "assets/models/interior/living/potted_plant.glb",
+          "size": 30268,
+          "sha256": "08bc158e6108317e1fb851dfae02dfa5e0ee0aca5c9567f66b3f977e7cd04b81"
+        },
+        {
+          "path": "assets/models/interior/living/radiator.glb",
+          "size": 53244,
+          "sha256": "d85c4f3934e050313d20bac321df9c1fc2c9c8162fd689368d772d7e076696dd"
+        },
+        {
+          "path": "assets/models/interior/living/rug.glb",
+          "size": 6280,
+          "sha256": "4c3feb8aad622c6399e98922a5533702ef97e18110e34204c2bb5f0939c530b9"
+        },
+        {
+          "path": "assets/models/interior/living/sofa.glb",
+          "size": 38568,
+          "sha256": "a019a4f5d2f3c85512d9da945ca5d78cb2b6b6ab1253faf4fa8829821ab9acf7"
+        },
+        {
+          "path": "assets/models/interior/living/tv_stand.glb",
+          "size": 17840,
+          "sha256": "6cee54b0571a46f259738ec52edf8279dd879b3fc3282a76e5f07d9478f169ab"
+        },
+        {
+          "path": "assets/models/interior/living/wall_clock.glb",
+          "size": 29424,
+          "sha256": "d390a1ca18dacc2c363c16d849e26aa37975cfc8bf398177fd70cea4d2048502"
+        },
+        {
+          "path": "assets/models/interior/living/wall_painting.glb",
+          "size": 7044,
+          "sha256": "fedf8a3d11baed7dff1db731d1540b51378b09fcc34d44bc317214ad3b1ef429"
+        },
+        {
+          "path": "assets/models/interior/office/computer_desk.glb",
+          "size": 19364,
+          "sha256": "beeaa06a4c96c28a57ef1163d9837456c7bbbb31c9e9035addb6dba54e61886c"
+        },
+        {
+          "path": "assets/models/interior/office/filing_cabinet.glb",
+          "size": 20844,
+          "sha256": "40a8952dd393f909e81de846701f0e6d5624f0fb9651b99e18e76562c696a0b4"
+        },
+        {
+          "path": "assets/models/interior/office/locker_row.glb",
+          "size": 52400,
+          "sha256": "a9cffe406200a5f9d59a785968a5db756761a9c1b21b6ccc2d2428f783d8e915"
+        },
+        {
+          "path": "assets/models/interior/office/metal_shelving.glb",
+          "size": 51632,
+          "sha256": "fdc4d00eae2f30447c793e5509f5e8f4ee8bb6f24a3e8888cc10cb3a0e214144"
+        },
+        {
+          "path": "assets/models/interior/office/office_chair.glb",
+          "size": 36316,
+          "sha256": "53e57165ab06fd9fe811361a04cc068e1e63d97d10291de5d25c5f9c0428ae82"
+        },
+        {
+          "path": "assets/models/interior/office/office_desk.glb",
+          "size": 16288,
+          "sha256": "963bd83d30e5eded76010a70eebbbf6cf3509f90fae1bb3ec0671a4fb29d5895"
+        },
+        {
+          "path": "assets/models/interior/office/whiteboard.glb",
+          "size": 20848,
+          "sha256": "9d3706cfb587638188988472c2e56b7265d73ebd3b8124396e3ef4c2d847e8f1"
+        },
+        {
           "path": "assets/models/map-kit/nature/bush.glb",
           "size": 16760,
           "sha256": "e0761760e1eff9526ac7ac69e228419b5480331a94c535c2d04703b32cd382ee"
@@ -2763,6 +4458,181 @@
           "sha256": "bb9eaef994ea8ac97d98833da40438e1f7dc8bf82797f8901c8241316d0351ec"
         },
         {
+          "path": "assets/models/nature/autumn/bush_autumn.glb",
+          "size": 12020,
+          "sha256": "af81bc3c2d048302f8ece781fcdd0717e8af8f6b71936f53bcf9c4666ba72fa7"
+        },
+        {
+          "path": "assets/models/nature/autumn/fallen_leaves.glb",
+          "size": 16008,
+          "sha256": "3dd75d1c48e495823ecd9b6bdc8ab203f9b7718ea917a4ebbe4aa4ad9276ca6c"
+        },
+        {
+          "path": "assets/models/nature/autumn/tree_autumn_orange.glb",
+          "size": 24508,
+          "sha256": "5e53a9969f928f828f0b5da86930b37c5ea6d08408eb208f7786d5234b07cfbc"
+        },
+        {
+          "path": "assets/models/nature/autumn/tree_autumn_red.glb",
+          "size": 15448,
+          "sha256": "3e93f463cc9f594cb097e2fce735de5c4f30202239ab8fbfd8888814c5e966e4"
+        },
+        {
+          "path": "assets/models/nature/farm/hay_bale_round.glb",
+          "size": 15676,
+          "sha256": "d9165006dbfe58bf0e229f90c044bfd965bb6ad63e9cdd1cdf27194ec4f4b40a"
+        },
+        {
+          "path": "assets/models/nature/farm/produce_crate.glb",
+          "size": 36288,
+          "sha256": "a42ca15941b0226095a497be0f92d97be8889be739e80265ecf67e5088285eb4"
+        },
+        {
+          "path": "assets/models/nature/farm/ranch_fence_2m.glb",
+          "size": 9796,
+          "sha256": "5102ec5cd9106eefae73c8d5a937f80f1a01d94c99f0959212e7c8053af81662"
+        },
+        {
+          "path": "assets/models/nature/farm/sunflowers.glb",
+          "size": 59060,
+          "sha256": "30961588dfb71f6f1f6bc5e651c8a4f3cd49a4c11eac9813fa7fc2200900ac04"
+        },
+        {
+          "path": "assets/models/nature/farm/wheat_patch.glb",
+          "size": 186144,
+          "sha256": "b4eaf75ec30685cae31a2b37f43c0939b60482cf3da8c7bb815645a23dc3fecd"
+        },
+        {
+          "path": "assets/models/nature/temperate/lily_pads.glb",
+          "size": 30240,
+          "sha256": "a5e497653b2b540c607c6a5246b8f53b0b2a8ff8d44482c3d7e9ee4731d68623"
+        },
+        {
+          "path": "assets/models/nature/temperate/log_mossy.glb",
+          "size": 18732,
+          "sha256": "04314d1f3f51e74dca400fdd7d93f70f3b441f758381c1159d3ce6b74d98cbc2"
+        },
+        {
+          "path": "assets/models/nature/temperate/mushroom_giant.glb",
+          "size": 24840,
+          "sha256": "059d8f8295a1d29c243f7e3aea4313c5972dc2a6c5de52d92efaea1535fd71f6"
+        },
+        {
+          "path": "assets/models/nature/temperate/stump_mossy.glb",
+          "size": 11032,
+          "sha256": "cc7f8cf749eb621be017bd12603bedc7fe940906a187cf39da42cf76ab96839e"
+        },
+        {
+          "path": "assets/models/nature/temperate/tree_apple.glb",
+          "size": 30592,
+          "sha256": "c5028c95def79f2dff26fc9486ba82d22363378184d0dae47f04a7ab4c2eec6b"
+        },
+        {
+          "path": "assets/models/nature/temperate/tree_willow.glb",
+          "size": 29856,
+          "sha256": "0d183e1f615525f23bb081c052efa564f6db3a08af8a399aebee4c409c8f211e"
+        },
+        {
+          "path": "assets/models/nature/winter/rock_snowy.glb",
+          "size": 14132,
+          "sha256": "814c2b341d5e7a7d9bc502bdb1bc6c5a0ecfd8e9f82706b292588fe34fb25ec7"
+        },
+        {
+          "path": "assets/models/nature/winter/snow_pile.glb",
+          "size": 14116,
+          "sha256": "3a21d33f3e85470b11c72be140763d612d6fa6af4360ea1419e2e6f71e0fb003"
+        },
+        {
+          "path": "assets/models/nature/winter/tree_bare_snowy.glb",
+          "size": 16048,
+          "sha256": "ba286b7e83b798a00a9fd31a0c9a0f2e713d3235cce0f3c0d0cde4b8eabda81b"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/big_can.glb",
+          "size": 23260,
+          "sha256": "5b12f9fcc9ef9bdc210f9cf28f4a2685eb759b39ba49401227d612dba2e5a844"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/big_dorito.glb",
+          "size": 4072,
+          "sha256": "0fb14658f4fe7afe38512a987fbe9563e9a3ca35801a050c3cec540c108d5e6c"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/pin.glb",
+          "size": 13236,
+          "sha256": "32dea50abd3e0f48c75b728cee85d297861030bcd22e06f3640a44f24ae4877a"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/snake_corner.glb",
+          "size": 17120,
+          "sha256": "9358ec388624a8cb379f38bb092df5644494f5e86888710dfbc094f339f76ec3"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/tombstone.glb",
+          "size": 15132,
+          "sha256": "820d1d382534b51196d3583786a6b645ad1f76b4c5f9758c3c776d590efadbec"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/wall_with_ports.glb",
+          "size": 13180,
+          "sha256": "e14023811f5f1e9aa9c479a5f786fe4758fe8dbba269a14fb4e80087c25bcb89"
+        },
+        {
+          "path": "assets/models/paintball-field/bunkers/wedge.glb",
+          "size": 4716,
+          "sha256": "93a0d80092dfb2cf7b1d3ab49f316c8feb9f6ef5610bc5985031b9ad47e67829"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/ammo_station.glb",
+          "size": 23284,
+          "sha256": "c3381c6fa611e066bfc6114621d56cf581124fce61ff54137f7e4037e84790c6"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/capture_point.glb",
+          "size": 36324,
+          "sha256": "7df306b5b7b7ca20b32f49b9af6328da0e9b8445a8a89fafc23c547fd3e68126"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/respawn_beacon_blue.glb",
+          "size": 22976,
+          "sha256": "0ea991a5fb97a18c1ff603ef1b5f7f7d319a607b5d8a04f8fd99506151ea6072"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/respawn_beacon_orange.glb",
+          "size": 22988,
+          "sha256": "2534cf8645c34a717769f1eaa5efb6f1f37d504e278f7c6aa3926568eea76944"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/team_banner_blue.glb",
+          "size": 7300,
+          "sha256": "20f1ffe10eeed06f5e537d176d12b29ad6a9728305a7792944d4fd2c05f8bce2"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/team_banner_orange.glb",
+          "size": 7308,
+          "sha256": "02dd37b9d8a1d78cccfe3a23bdac1d322963528ff174096e52138b96a4c0eae5"
+        },
+        {
+          "path": "assets/models/paintball-field/objectives/trophy.glb",
+          "size": 43988,
+          "sha256": "6bd9a67972ea3492c44807941c1d2b4bec894e2243781b6ab588909bc6775399"
+        },
+        {
+          "path": "assets/models/paintball-field/practice/gear_rack.glb",
+          "size": 99408,
+          "sha256": "92d2c3e9a1ef0595a759809ba58c06f2337d113ef5777b66ddcc0e3b203ccbd2"
+        },
+        {
+          "path": "assets/models/paintball-field/practice/popup_target.glb",
+          "size": 10928,
+          "sha256": "22240182c500fc95d28381ad43435bba8e4a34bc69ded7a5eb48948e5f1e0bc2"
+        },
+        {
+          "path": "assets/models/paintball-field/practice/target_stand.glb",
+          "size": 24080,
+          "sha256": "c9a8234a48f67143fb8d84fc994cf43259f2cc782143e77167692504c59d5739"
+        },
+        {
           "path": "assets/models/pickups/air_refill_station.glb",
           "size": 16020,
           "sha256": "7c2261765089bf5e831d1c6707eeeca8a478e6afb58685d16eae8b81525001f4"
@@ -2823,6 +4693,56 @@
           "sha256": "1fd5cae4e581bfdbdbba62b635dbc574943206c505c7290beb4e31367aa49511"
         },
         {
+          "path": "assets/models/props/containers/ammo_box_military.glb",
+          "size": 15448,
+          "sha256": "741d9a04a3ac414cd191ee167656a0bc035a8f5bb0a7f5c1d96899b43e4f7177"
+        },
+        {
+          "path": "assets/models/props/containers/cardboard_box.glb",
+          "size": 9376,
+          "sha256": "95a8f28cb74612ff45bb4431d243204c81d6a64c6313ecd4deac4a5b8495161c"
+        },
+        {
+          "path": "assets/models/props/containers/cardboard_pile.glb",
+          "size": 32484,
+          "sha256": "5e9c09a9a5dff24b0d79bc5f8a3d6af5439d410677db5458464fa7a7b05f8321"
+        },
+        {
+          "path": "assets/models/props/containers/crate_long.glb",
+          "size": 14712,
+          "sha256": "f7504c72a8ead33aa3113b13f505f3efbbbcf80034d7e3afbb84ba953d7074cf"
+        },
+        {
+          "path": "assets/models/props/containers/crate_small.glb",
+          "size": 10936,
+          "sha256": "28f23ba7e9db90d3ef61938ea633c6d3ca0471e6066cef5c92a7d1d567766a29"
+        },
+        {
+          "path": "assets/models/props/containers/crate_stack.glb",
+          "size": 32444,
+          "sha256": "70ad5f5cb1ec6fb6d2971ea38996ddf0b0e4e5a3c3174a781a6f6207fc457d84"
+        },
+        {
+          "path": "assets/models/props/containers/fuel_can.glb",
+          "size": 11752,
+          "sha256": "78241368d21c9cba9f65d466bbc6bf343fd3d94d6f6fdf0240cf4a710587dd46"
+        },
+        {
+          "path": "assets/models/props/containers/gas_cylinder.glb",
+          "size": 25212,
+          "sha256": "2f39fefcbbd1b928ba5574408c6d3c26dc904fb5215e393fdd1301641eb7a803"
+        },
+        {
+          "path": "assets/models/props/containers/oil_drum_rusty.glb",
+          "size": 29504,
+          "sha256": "e82f440f1b8c33b47818d266d6522fc3d2e5952a9b9025670ef0bb517d0029de"
+        },
+        {
+          "path": "assets/models/props/containers/tarp_covered_pile.glb",
+          "size": 11088,
+          "sha256": "85fc3f5aca095401192b727ec3f61fb63e1608f19bfbd6613b52a15d33887a09"
+        },
+        {
           "path": "assets/models/props/crate.glb",
           "size": 16372,
           "sha256": "e349de876d949176abdc9e680952f1ee29f75222060e3c8a27a31300880668fc"
@@ -2843,6 +4763,51 @@
           "sha256": "b4c0c08366b1d278521d2d419f1d75339ba1fa909d9ddc2813422f8f90395af6"
         },
         {
+          "path": "assets/models/props/furniture/bleachers.glb",
+          "size": 18620,
+          "sha256": "42b6278125af5afb7592557e8a1eec0857f66ae0a3e161dd9b2bff5829dfcf80"
+        },
+        {
+          "path": "assets/models/props/furniture/chrono_station.glb",
+          "size": 14024,
+          "sha256": "fe1158ad27dc82f08716166e2ad9178295a75539e9d3cb942c3b2b1f9bd70629"
+        },
+        {
+          "path": "assets/models/props/furniture/event_tent_3x3.glb",
+          "size": 16264,
+          "sha256": "6301bba373174c441687a6f62dfabd99963ec4dad9d8628bcc9db82bf911e43e"
+        },
+        {
+          "path": "assets/models/props/furniture/park_bench.glb",
+          "size": 10904,
+          "sha256": "1f3019c0c06656f53ad647f942ed4e1b1badcaa7248ad1bb84e37226fcf764e6"
+        },
+        {
+          "path": "assets/models/props/furniture/picnic_table.glb",
+          "size": 9412,
+          "sha256": "597074424f653665c6afa7e344e794a5a03a54287491a5e15ff49f6e9de0e2c6"
+        },
+        {
+          "path": "assets/models/props/furniture/portable_toilet.glb",
+          "size": 17808,
+          "sha256": "5b1d534b031502b92750d2883fa5b7e48baddf9688abb03205fc85bea1ed0b32"
+        },
+        {
+          "path": "assets/models/props/furniture/referee_chair.glb",
+          "size": 20976,
+          "sha256": "f0f0f2c2d203104faf105a177a4367ae1ed652b58b68009cec52e99df42ffa6e"
+        },
+        {
+          "path": "assets/models/props/furniture/staging_table.glb",
+          "size": 19780,
+          "sha256": "8af89ffa11a622854569ef3e85d39cb47001c68fab25e52310eaf784ccb7b6c3"
+        },
+        {
+          "path": "assets/models/props/furniture/vending_machine.glb",
+          "size": 14000,
+          "sha256": "5c3508db7e05d73b87a2c2e4d41f6f7230dfb163e5db393e9c913a425b93b767"
+        },
+        {
           "path": "assets/models/props/netting_fence_section.glb",
           "size": 9056,
           "sha256": "583fc8c29c4d18183542788646a2c3e51b6a262388ec12e1ccc78fbdea677a0b"
@@ -2861,6 +4826,181 @@
           "path": "assets/models/props/spawn_pad_orange.glb",
           "size": 23080,
           "sha256": "397b90ae0bfec26a544b1169bf37d0026bba26aa14310c4327389814659f2e38"
+        },
+        {
+          "path": "assets/models/props/street/bus_shelter.glb",
+          "size": 11680,
+          "sha256": "6ca1241e42f76ecbc647fc2c8b61e1bc69279c2a342b3bebbb11412f5d814c5e"
+        },
+        {
+          "path": "assets/models/props/street/dumpster.glb",
+          "size": 17792,
+          "sha256": "3974b626af9530d860a832c4c0d9acf050c668d195119b30b1cafe3cc12bb857"
+        },
+        {
+          "path": "assets/models/props/street/fire_hydrant.glb",
+          "size": 14864,
+          "sha256": "10d9e1d3e6be6e0c1a3967c3c54191192ceee36beddc9d06ae0d9ebee2bd8798"
+        },
+        {
+          "path": "assets/models/props/street/mailbox.glb",
+          "size": 6980,
+          "sha256": "3a3068305cb86534360a50d56f23ab982160cadba5cb66351c464f1a7bb590fd"
+        },
+        {
+          "path": "assets/models/props/street/power_pole.glb",
+          "size": 19416,
+          "sha256": "3746a8c91a30dcbb6d1a5d3656faa7edc982d1fc676dbb9625b98f3614635aaa"
+        },
+        {
+          "path": "assets/models/props/street/road_barrier_striped.glb",
+          "size": 18720,
+          "sha256": "2d4b15e9254232035162bae3dbfae25d87db16135f1586bca3a99c9141bbdf7f"
+        },
+        {
+          "path": "assets/models/props/street/street_lamp.glb",
+          "size": 15608,
+          "sha256": "560b10caf34aeb08b7da53c2570cf8a13ecdd2bf0c46c478c59e5b834e05a574"
+        },
+        {
+          "path": "assets/models/props/street/trash_bin.glb",
+          "size": 11692,
+          "sha256": "52922c66e8368bd4b44588254c23124ee2fd6d3d4441b6a051c83d797c915379"
+        },
+        {
+          "path": "assets/models/props/structures/sandbag_curve.glb",
+          "size": 57152,
+          "sha256": "e1ab85c2a489d83189c68ff17ccbb475cb218cec9090e4190ecb5073f32efc61"
+        },
+        {
+          "path": "assets/models/props/structures/sandbag_single.glb",
+          "size": 5704,
+          "sha256": "ec05adcbba101c2ea2bc0f7c91ad85fbdd47f63c2dfe9be97b148ec7374905ac"
+        },
+        {
+          "path": "assets/models/props/structures/water_tower_small.glb",
+          "size": 17472,
+          "sha256": "b1f29922d14b1e9dbe025c5f3e656a0d8e23287925d0b7c0c23136c5a035f4ec"
+        },
+        {
+          "path": "assets/models/props/tools/generator.glb",
+          "size": 17776,
+          "sha256": "0809b2cf578b24dd5770357b93c3e9f62d9e35efd377d24fd930432bb070ab55"
+        },
+        {
+          "path": "assets/models/props/tools/ladder_leaning.glb",
+          "size": 21852,
+          "sha256": "fb8e8044895cd2ba610b8ca513e1eb5a82b9d5f939e3cf894d74e0c9bc481914"
+        },
+        {
+          "path": "assets/models/props/tools/toolbox.glb",
+          "size": 12396,
+          "sha256": "0e463ff13fbff8f3f94a09b8b94ccfb828a859909172df40c530d8ea8713370e"
+        },
+        {
+          "path": "assets/models/props/tools/wheelbarrow.glb",
+          "size": 15592,
+          "sha256": "81ecaf54addc7c2503a4c5a63fda8d4eea0a3f899576c0236f8357b55c989d71"
+        },
+        {
+          "path": "assets/models/props/vehicles/car_wreck.glb",
+          "size": 41552,
+          "sha256": "eb4d60020d9decc3b4ecd19ce9f10fe27913ca43e45cd300d272b6e2f49d3d62"
+        },
+        {
+          "path": "assets/models/props/vehicles/fuel_tank_small.glb",
+          "size": 16316,
+          "sha256": "e11dbd76e81490e7d8b39452914218e53d87c4aac5f687a4563aadd2621eb790"
+        },
+        {
+          "path": "assets/models/props/vehicles/pickup_truck.glb",
+          "size": 24736,
+          "sha256": "5049fa77324cd5370047fc76a6e4aab78a3eb77e484605f6948c4ce45b25c474"
+        },
+        {
+          "path": "assets/models/props/vehicles/tire_single.glb",
+          "size": 14128,
+          "sha256": "4f0f8f216cc48255d7f9e8e3559c09f203ff24c62b5718ce7117dc81836ce24d"
+        },
+        {
+          "path": "assets/models/urban/roads/road_crossing_4m.glb",
+          "size": 19340,
+          "sha256": "f8898482b875ece5ea61e2b4cce3c40f123e5a5bb16a5e5452fc2b9062cc94d0"
+        },
+        {
+          "path": "assets/models/urban/roads/road_straight_4m.glb",
+          "size": 11660,
+          "sha256": "7632bdc66d8b2b674ea175eafde4b60e1c404a43f80167d6f6c0260692faae4f"
+        },
+        {
+          "path": "assets/models/urban/roads/sidewalk_2x2.glb",
+          "size": 9344,
+          "sha256": "3db865c326cbc15291dd155ed3ab055dc9671e8873df6fff18f2d2194f72cb8a"
+        },
+        {
+          "path": "assets/models/urban/street/bicycle.glb",
+          "size": 67496,
+          "sha256": "6a8dd35281c4c84bbf8da612c2665d821e7ba4e06ac25179e4c7aa316f8ef2ea"
+        },
+        {
+          "path": "assets/models/urban/street/bike_rack.glb",
+          "size": 35584,
+          "sha256": "bcef4cb6badf305a69f681cb98d1b19d4770f7054cd7465470a8031308ddad35"
+        },
+        {
+          "path": "assets/models/urban/street/billboard.glb",
+          "size": 13940,
+          "sha256": "1ed03856f3905794f02d0a342f7299d13febe8d958ebdd0e938aaa74bbad6cdf"
+        },
+        {
+          "path": "assets/models/urban/street/bollard.glb",
+          "size": 9472,
+          "sha256": "4d6307e65802399a83932bbb5f40860c9413d4cafba5e3ab498f6517e98c2f9a"
+        },
+        {
+          "path": "assets/models/urban/street/manhole_cover.glb",
+          "size": 17188,
+          "sha256": "593dfb9444321cde5a9573166764c7386ed2596527262db0fcb641d25c7a6d3a"
+        },
+        {
+          "path": "assets/models/urban/street/newspaper_box.glb",
+          "size": 13284,
+          "sha256": "37c51ca44598829ba530826ebd3a98ae3d0951aeed4029c341906a157acfe253"
+        },
+        {
+          "path": "assets/models/urban/street/parking_meter.glb",
+          "size": 12504,
+          "sha256": "08c4a8d4d266b743767cf379c3e952908e425647bec9b0d033df80b9288bcf98"
+        },
+        {
+          "path": "assets/models/urban/street/phone_booth.glb",
+          "size": 22460,
+          "sha256": "3faf563a61bf529672b5bd72a70c082de15519230df898cefbfab558ef03bd83"
+        },
+        {
+          "path": "assets/models/urban/street/picket_fence_2m.glb",
+          "size": 31720,
+          "sha256": "f2dfe388168d32b69f83375c93c74eadfdec5b7e5a87be9dd4fa194848b2e037"
+        },
+        {
+          "path": "assets/models/urban/street/planter_box.glb",
+          "size": 24668,
+          "sha256": "77df814e36a85ee3ebdd67259bde5edeea1d3a61454faecd3d63fbebe8805f0f"
+        },
+        {
+          "path": "assets/models/urban/street/stop_sign.glb",
+          "size": 14052,
+          "sha256": "c89774c7c95a24a124e07fe5c048902cf5ccefa9b994d662e83df78c6ea5c128"
+        },
+        {
+          "path": "assets/models/urban/street/traffic_light.glb",
+          "size": 29696,
+          "sha256": "3d9c817c7a123b0d59feb29ca8e48fc8ba2ecdb470fe949ee85db1760ebd3a3a"
+        },
+        {
+          "path": "assets/models/urban/street/warning_sign.glb",
+          "size": 7792,
+          "sha256": "fc51861681d077221051a3ce366a53a332810d785a3ee8d081d2b2a8391993c4"
         },
         {
           "path": "assets/models/water-guns/minnow.glb",
@@ -3959,13 +6099,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 99993088,
-          "sha256": "3e6dcc4c5fd62bda9b36cf566a542645303fc58b214c8f817650f1c0b4a63426"
+          "size": 101068288,
+          "sha256": "57de0a6514951db774244577274de7a7d1d3d8b56db92039691bb4e420f6e649"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 90003456,
-          "sha256": "31fc72ab3d892f74f5c80c487a3f3800c95ad6f36525339a16288128562d6d3e"
+          "size": 91125248,
+          "sha256": "9ff3b8c05bdaab0450afcd04f69bf98161dac96d7d5ca829daeaaa558ff26aad"
         }
       ]
     }
