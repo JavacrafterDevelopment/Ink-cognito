@@ -152,7 +152,7 @@ pub fn requirement(slot: Slot, i: u8) -> Option<Req> {
                 .flatten()
                 .and_then(|n| req(Splats, n));
         }
-        Slot::Body | Slot::Water => return None,
+        Slot::Body | Slot::Water | Slot::Grenade | Slot::Flash => return None,
     };
     table.get(i).copied().flatten()
 }

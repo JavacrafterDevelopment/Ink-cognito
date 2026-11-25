@@ -58,6 +58,9 @@ pub struct PlayerState {
     pub bombs: u8,
     /// Counts flashbangs thrown, the same way.
     pub flashes: u8,
+    /// Which grenade and flash they carry (`Loadout::pack_throwables`), so
+    /// others throw the right kind when the counters above go up.
+    pub throwables: u8,
 }
 
 /// `PlayerState::flags`: crouching.
@@ -83,6 +86,7 @@ impl Default for PlayerState {
             rank_points: 0,
             bombs: 0,
             flashes: 0,
+            throwables: 0,
         }
     }
 }
@@ -688,6 +692,7 @@ mod tests {
                     rank_points: 1234,
                     bombs: 255,
                     flashes: 255,
+                    throwables: 255,
                 },
             })
             .collect();

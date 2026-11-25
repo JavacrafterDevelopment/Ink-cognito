@@ -16,6 +16,14 @@
 //!   adds its own layer of paint, so a second flash doesn't wipe the first,
 //!   and dying clears it all. A ringing loops while any paint is up and
 //!   fades out with the last layer.
+//!
+//! The loadout picks which kind each key throws (`Loadout::grenade` /
+//! `Loadout::flash`, sent to others in `PlayerState::throwables`):
+//!
+//! - **Ultra Bang** (G): lands like a paint bomb, then bursts like one every
+//!   0.5 s for 7 s. 90 s recharge.
+//! - **9-Banger** (Q): a flashbang that goes off 9 times in a row. Three
+//!   times the flashbang's recharge.
 
 use crate::{
     AppState, Overlay,
@@ -24,6 +32,7 @@ use crate::{
         CombatSystems, Fx, LocalState, paint_burst_fx, play_sfx, play_sfx_at, spawn_paintball,
     },
     hud::HudPart,
+    loadout::Loadout,
     net::NetworkState,
     protocol::{FLAG_CROUCH, HitEvent, PlayerId, Team, enemies},
     settings::{AudioSettings, KeyAction, KeybindSettings},
@@ -39,6 +48,17 @@ use std::collections::{HashMap, HashSet, VecDeque};
 pub const BOMB_RECHARGE: f32 = 18.0;
 /// Seconds for a used flashbang to come back.
 pub const FLASH_RECHARGE: f32 = 22.0;
+/// Seconds for a used Ultra Bang to come back.
+pub const ULTRA_RECHARGE: f32 = 90.0;
+/// Seconds for a used 9-Banger to come back: three flashbangs' worth.
+pub const NINE_BANG_RECHARGE: f32 = FLASH_RECHARGE * 3.0;
+/// The Ultra Bang bursts this often...
+const ULTRA_INTERVAL: f32 = 0.5;
+/// ...this many times: every 0.5 s over 7 s.
+const ULTRA_BURSTS: u32 = 14;
+/// The 9-Banger's bursts, and the time between them.
+const NINE_BANG_BURSTS: u32 = 9;
+const NINE_BANG_INTERVAL: f32 = 0.3;
 /// How many paintballs a paint bomb bursts into. Nothing per ball goes over
 /// the network: every screen bursts the same bomb itself from the thrower's
 /// throw counter, and the thrower's hits on a player are summed into one
@@ -101,6 +121,68 @@ impl Plugin for GrenadesPlugin {
 enum Kind {
     Bomb,
     Flash,
+    UltraBang,
+    NineBang,
+}
+
+impl Kind {
+    /// What the paint bomb key throws for a `Loadout::grenade` index.
+    fn for_bomb_slot(i: u8) -> Self {
+        match i {
+            1 => Kind::UltraBang,
+            _ => Kind::Bomb,
+        }
+    }
+
+    /// What the flashbang key throws for a `Loadout::flash` index.
+    fn for_flash_slot(i: u8) -> Self {
+        match i {
+            1 => Kind::NineBang,
+            _ => Kind::Flash,
+        }
+    }
+
+    /// Both keys' kinds from `PlayerState::throwables`.
+    fn from_packed(packed: u8) -> (Self, Self) {
+        (
+            Self::for_bomb_slot(packed & 0xF),
+            Self::for_flash_slot(packed >> 4),
+        )
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Kind::Bomb => "Paint Bomb",
+            Kind::Flash => "Flashbang",
+            Kind::UltraBang => "Ultra Bang",
+            Kind::NineBang => "9-Banger",
+        }
+    }
+
+    fn recharge(self) -> f32 {
+        match self {
+            Kind::Bomb => BOMB_RECHARGE,
+            Kind::Flash => FLASH_RECHARGE,
+            Kind::UltraBang => ULTRA_RECHARGE,
+            Kind::NineBang => NINE_BANG_RECHARGE,
+        }
+    }
+
+    fn fuse(self) -> f32 {
+        match self {
+            Kind::Bomb | Kind::UltraBang => BOMB_FUSE,
+            Kind::Flash | Kind::NineBang => FLASH_FUSE,
+        }
+    }
+
+    /// How many times it goes off, and the seconds between.
+    fn bursts(self) -> (u32, f32) {
+        match self {
+            Kind::Bomb | Kind::Flash => (1, 0.0),
+            Kind::UltraBang => (ULTRA_BURSTS, ULTRA_INTERVAL),
+            Kind::NineBang => (NINE_BANG_BURSTS, NINE_BANG_INTERVAL),
+        }
+    }
 }
 
 /// Seconds until each throwable is ready again (0 = ready).
@@ -189,6 +271,8 @@ struct GrenadeAssets {
     /// The flashbang going off.
     flash_bang: Handle<AudioSource>,
     ringing: Handle<AudioSource>,
+    /// Plays through the Ultra Bang's bursts.
+    ultra: Handle<AudioSource>,
 }
 
 #[derive(Component)]
@@ -199,6 +283,8 @@ struct Grenade {
     velocity: Vec3,
     fuse: f32,
     resting: bool,
+    /// Bursts still to go (more than one for the Ultra Bang and 9-Banger).
+    bursts_left: u32,
 }
 
 #[derive(Component)]
@@ -260,6 +346,7 @@ fn load_grenade_assets(
         nade: assets.load("audio/weapons/nade.flac"),
         flash_bang: assets.load("audio/weapons/flashexplosion.flac"),
         ringing: assets.load("audio/game/ringing.flac"),
+        ultra: assets.load("audio/weapons/ultra_bang.flac"),
     });
 }
 
@@ -293,8 +380,8 @@ fn spawn_grenade(
 ) {
     let team = Team::of(owner);
     let mat = match kind {
-        Kind::Bomb => assets.bomb[&team].clone(),
-        Kind::Flash => assets.flash[&team].clone(),
+        Kind::Bomb | Kind::UltraBang => assets.bomb[&team].clone(),
+        Kind::Flash | Kind::NineBang => assets.flash[&team].clone(),
     };
     commands.spawn((
         Mesh3d(assets.mesh.clone()),
@@ -305,11 +392,9 @@ fn spawn_grenade(
             owner,
             team,
             velocity,
-            fuse: match kind {
-                Kind::Bomb => BOMB_FUSE,
-                Kind::Flash => FLASH_FUSE,
-            },
+            fuse: kind.fuse(),
             resting: false,
+            bursts_left: kind.bursts().0,
         },
         DespawnOnExit(AppState::InGame),
     ));
@@ -326,6 +411,7 @@ fn throw_local(
     overlay: Res<Overlay>,
     net: Res<NetworkState>,
     settings: Res<AudioSettings>,
+    loadout: Res<Loadout>,
     assets: Option<Res<GrenadeAssets>>,
     mut throwables: ResMut<Throwables>,
     mut local_state: ResMut<LocalState>,
@@ -335,6 +421,12 @@ fn throw_local(
     let dt = time.delta_secs();
     throwables.bomb = (throwables.bomb - dt).max(0.0);
     throwables.flash = (throwables.flash - dt).max(0.0);
+    // Others throw whatever this says when our counters go up.
+    let packed = loadout.pack_throwables();
+    if local_state.0.throwables != packed {
+        local_state.0.throwables = packed;
+    }
+    let (bomb_kind, flash_kind) = Kind::from_packed(packed);
     let Some(assets) = assets else {
         return;
     };
@@ -347,14 +439,14 @@ fn throw_local(
     let kind = if throwables.bomb <= 0.0
         && keybinds.just_pressed(KeyAction::PaintBomb, &keys, &mouse)
     {
-        throwables.bomb = BOMB_RECHARGE;
+        throwables.bomb = bomb_kind.recharge();
         local_state.0.bombs = local_state.0.bombs.wrapping_add(1);
-        Kind::Bomb
+        bomb_kind
     } else if throwables.flash <= 0.0 && keybinds.just_pressed(KeyAction::Flashbang, &keys, &mouse)
     {
-        throwables.flash = FLASH_RECHARGE;
+        throwables.flash = flash_kind.recharge();
         local_state.0.flashes = local_state.0.flashes.wrapping_add(1);
-        Kind::Flash
+        flash_kind
     } else {
         return;
     };
@@ -398,9 +490,10 @@ fn throw_remote(
         let eye =
             remote.target_pos + Vec3::Y * (EYE_OFFSET - if crouched { CROUCH_DROP } else { 0.0 });
         let origin = eye + forward * 0.5 + rot * Vec3::new(-0.15, -0.1, 0.0);
+        let (bomb_kind, flash_kind) = Kind::from_packed(remote.state.throwables);
         for (kind, new) in [
-            (Kind::Bomb, now.0.wrapping_sub(before.0)),
-            (Kind::Flash, now.1.wrapping_sub(before.1)),
+            (bomb_kind, now.0.wrapping_sub(before.0)),
+            (flash_kind, now.1.wrapping_sub(before.1)),
         ] {
             // A handful at most (more means a rejoin or a wrapped counter).
             if new == 0 || new > 3 {
@@ -485,11 +578,21 @@ fn move_grenades(
             continue;
         }
 
-        // Boom.
+        // Boom. The Ultra Bang and 9-Banger go again after a beat, from
+        // wherever they've rolled to.
         let point = tf.translation + Vec3::Y * 0.15;
-        commands.entity(entity).despawn();
+        let (total, interval) = g.kind.bursts();
+        if g.kind == Kind::UltraBang && g.bursts_left == total {
+            play_sfx_at(&mut commands, &assets.ultra, 1.0, point, &settings);
+        }
+        g.bursts_left = g.bursts_left.saturating_sub(1);
+        if g.bursts_left > 0 {
+            g.fuse = interval;
+        } else {
+            commands.entity(entity).despawn();
+        }
         match g.kind {
-            Kind::Bomb => {
+            Kind::Bomb | Kind::UltraBang => {
                 paint_burst_fx(&mut commands, &mut fx, &mut materials, point, g.team, 1.0);
                 play_sfx_at(&mut commands, &assets.nade, 1.0, point, &settings);
                 let twist = (g.owner as f32) * 0.37;
@@ -508,7 +611,7 @@ fn move_grenades(
                     );
                 }
             }
-            Kind::Flash => {
+            Kind::Flash | Kind::NineBang => {
                 paint_burst_fx(&mut commands, &mut fx, &mut materials, point, g.team, 2.0);
                 play_sfx_at(&mut commands, &assets.flash_bang, 1.0, point, &settings);
                 // Only the thrower's screen decides who got painted.
@@ -796,21 +899,23 @@ fn charge_line(key: &str, name: &str, left: f32) -> String {
 fn update_charge_hud(
     throwables: Res<Throwables>,
     keybinds: Res<KeybindSettings>,
+    loadout: Res<Loadout>,
     mut text_q: Query<&mut Text, With<ChargeText>>,
 ) {
     let Ok(mut text) = text_q.single_mut() else {
         return;
     };
+    let (bomb_kind, flash_kind) = Kind::from_packed(loadout.pack_throwables());
     let s = format!(
         "{}\n{}",
         charge_line(
             keybinds.get(KeyAction::PaintBomb).label(),
-            "Paint Bomb",
+            bomb_kind.name(),
             throwables.bomb
         ),
         charge_line(
             keybinds.get(KeyAction::Flashbang).label(),
-            "Flashbang",
+            flash_kind.name(),
             throwables.flash
         ),
     );
@@ -834,6 +939,23 @@ mod tests {
         assert!(sum.length() < 1.0, "burst is lopsided: {sum:?}");
         assert!(dirs.iter().any(|d| d.y > 0.9));
         assert!(dirs.iter().any(|d| d.y < -0.9));
+    }
+
+    #[test]
+    fn throwable_kinds_round_trip() {
+        let mut l = Loadout::default();
+        assert_eq!(
+            Kind::from_packed(l.pack_throwables()),
+            (Kind::Bomb, Kind::Flash)
+        );
+        l.grenade = 1;
+        l.flash = 1;
+        assert_eq!(
+            Kind::from_packed(l.pack_throwables()),
+            (Kind::UltraBang, Kind::NineBang)
+        );
+        assert_eq!(NINE_BANG_RECHARGE, 66.0);
+        assert_eq!(ULTRA_BURSTS as f32 * ULTRA_INTERVAL, 7.0);
     }
 
     #[test]
