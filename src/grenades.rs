@@ -12,7 +12,10 @@
 //!   checks who is close with a clear line to it and sends each of them a
 //!   `HitEvent` with `flash` set (no damage); they get paint over most of
 //!   their screen for 10 seconds. The paint is the thrower's team colour,
-//!   so flashing yourself paints your screen your own colour.
+//!   so flashing yourself paints your screen your own colour. Each flash
+//!   adds its own layer of paint, so a second flash doesn't wipe the first,
+//!   and dying clears it all. A ringing loops while any paint is up and
+//!   fades out with the last layer.
 
 use crate::{
     AppState, Overlay,
@@ -26,7 +29,10 @@ use crate::{
     settings::{AudioSettings, KeyAction, KeybindSettings},
     world::{CROUCH_DROP, EYE_OFFSET, LocalPlayer, MainCamera, RemotePlayer},
 };
-use bevy::prelude::*;
+use bevy::{
+    audio::{AudioSink, AudioSinkPlayback, Volume},
+    prelude::*,
+};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Seconds for a used paint bomb to come back.
@@ -54,6 +60,8 @@ const FLASH_RADIUS: f32 = 9.0;
 pub const FLASH_SECONDS: f32 = 10.0;
 /// The last part of it, when the paint fades away.
 const FLASH_FADE: f32 = 2.5;
+/// Volume of the ringing while flashed (before the SFX volume setting).
+const RING_VOLUME: f32 = 0.6;
 const THROW_SPEED: f32 = 15.0;
 const THROW_LIFT: f32 = 3.5;
 const GRAVITY: f32 = 9.81;
@@ -102,14 +110,42 @@ pub struct Throwables {
     pub flash: f32,
 }
 
-/// The paint over our screen from a flashbang.
+/// The paint over our screen from flashbangs: one layer per flash, each
+/// counting down and fading on its own.
 #[derive(Resource, Default)]
 struct FlashOverlay {
+    layers: Vec<FlashLayer>,
+    /// The looping ringing sound, while any layer is up.
+    ring: Option<Entity>,
+}
+
+struct FlashLayer {
     /// Seconds left.
     left: f32,
     /// Whose paint it is (the thrower's team).
-    paint: Option<Team>,
+    paint: Team,
+    /// Its UI nodes, once spawned.
     root: Option<Entity>,
+}
+
+impl FlashOverlay {
+    /// How opaque the layer that lasts longest is (1 until it starts to
+    /// fade): the ringing follows it.
+    fn last_fade(&self) -> f32 {
+        let left = self.layers.iter().map(|l| l.left).fold(0.0, f32::max);
+        (left / FLASH_FADE).min(1.0)
+    }
+
+    fn clear(&mut self, commands: &mut Commands) {
+        for layer in self.layers.drain(..) {
+            if let Some(root) = layer.root {
+                commands.entity(root).despawn();
+            }
+        }
+        if let Some(ring) = self.ring.take() {
+            commands.entity(ring).despawn();
+        }
+    }
 }
 
 /// Flash ids we sent, and ones we already took (UDP resends).
@@ -150,6 +186,7 @@ struct GrenadeAssets {
     bounce: Handle<AudioSource>,
     burst: Handle<AudioSource>,
     pop: Handle<AudioSource>,
+    ringing: Handle<AudioSource>,
 }
 
 #[derive(Component)]
@@ -165,7 +202,13 @@ struct Grenade {
 #[derive(Component)]
 struct FlashSplat {
     alpha: f32,
+    /// The layer's root node, to find how far it has faded.
+    layer: Entity,
 }
+
+/// The looping ringing while flashed.
+#[derive(Component)]
+struct FlashRing;
 
 #[derive(Component)]
 struct ChargeText;
@@ -214,6 +257,7 @@ fn load_grenade_assets(
         bounce: assets.load("audio/impacts/ball_bounce.ogg"),
         burst: assets.load("audio/impacts/splat_player_hit.ogg"),
         pop: assets.load("audio/weapons/tank_hiss.ogg"),
+        ringing: assets.load("audio/game/ringing.flac"),
     });
 }
 
@@ -223,7 +267,7 @@ fn reset_throwables(
     mut book: ResMut<FlashBookkeeping>,
 ) {
     *throwables = Throwables::default();
-    // The overlay's nodes go with the game (`DespawnOnExit`).
+    // The overlay's nodes and the ringing go with the game (`DespawnOnExit`).
     *overlay = FlashOverlay::default();
     book.seen.clear();
     book.order.clear();
@@ -508,9 +552,13 @@ fn move_grenades(
     }
 }
 
+/// Adds a layer of paint on top of whatever is already there.
 fn paint_screen(overlay: &mut FlashOverlay, paint: Team) {
-    overlay.left = FLASH_SECONDS;
-    overlay.paint = Some(paint);
+    overlay.layers.push(FlashLayer {
+        left: FLASH_SECONDS,
+        paint,
+        root: None,
+    });
 }
 
 /// Flashbangs others say went off next to us.
@@ -547,43 +595,88 @@ fn receive_flashes(
 }
 
 /// Paint over ~90% of the screen while a flash lasts, fading at the end.
+/// Each flash is its own layer; the ringing loops while any is up and
+/// fades with the last one. Dying (or a round restart) wipes it all.
 #[allow(clippy::too_many_arguments)]
 fn update_flash_overlay(
     mut commands: Commands,
     time: Res<Time>,
     fx: Res<Fx>,
     net: Res<NetworkState>,
+    settings: Res<AudioSettings>,
+    assets: Option<Res<GrenadeAssets>>,
+    local_state: Res<LocalState>,
     mut overlay: ResMut<FlashOverlay>,
     mut splats: Query<(&FlashSplat, &mut ImageNode)>,
-    mut last_flash_left: Local<f32>,
+    mut ring_q: Query<&mut AudioSink, With<FlashRing>>,
+    mut last_resets: Local<Option<u32>>,
 ) {
-    let fresh = overlay.left > *last_flash_left + 0.01;
-    overlay.left = (overlay.left - time.delta_secs()).max(0.0);
-    *last_flash_left = overlay.left;
-
-    if fresh {
-        if let Some(old) = overlay.root.take() {
-            commands.entity(old).despawn();
-        }
-        // The thrower's colour: an enemy's flash is theirs, our own is ours.
-        let paint = overlay.paint.unwrap_or_else(|| {
-            match net.local_player_id.map(Team::of).unwrap_or(Team::Blue) {
-                Team::Blue => Team::Orange,
-                Team::Orange => Team::Blue,
-            }
-        });
-        overlay.root = Some(spawn_flash_overlay(&mut commands, &fx, paint));
+    let resets = net.match_state.resets;
+    let restarted = last_resets.is_some_and(|r| r != resets);
+    *last_resets = Some(resets);
+    if local_state.0.health <= 0.0 || restarted {
+        overlay.clear(&mut commands);
+        return;
     }
 
-    if overlay.left <= 0.0 {
-        if let Some(root) = overlay.root.take() {
+    let dt = time.delta_secs();
+    let overlay = &mut *overlay;
+    overlay.layers.retain_mut(|layer| {
+        layer.left = (layer.left - dt).max(0.0);
+        if layer.left > 0.0 {
+            return true;
+        }
+        if let Some(root) = layer.root.take() {
             commands.entity(root).despawn();
+        }
+        false
+    });
+    for layer in &mut overlay.layers {
+        if layer.root.is_none() {
+            layer.root = Some(spawn_flash_overlay(&mut commands, &fx, layer.paint));
+        }
+    }
+
+    for (splat, mut image) in &mut splats {
+        let Some(layer) = overlay
+            .layers
+            .iter()
+            .find(|l| l.root == Some(splat.layer))
+        else {
+            continue;
+        };
+        let fade = (layer.left / FLASH_FADE).min(1.0);
+        image.color = image.color.with_alpha(splat.alpha * fade);
+    }
+
+    // Ringing: on while any paint is up, fading out with the last layer.
+    if overlay.layers.is_empty() {
+        if let Some(ring) = overlay.ring.take() {
+            commands.entity(ring).despawn();
         }
         return;
     }
-    let fade = (overlay.left / FLASH_FADE).min(1.0);
-    for (splat, mut image) in &mut splats {
-        image.color = image.color.with_alpha(splat.alpha * fade);
+    let volume = RING_VOLUME * settings.effective_sfx() * overlay.last_fade();
+    match overlay.ring {
+        Some(ring) => {
+            if let Ok(mut sink) = ring_q.get_mut(ring) {
+                sink.set_volume(Volume::Linear(volume));
+            }
+        }
+        None => {
+            if let Some(assets) = assets {
+                overlay.ring = Some(
+                    commands
+                        .spawn((
+                            AudioPlayer::new(assets.ringing.clone()),
+                            PlaybackSettings::LOOP.with_volume(Volume::Linear(volume)),
+                            FlashRing,
+                            DespawnOnExit(AppState::InGame),
+                        ))
+                        .id(),
+                );
+            }
+        }
     }
 }
 
@@ -656,7 +749,7 @@ fn spawn_flash_overlay(commands: &mut Commands, fx: &Fx, paint: Team) -> Entity 
                         height: Val::Percent(h),
                         ..default()
                     },
-                    FlashSplat { alpha },
+                    FlashSplat { alpha, layer: root },
                     Pickable::IGNORE,
                 ));
             }
