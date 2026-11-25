@@ -122,6 +122,10 @@ pub enum WorldSystems {
 #[derive(Component)]
 pub struct MainCamera;
 
+/// The sun (or moon) light; `maps` sets it for each map's time of day.
+#[derive(Component)]
+pub struct Sun;
+
 /// Where the first-person camera looks: `yaw` turns (0 looks down -Z),
 /// `pitch` looks up (+) and down (-).
 #[derive(Component, Default)]
@@ -182,6 +186,7 @@ fn setup_world(mut commands: Commands) {
             ..default()
         },
         Transform::from_xyz(24.0, 38.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Sun,
     ));
 
     // Main 3D camera (orbits the field on the menu, first person in game).

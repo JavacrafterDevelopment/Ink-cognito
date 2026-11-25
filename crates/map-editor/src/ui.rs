@@ -588,7 +588,7 @@ fn settings(mid: &mut ChildSpawnerCommands, ed: &Editor, blink: bool) {
             button(r, format!("Edge: {}", ed.map.perimeter.name()), Action::Perimeter, false);
         });
         row(p, |r| {
-            button(r, format!("Sky: {}", SKIES[nearest(&SKIES, ed.map.sky)].0), Action::Sky, false);
+            button(r, format!("Time: {}", SKIES[nearest(&SKIES, ed.map.sky)].0), Action::Sky, false);
         });
         if let Some(base) = ed.map.ground.first() {
             row(p, |r| {

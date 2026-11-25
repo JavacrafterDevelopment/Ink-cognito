@@ -83,14 +83,8 @@ pub const SNAPS: [f32; 4] = [0.0, 0.25, 0.5, 1.0];
 /// Turn step, degrees.
 pub const TURN_STEPS: [f32; 3] = [90.0, 45.0, 15.0];
 
-pub const SKIES: [(&str, [f32; 3]); 6] = [
-    ("Day", [0.55, 0.76, 0.96]),
-    ("Clear", [0.6, 0.78, 0.95]),
-    ("Pale", [0.66, 0.8, 0.95]),
-    ("Haze", [0.7, 0.82, 0.9]),
-    ("Sunset", [0.93, 0.72, 0.56]),
-    ("Dusk", [0.36, 0.38, 0.55]),
-];
+/// Sky presets, one per time of day (they set the lighting too).
+pub const SKIES: [(&str, [f32; 3]); 7] = ink_map::TIMES;
 
 pub const TINTS: [(&str, [f32; 3]); 6] = [
     ("Natural", [1.0, 1.0, 1.0]),

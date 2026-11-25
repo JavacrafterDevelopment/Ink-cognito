@@ -104,6 +104,12 @@ fn setup_preview(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         RenderTarget::Image(image.clone().into()),
         Transform::from_translation(STAGE + Vec3::new(0.0, 0.16, 0.9))
             .looking_at(STAGE + Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        // Its own daytime ambient, so the map's time of day doesn't dim the preview.
+        AmbientLight {
+            color: Color::srgb(0.88, 0.93, 1.0),
+            brightness: 380.0,
+            ..default()
+        },
         PreviewCamera,
     ));
     commands.spawn((

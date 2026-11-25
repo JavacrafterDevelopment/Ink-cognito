@@ -22,7 +22,7 @@
 use crate::{
     arena::{Collider, Colliders},
     protocol::{MapId, PlayerId, Team},
-    world::PLAYER_GROUND_Y,
+    world::{MainCamera, PLAYER_GROUND_Y, Sun},
 };
 use bevy::{
     asset::io::file::FileAssetReader,
@@ -30,7 +30,7 @@ use bevy::{
     math::Affine2,
     prelude::*,
 };
-use ink_map::{GroundTex, MapFile, Patch};
+use ink_map::{Daylight, GroundTex, MapFile, Patch};
 use std::{f32::consts::PI, path::PathBuf};
 
 pub struct MapsPlugin;
@@ -261,7 +261,7 @@ pub struct Layout {
     colliders: Vec<Collider>,
     info: MapInfo,
     patches: Vec<Patch>,
-    sky: Color,
+    daylight: Daylight,
 }
 
 impl Layout {
@@ -285,7 +285,6 @@ impl Layout {
             })
             .map(|c| (c.shape.footprint(), c.shape.height()))
             .collect();
-        let [r, g, b] = file.sky;
         Self {
             models: built.models,
             colliders,
@@ -297,7 +296,7 @@ impl Layout {
                 footprints,
             },
             patches: file.ground.clone(),
-            sky: Color::srgb(r, g, b),
+            daylight: Daylight::for_sky(file.sky),
         }
     }
 }
@@ -330,6 +329,43 @@ fn load_ground_textures(mut commands: Commands, assets: Res<AssetServer>) {
     });
 }
 
+/// Lights the world for the map's time of day: sky, sun (or moon), ambient
+/// light and fog. The map editor lights the same way, from the same table.
+fn light_for_time_of_day(
+    commands: &mut Commands,
+    d: &Daylight,
+    ambient: &mut GlobalAmbientLight,
+    sun_q: &mut Query<(&mut DirectionalLight, &mut Transform), With<Sun>>,
+    camera_q: &Query<Entity, With<MainCamera>>,
+) {
+    let rgb = |[r, g, b]: [f32; 3]| Color::srgb(r, g, b);
+    commands.insert_resource(ClearColor(rgb(d.sky)));
+    ambient.color = rgb(d.ambient_color);
+    ambient.brightness = d.ambient_brightness;
+    for (mut sun, mut t) in sun_q.iter_mut() {
+        sun.color = rgb(d.sun_color);
+        sun.illuminance = d.sun_lux;
+        *t = Transform::from_translation(d.sun_position()).looking_at(Vec3::ZERO, Vec3::Y);
+    }
+    for cam in camera_q {
+        match d.fog {
+            Some(f) => {
+                commands.entity(cam).insert(DistanceFog {
+                    color: rgb(f.color),
+                    falloff: FogFalloff::Linear {
+                        start: f.start,
+                        end: f.end,
+                    },
+                    ..default()
+                });
+            }
+            None => {
+                commands.entity(cam).remove::<DistanceFog>();
+            }
+        }
+    }
+}
+
 /// Builds the current map whenever it changes (and the first time).
 #[allow(clippy::too_many_arguments)]
 fn rebuild_map(
@@ -341,6 +377,9 @@ fn rebuild_map(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     existing: Query<Entity, With<MapEntity>>,
+    mut ambient: ResMut<GlobalAmbientLight>,
+    mut sun_q: Query<(&mut DirectionalLight, &mut Transform), With<Sun>>,
+    camera_q: Query<Entity, With<MainCamera>>,
     mut built: Local<Option<MapId>>,
 ) {
     let Some(ground) = ground else {
@@ -354,7 +393,13 @@ fn rebuild_map(
         commands.entity(e).despawn();
     }
     let layout = library.layout(current.0);
-    commands.insert_resource(ClearColor(layout.sky));
+    light_for_time_of_day(
+        &mut commands,
+        &layout.daylight,
+        &mut ambient,
+        &mut sun_q,
+        &camera_q,
+    );
 
     let half = layout.info.half;
     // Dirt all around, beyond the edge.
