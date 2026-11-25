@@ -1823,9 +1823,11 @@ fn update_viewmodel(
         * Quat::from_rotation_z(combat.recoil * 0.06 - reload_dip * 0.5);
 }
 
-/// How loud a footstep is: crouched steps are softer.
+/// How loud a footstep is: crouched steps are softer. The footstep files
+/// are normalized to about -1 dB peak, and this sits a bit above 1.0 so
+/// steps cut through gunfire (others' steps also fade with distance).
 fn step_volume(crouched: bool) -> f32 {
-    if crouched { 0.18 } else { 0.4 }
+    if crouched { 0.6 } else { 1.3 }
 }
 
 /// Our own footsteps, and the step counter others use to hear them.
