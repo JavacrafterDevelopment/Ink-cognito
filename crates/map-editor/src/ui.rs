@@ -31,7 +31,8 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, rebuild_ui)
+        app.init_resource::<PaletteScroll>()
+            .add_systems(Update, (rebuild_ui, scroll_palette))
             .add_observer(on_click)
             .add_observer(on_over)
             .add_observer(on_out);
@@ -81,6 +82,53 @@ enum Action {
 struct Btn {
     normal: Color,
     hover: Color,
+}
+
+/// The list of pieces on the palette, which scrolls with the mouse wheel.
+#[derive(Component)]
+struct PieceList;
+
+/// How far the piece list is scrolled, kept when the panels are rebuilt.
+#[derive(Resource, Default)]
+struct PaletteScroll {
+    page: Option<Page>,
+    y: f32,
+}
+
+/// The mouse wheel over the palette scrolls the piece list.
+fn scroll_palette(
+    mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
+    windows: Query<&Window>,
+    mut lists: Query<(&mut ScrollPosition, &ComputedNode), With<PieceList>>,
+    mut scroll: ResMut<PaletteScroll>,
+    editor: Res<Editor>,
+) {
+    let mut lines = 0.0;
+    for w in wheel.read() {
+        lines += match w.unit {
+            bevy::input::mouse::MouseScrollUnit::Line => w.y,
+            bevy::input::mouse::MouseScrollUnit::Pixel => w.y / 30.0,
+        };
+    }
+    let over = windows
+        .single()
+        .ok()
+        .and_then(|w| w.cursor_position())
+        .is_some_and(|c| c.x < LEFT_W && c.y > TOP_H);
+    let Ok((mut pos, node)) = lists.single_mut() else {
+        return;
+    };
+    if scroll.page != Some(editor.page) {
+        scroll.page = Some(editor.page);
+        scroll.y = 0.0;
+    }
+    if lines != 0.0 && over && editor.open_list.is_none() {
+        let room = ((node.content_size().y - node.size().y) * node.inverse_scale_factor()).max(0.0);
+        scroll.y = (scroll.y - lines * 32.0).clamp(0.0, room);
+    }
+    if pos.0.y != scroll.y {
+        pos.0.y = scroll.y;
+    }
 }
 
 /// The root of all the panels.
@@ -241,6 +289,7 @@ impl Tool {
 fn rebuild_ui(
     mut commands: Commands,
     editor: Res<Editor>,
+    scroll: Res<PaletteScroll>,
     roots: Query<Entity, With<UiRoot>>,
     time: Res<Time>,
     mut last: Local<String>,
@@ -280,7 +329,7 @@ fn rebuild_ui(
                 Pickable::IGNORE,
             ))
             .with_children(|mid| {
-                palette(mid, ed);
+                palette(mid, ed, &scroll);
                 settings(mid, ed, blink);
             });
             help_bar(root, ed);
@@ -446,7 +495,7 @@ fn top_bar(root: &mut ChildSpawnerCommands, ed: &Editor, blink: bool) {
     });
 }
 
-fn palette(mid: &mut ChildSpawnerCommands, ed: &Editor) {
+fn palette(mid: &mut ChildSpawnerCommands, ed: &Editor, scroll: &PaletteScroll) {
     mid.spawn((panel_node(LEFT_W), BackgroundColor(PANEL))).with_children(|p| {
         row(p, |r| {
             button_sized(r, "Select / move", Action::SelectTool, ed.tool == Tool::Select, true, true);
@@ -461,11 +510,28 @@ fn palette(mid: &mut ChildSpawnerCommands, ed: &Editor) {
         p.spawn((Node { height: Val::Px(4.0), ..default() }, Pickable::IGNORE));
         match ed.page {
             Page::Pieces(cat) => {
-                for (i, piece) in PIECES.iter().enumerate().filter(|(_, p)| p.category == cat) {
-                    let on = matches!(ed.tool, Tool::Place(p) if p.id == piece.id);
-                    let tag = if piece.parts.is_empty() { "  (scenery)" } else { "" };
-                    row(p, |r| button_sized(r, format!("{}{tag}", piece.label), Action::PickPiece(i), on, true, true));
-                }
+                let start = if scroll.page == Some(ed.page) { scroll.y } else { 0.0 };
+                p.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(5.0),
+                        flex_grow: 1.0,
+                        flex_shrink: 1.0,
+                        flex_basis: Val::Px(0.0),
+                        min_height: Val::Px(60.0),
+                        overflow: Overflow::scroll_y(),
+                        ..default()
+                    },
+                    ScrollPosition(Vec2::new(0.0, start)),
+                    PieceList,
+                ))
+                .with_children(|list| {
+                    for (i, piece) in PIECES.iter().enumerate().filter(|(_, p)| p.category == cat) {
+                        let on = matches!(ed.tool, Tool::Place(p) if p.id == piece.id);
+                        let tag = if piece.parts.is_empty() { "  (scenery)" } else { "" };
+                        row(list, |r| button_sized(r, format!("{}{tag}", piece.label), Action::PickPiece(i), on, true, true));
+                    }
+                });
             }
             Page::Spawns => {
                 for kind in SpawnKind::ALL {

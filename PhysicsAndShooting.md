@@ -32,9 +32,10 @@ Player physics run locally on each player's machine every frame (`move_local_pla
   - Gravity: `22.0 m/s²` (`GRAVITY`).
   - Frame `dt` is clamped to `0.05 s` to keep physics stable during frame hitches.
 - **Arena Collision (`Colliders::resolve_player`)**:
-  - All bunkers and obstacles are represented as lightweight geometric primitives: axis-aligned boxes (`Shape::Box`) and upright cylinders (`Shape::Cylinder`).
-  - Overlapping geometry pushes the player smoothly outward on the XZ plane.
-  - If the player's feet are near or above a bunker's top (`feet >= max.y - 0.25`), the top acts as a standable floor surface.
+  - Every piece's collision is a few simple shapes fitted to its model (`tools/colliders`): axis-aligned boxes (`Shape::Box`), upright cylinders (`Shape::Cylinder`), boxes turned around the vertical (`Shape::Oriented`), and convex shapes (`Shape::Hull`) for everything else: tilted pieces, ramps at any angle, rods and fitted hulls.
+  - Overlapping geometry pushes the player smoothly outward on the XZ plane. For a convex shape the push comes from its outline cut at a few heights the player's body spans.
+  - If the player's feet are near or above a bunker's top (`feet >= max.y - 0.25`), the top acts as a standable floor surface. Convex shapes use the height of their surface under the player: flat tops take the same 0.25 m step, walkable slopes (ramps, roofs) up to 0.45 m, and steep faces none.
+  - Paint hits convex shapes on their faces (ramps included), and ragdoll joints are pushed out through the nearest face.
   - Finally, XZ coordinates are clamped inside the `60 m × 60 m` field nets (`±(FIELD_HALF - PLAYER_RADIUS - 0.15)`).
 
 ---

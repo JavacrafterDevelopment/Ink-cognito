@@ -6,12 +6,16 @@
 //! the same way in the game and in the editor.
 
 pub mod catalog;
+pub mod convex;
+mod pieces;
 
 use bevy_math::{Quat, Rect, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_2;
 
-pub use catalog::{Category, PIECES, Part, Piece, piece};
+pub use catalog::{Category, Hull, PIECES, Part, Piece, piece};
+pub use convex::{Convex, Place};
+use std::sync::Arc;
 
 /// The newest map file format this code reads and writes.
 pub const FORMAT: u32 = 1;
@@ -384,7 +388,7 @@ fn one_line(group: &str) -> String {
 // --- Building -------------------------------------------------------------
 
 /// A solid thing on the field.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Shape {
     Box {
         min: Vec3,
@@ -396,70 +400,170 @@ pub enum Shape {
         radius: f32,
         height: f32,
     },
-    /// A slope to walk up: `min.y` at one end, `max.y` at the other. `rise`
-    /// points (on the ground plane) from the low end to the high end.
-    Ramp {
-        min: Vec3,
-        max: Vec3,
-        rise: Vec2,
-    },
-    /// A box turned any way: `center`, half its size along its own axes, and
-    /// its rotation. Used for pieces not turned by a quarter turn.
+    /// An upright box turned around the vertical: `center`, half its size
+    /// along its own axes, and its rotation.
     Oriented {
         center: Vec3,
         half: Vec3,
         rot: Quat,
     },
+    /// Any other convex shape: tilted boxes, ramps, rods, fitted hulls.
+    Hull(Arc<Convex>),
 }
 
 impl Shape {
     /// The axis-aligned box around it.
     pub fn bounds(&self) -> (Vec3, Vec3) {
-        match *self {
-            Shape::Box { min, max } | Shape::Ramp { min, max, .. } => (min, max),
+        match self {
+            Shape::Box { min, max } => (*min, *max),
             Shape::Cylinder { base, radius, height } => (
-                base - Vec3::new(radius, 0.0, radius),
-                base + Vec3::new(radius, height, radius),
+                *base - Vec3::new(*radius, 0.0, *radius),
+                *base + Vec3::new(*radius, *height, *radius),
             ),
             Shape::Oriented { center, half, rot } => {
                 let mut lo = Vec3::splat(f32::MAX);
                 let mut hi = Vec3::splat(f32::MIN);
-                for c in box_corners(half) {
-                    let p = center + rot * c;
+                for c in box_corners(*half) {
+                    let p = *center + *rot * c;
                     lo = lo.min(p);
                     hi = hi.max(p);
                 }
                 (lo, hi)
             }
+            Shape::Hull(h) => (h.lo, h.hi),
         }
     }
 
     /// The footprint on the ground (x, z), for the minimap.
     pub fn footprint(&self) -> Rect {
-        match *self {
-            Shape::Oriented { .. } => {
-                let (lo, hi) = self.bounds();
-                Rect::new(lo.x, lo.z, hi.x, hi.z)
-            }
-            Shape::Box { min, max } | Shape::Ramp { min, max, .. } => {
-                Rect::new(min.x, min.z, max.x, max.z)
-            }
-            Shape::Cylinder { base, radius, .. } => Rect::new(
-                base.x - radius,
-                base.z - radius,
-                base.x + radius,
-                base.z + radius,
-            ),
-        }
+        let (lo, hi) = self.bounds();
+        Rect::new(lo.x, lo.z, hi.x, hi.z)
     }
 
     pub fn height(&self) -> f32 {
-        match *self {
-            Shape::Box { max, .. } | Shape::Ramp { max, .. } => max.y,
-            Shape::Cylinder { base, height, .. } => base.y + height,
-            Shape::Oriented { .. } => self.bounds().1.y,
+        self.bounds().1.y
+    }
+
+    /// Its edges, to draw it.
+    pub fn edges(&self) -> Vec<(Vec3, Vec3)> {
+        const BOX: [(usize, usize); 12] =
+            [(0, 1), (2, 3), (4, 5), (6, 7), (0, 2), (1, 3), (4, 6), (5, 7), (0, 4), (1, 5), (2, 6), (3, 7)];
+        let boxed = |c: [Vec3; 8]| BOX.iter().map(|&(a, b)| (c[a], c[b])).collect();
+        match self {
+            Shape::Box { min, max } => {
+                let (c, h) = ((*min + *max) * 0.5, (*max - *min) * 0.5);
+                boxed(box_corners(h).map(|p| p + c))
+            }
+            Shape::Oriented { center, half, rot } => boxed(box_corners(*half).map(|p| *center + *rot * p)),
+            Shape::Cylinder { base, radius, height } => {
+                let n = 16;
+                let at = |i: usize, y: f32| {
+                    let a = i as f32 / n as f32 * std::f32::consts::TAU;
+                    *base + Vec3::new(a.cos() * radius, y, a.sin() * radius)
+                };
+                let mut out = Vec::new();
+                for i in 0..n {
+                    out.push((at(i, 0.0), at(i + 1, 0.0)));
+                    out.push((at(i, *height), at(i + 1, *height)));
+                    if i % 4 == 0 {
+                        out.push((at(i, 0.0), at(i, *height)));
+                    }
+                }
+                out
+            }
+            Shape::Hull(h) => h.edges.iter().map(|&[a, b]| (h.points[a as usize], h.points[b as usize])).collect(),
         }
     }
+
+    /// Where the segment `from -> to` first enters it: (0..=1 along it,
+    /// outward normal). Starting inside counts as no hit.
+    pub fn segment(&self, from: Vec3, to: Vec3) -> Option<(f32, Vec3)> {
+        match self {
+            Shape::Box { min, max } => segment_box(from, to, *min, *max),
+            Shape::Cylinder { base, radius, height } => segment_cylinder(from, to, *base, *radius, *height),
+            Shape::Oriented { center, half, rot } => {
+                // In the box's own space it's a plain box.
+                let inv = rot.inverse();
+                segment_box(inv * (from - *center), inv * (to - *center), -*half, *half).map(|(t, n)| (t, *rot * n))
+            }
+            Shape::Hull(h) => {
+                let (lo, hi) = (from.min(to), from.max(to));
+                if hi.cmplt(h.lo).any() || lo.cmpgt(h.hi).any() {
+                    return None;
+                }
+                h.segment(from, to)
+            }
+        }
+    }
+}
+
+/// Slab test. Returns (t, outward normal) of where the segment enters the box.
+pub fn segment_box(from: Vec3, to: Vec3, min: Vec3, max: Vec3) -> Option<(f32, Vec3)> {
+    let d = to - from;
+    let mut t_enter = 0.0f32;
+    let mut t_exit = 1.0f32;
+    let mut normal = Vec3::ZERO;
+    for axis in 0..3 {
+        let (o, dir, lo, hi) = (from[axis], d[axis], min[axis], max[axis]);
+        if dir.abs() < 1e-8 {
+            if o < lo || o > hi {
+                return None;
+            }
+            continue;
+        }
+        let mut t0 = (lo - o) / dir;
+        let mut t1 = (hi - o) / dir;
+        let mut n = Vec3::ZERO;
+        n[axis] = -1.0;
+        if t0 > t1 {
+            std::mem::swap(&mut t0, &mut t1);
+            n[axis] = 1.0;
+        }
+        if t0 > t_enter {
+            t_enter = t0;
+            normal = n;
+        }
+        t_exit = t_exit.min(t1);
+        if t_enter > t_exit {
+            return None;
+        }
+    }
+    // Starting inside counts as no hit (the ball just left a surface).
+    (normal != Vec3::ZERO).then_some((t_enter, normal))
+}
+
+fn segment_cylinder(from: Vec3, to: Vec3, base: Vec3, radius: f32, height: f32) -> Option<(f32, Vec3)> {
+    let top = base.y + height;
+    let d = to - from;
+    // Side wall.
+    let o = Vec2::new(from.x - base.x, from.z - base.z);
+    let v = Vec2::new(d.x, d.z);
+    let a = v.length_squared();
+    let mut best: Option<(f32, Vec3)> = None;
+    if a > 1e-10 {
+        let b = 2.0 * o.dot(v);
+        let c = o.length_squared() - radius * radius;
+        let disc = b * b - 4.0 * a * c;
+        if disc >= 0.0 && c > 0.0 {
+            let t = (-b - disc.sqrt()) / (2.0 * a);
+            if (0.0..=1.0).contains(&t) {
+                let p = from + d * t;
+                if p.y >= base.y && p.y <= top {
+                    let n = Vec3::new(p.x - base.x, 0.0, p.z - base.z).normalize_or(Vec3::X);
+                    best = Some((t, n));
+                }
+            }
+        }
+    }
+    // Top cap.
+    if from.y > top && to.y <= top {
+        let t = (from.y - top) / (from.y - to.y);
+        let p = from + d * t;
+        if Vec2::new(p.x - base.x, p.z - base.z).length_squared() <= radius * radius && best.is_none_or(|b| t < b.0) {
+            best = Some((t, Vec3::Y));
+        }
+    }
+    best
 }
 
 /// The eight corners of a box centered on 0 with half size `half`.
@@ -494,7 +598,7 @@ pub fn is_quarter_turn(rot: Quat) -> bool {
 }
 
 /// A collision shape and whether paint sticks to it.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Solid {
     pub shape: Shape,
     pub decals: bool,
@@ -524,51 +628,73 @@ pub struct Built {
 
 /// The collision shapes of `piece` placed at `at`, turned `rot`, scaled `scale`.
 ///
-/// Quarter turns give boxes lined up with the field (exact, and what the
-/// built-in maps use). Other turns give oriented boxes; a tilted cylinder or
-/// ramp becomes the oriented box around it.
+/// Boxes turned a quarter turn stay lined up with the field (exact, and what
+/// the built-in maps mostly use); other upright turns give turned boxes.
+/// Anything tilted, every ramp, rod and fitted hull becomes a convex shape
+/// that collides as it looks.
 pub fn piece_solids(piece: &Piece, at: Vec3, rot: Quat, scale: Vec3) -> Vec<Solid> {
     let quarter = is_quarter_turn(rot);
     let upright = is_upright(rot);
-    let oriented = |min: [f32; 3], max: [f32; 3]| {
-        let (min, max) = (Vec3::from_array(min) * scale, Vec3::from_array(max) * scale);
-        Shape::Oriented {
-            center: at + rot * ((min + max) * 0.5),
-            half: (max - min).abs() * 0.5,
-            rot,
-        }
-    };
+    let place = Place { at, rot, scale };
+    let hull = |c: Convex| Shape::Hull(Arc::new(c));
     piece
         .parts
         .iter()
         .map(|part| {
             let shape = match *part {
-                Part::Box(min, max) if !quarter => oriented(min, max),
-                Part::Cyl(cx, cz, r, y0, h) if !upright => {
-                    oriented([cx - r, y0, cz - r], [cx + r, y0 + h, cz + r])
-                }
-                Part::Ramp(min, max) if !upright => oriented(min, max),
                 Part::Box(min, max) => {
-                    let (lo, hi) = turned(rot, Vec3::from_array(min) * scale, Vec3::from_array(max) * scale);
-                    Shape::Box {
-                        min: lo + at,
-                        max: hi + at,
+                    let (min, max) = (Vec3::from_array(min), Vec3::from_array(max));
+                    if quarter {
+                        let (lo, hi) = turned(rot, min * scale, max * scale);
+                        Shape::Box { min: lo + at, max: hi + at }
+                    } else if upright {
+                        let (min, max) = (min * scale, max * scale);
+                        Shape::Oriented {
+                            center: at + rot * ((min + max) * 0.5),
+                            half: (max - min).abs() * 0.5,
+                            rot,
+                        }
+                    } else {
+                        hull(Convex::cuboid((min + max) * 0.5, (max - min) * 0.5, place))
                     }
                 }
-                Part::Cyl(cx, cz, r, y0, h) => Shape::Cylinder {
+                Part::Cyl(cx, cz, r, y0, h) if upright && (scale.x - scale.z).abs() < 1e-4 => Shape::Cylinder {
                     base: at + rot * (Vec3::new(cx, y0, cz) * scale),
-                    radius: r * scale.x.max(scale.z),
+                    radius: r * scale.x,
                     height: h * scale.y,
                 },
-                Part::Ramp(min, max) => {
-                    let (lo, hi) = turned(rot, Vec3::from_array(min) * scale, Vec3::from_array(max) * scale);
-                    let up = rot * Vec3::NEG_Z;
-                    Shape::Ramp {
-                        min: lo + at,
-                        max: hi + at,
-                        rise: Vec2::new(up.x, up.z),
+                Part::Cyl(cx, cz, r, y0, h) => {
+                    if (scale.x - scale.z).abs() < 1e-4 {
+                        hull(Convex::rod(Vec3::new(cx, y0, cz), Vec3::new(cx, y0 + h, cz), r, place))
+                    } else {
+                        // Squashed round: the box around it.
+                        let half = Vec3::new(r, h * 0.5, r);
+                        hull(Convex::cuboid(Vec3::new(cx, y0 + h * 0.5, cz), half, place))
                     }
                 }
+                Part::Ramp(min, max) => hull(Convex::wedge(Vec3::from_array(min), Vec3::from_array(max), place)),
+                Part::Turned(c, h, q) => {
+                    let local = Quat::from_array(q).normalize();
+                    let total = rot * local;
+                    let (c, h) = (Vec3::from_array(c), Vec3::from_array(h));
+                    let even = (scale.x - scale.y).abs() < 1e-4 && (scale.y - scale.z).abs() < 1e-4;
+                    if is_upright(total) && even {
+                        Shape::Oriented { center: at + rot * (c * scale), half: h * scale.x, rot: total }
+                    } else {
+                        // Turn it in the piece's space first, then place it.
+                        let pts: Vec<Vec3> = box_corners(h).iter().map(|&p| c + local * p).collect();
+                        let planes: Vec<(Vec3, f32)> = [Vec3::X, Vec3::NEG_X, Vec3::Y, Vec3::NEG_Y, Vec3::Z, Vec3::NEG_Z]
+                            .iter()
+                            .map(|&n| {
+                                let wn = local * n;
+                                (wn, wn.dot(c) + (n * h).abs().max_element())
+                            })
+                            .collect();
+                        hull(Convex::new(&pts, &planes, &BOX_EDGES, place))
+                    }
+                }
+                Part::Rod(a, b, r) => hull(Convex::rod(Vec3::from_array(a), Vec3::from_array(b), r, place)),
+                Part::Hull(h) => hull(Convex::hull(h, place)),
             };
             Solid {
                 shape,
@@ -577,6 +703,22 @@ pub fn piece_solids(piece: &Piece, at: Vec3, rot: Quat, scale: Vec3) -> Vec<Soli
         })
         .collect()
 }
+
+/// The edges of a box from [`box_corners`].
+const BOX_EDGES: [[u16; 2]; 12] = [
+    [0, 1],
+    [2, 3],
+    [4, 5],
+    [6, 7],
+    [0, 2],
+    [1, 3],
+    [4, 6],
+    [5, 7],
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
+];
 
 /// The axis-aligned box around a box turned `rot` (exact for quarter turns).
 fn turned(rot: Quat, min: Vec3, max: Vec3) -> (Vec3, Vec3) {
@@ -746,6 +888,15 @@ pub fn id_from_stem(stem: &str) -> String {
 mod tests {
     use super::*;
 
+    fn test_piece(parts: &'static [Part]) -> Piece {
+        Piece { id: "test", label: "Test", category: Category::Bunkers, model: "", parts, decals: true }
+    }
+    static SNAKE: std::sync::LazyLock<Piece> =
+        std::sync::LazyLock::new(|| test_piece(&[Part::Box([-1.8, 0.0, -0.356], [1.8, 0.75, 0.356])]));
+    static TALL_WALL: std::sync::LazyLock<Piece> =
+        std::sync::LazyLock::new(|| test_piece(&[Part::Box([-1.006, 0.0, -0.306], [1.006, 2.0, 0.306])]));
+    static CAN: std::sync::LazyLock<Piece> = std::sync::LazyLock::new(|| test_piece(&[Part::Cyl(0.0, 0.0, 0.537, 0.0, 1.31)]));
+
     #[test]
     fn round_trips_through_json() {
         let mut map = MapFile::blank("Test");
@@ -775,7 +926,7 @@ mod tests {
 
     #[test]
     fn quarter_turns_swap_box_sides() {
-        let p = piece("snake").unwrap();
+        let p = &SNAKE;
         let s = piece_solids(p, Vec3::ZERO, Quat::from_rotation_y(yaw_radians(90.0)), Vec3::ONE);
         let Shape::Box { min, max } = s[0].shape else {
             panic!()
@@ -806,7 +957,7 @@ mod tests {
 
     #[test]
     fn odd_turns_and_tilts_give_turned_boxes() {
-        let wall = piece("tall_wall").unwrap();
+        let wall = &TALL_WALL;
         let mut o = Object::new("tall_wall", [0.0; 3], 90.0);
         let quarter = piece_solids(wall, Vec3::ZERO, o.rotation(), Vec3::ONE);
         assert!(matches!(quarter[0].shape, Shape::Box { .. }));
@@ -814,15 +965,38 @@ mod tests {
         let s = piece_solids(wall, Vec3::ZERO, o.rotation(), Vec3::ONE);
         let Shape::Oriented { half, .. } = s[0].shape else { panic!() };
         assert!((half - Vec3::new(1.006, 1.0, 0.306)).length() < 1e-4);
-        // A tilted can (a cylinder) becomes the box around it.
-        let can = piece("can").unwrap();
+        // A tilted can (a cylinder) becomes a rod lying the way it was tipped.
+        let can = &CAN;
         let mut o = Object::new("can", [0.0; 3], 0.0);
         o.pitch = 90.0;
         let s = piece_solids(can, Vec3::ZERO, o.rotation(), Vec3::ONE);
-        let Shape::Oriented { .. } = s[0].shape else { panic!() };
+        assert!(s.iter().all(|s| matches!(s.shape, Shape::Hull(_))));
         // Lying down, it's low and long.
-        let (lo, hi) = s[0].shape.bounds();
+        let (lo, hi) = s.iter().fold((Vec3::MAX, Vec3::MIN), |(lo, hi), s| {
+            let (a, b) = s.shape.bounds();
+            (lo.min(a), hi.max(b))
+        });
         assert!(hi.y - lo.y < 1.2 && hi.z - lo.z > 1.2, "{lo} {hi}");
+    }
+
+    #[test]
+    fn every_part_fits_inside_its_models_reach() {
+        // Hulls are convex and every corner is inside all of their faces.
+        for p in PIECES {
+            for part in p.parts {
+                if let Part::Hull(h) = part {
+                    assert!(h.planes.len() >= 4 && h.points.len() >= 4, "{}", p.id);
+                    for &c in h.points {
+                        for &[x, y, z, d] in h.planes {
+                            assert!(x * c[0] + y * c[1] + z * c[2] - d < 2e-3, "{}: corner {c:?} outside", p.id);
+                        }
+                    }
+                    for &[a, b] in h.edges {
+                        assert!((a as usize) < h.points.len() && (b as usize) < h.points.len(), "{}", p.id);
+                    }
+                }
+            }
+        }
     }
 
     #[test]

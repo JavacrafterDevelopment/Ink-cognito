@@ -272,7 +272,7 @@ impl Layout {
             .solids
             .iter()
             .map(|s| Collider {
-                shape: s.shape,
+                shape: s.shape.clone(),
                 decals: s.decals,
             })
             .collect();
@@ -497,6 +497,24 @@ mod tests {
         let mut pos = Vec3::new(4.5, 0.9 + 0.75, 0.0);
         let floor = colliders.resolve_player(&mut pos, 0.42, 0.7, 2.5);
         assert!((floor - 0.75).abs() < 0.05, "floor {floor}");
+    }
+
+    #[test]
+    fn pine_hollow_bridge_collides_as_it_looks() {
+        let l = layout(MapId::PINE_HOLLOW);
+        let colliders = Colliders(l.colliders.clone());
+        // Paint flies under the deck (the old box filled it to the ground)...
+        assert!(colliders.segment_hit(Vec3::new(0.0, 0.5, -3.0), Vec3::new(0.0, 0.5, 3.0)).is_none());
+        // ...stops on the deck from above...
+        let hit = colliders.segment_hit(Vec3::new(0.0, 3.0, 0.0), Vec3::new(0.0, 0.5, 0.0)).unwrap();
+        assert!((hit.point.y - 1.05).abs() < 0.06, "{}", hit.point);
+        // ...and players stand on the deck but can't walk off through the railing.
+        let mut pos = Vec3::new(0.0, 1.9, 0.0);
+        let floor = colliders.resolve_player(&mut pos, 0.42, 1.04, 2.84);
+        assert!((floor - 1.05).abs() < 0.06, "floor {floor}");
+        let mut pos = Vec3::new(0.0, 1.9, 0.4);
+        colliders.resolve_player(&mut pos, 0.42, 1.04, 2.84);
+        assert!(pos.z < 0.4, "{pos}");
     }
 
     #[test]
