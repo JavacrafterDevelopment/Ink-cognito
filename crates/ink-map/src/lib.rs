@@ -857,7 +857,14 @@ fn perimeter(kind: Perimeter, h: Vec2, out: &mut Built) {
 
 /// The file names (without `.json`) of the maps that come with the game. The
 /// game compiles these in, so a custom map can't take one of these names.
-pub const BUILT_IN_IDS: [&str; 5] = ["SplatPark", "Dockyard", "RingRoad", "ThreeLanes", "PineHollow"];
+pub const BUILT_IN_IDS: [&str; 6] = [
+    "SplatPark",
+    "Dockyard",
+    "RingRoad",
+    "ThreeLanes",
+    "PineHollow",
+    "City",
+];
 
 /// Where custom maps live: `Ink-cognito/maps` in the game's settings folder
 /// (`%APPDATA%` on Windows, Application Support on macOS, `~/.config` elsewhere).

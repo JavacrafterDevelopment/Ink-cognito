@@ -199,15 +199,17 @@ impl MapId {
     pub const RING_ROAD: MapId = MapId::new("RingRoad");
     pub const THREE_LANES: MapId = MapId::new("ThreeLanes");
     pub const PINE_HOLLOW: MapId = MapId::new("PineHollow");
+    pub const CITY: MapId = MapId::new("City");
 
     /// The maps that come with the game (`ink_map::BUILT_IN_IDS` lists the same names).
     #[allow(dead_code)]
-    pub const BUILT_IN: [MapId; 5] = [
+    pub const BUILT_IN: [MapId; 6] = [
         MapId::SPLAT_PARK,
         MapId::DOCKYARD,
         MapId::RING_ROAD,
         MapId::THREE_LANES,
         MapId::PINE_HOLLOW,
+        MapId::CITY,
     ];
 
     /// An id from a name (cut to 31 bytes, on a character boundary).
