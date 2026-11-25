@@ -616,7 +616,7 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
         2 => (17.0, 0.075, 74.0, 0.026, 1.03), // Raptor
         3 => (30.0, 0.2, 95.0, 0.009, 1.0),    // Phantom
         4 => (22.0, 0.09, 78.0, 0.02, 0.9),    // Titan
-        5 => (13.0, 0.75, 68.0, 0.065, 0.98),  // Breacher (per ball)
+        5 => (13.0, 0.5, 68.0, 0.065, 0.98),   // Breacher (per ball)
         _ => (70.0, 1.0, 140.0, 0.002, 0.92),  // Longshot
     };
     let mut s = WeaponStats {
