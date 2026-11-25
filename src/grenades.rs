@@ -38,11 +38,11 @@ pub const FLASH_RECHARGE: f32 = 22.0;
 /// throw counter, and the thrower's hits on a player are summed into one
 /// `HitEvent` per frame (see `combat::move_projectiles`).
 const BOMB_BALLS: u32 = 850;
-/// Three times the old 13 m/s, so the burst snaps out instead of drifting.
-const BOMB_BALL_SPEED: f32 = 39.0;
+/// Same as a normal paintball out of the stock marker (the Vanta body).
+const BOMB_BALL_SPEED: f32 = 80.0;
 const BOMB_BALL_GRAVITY: f32 = 6.0;
 /// Per ball.
-const BOMB_BALL_DAMAGE: f32 = 20.0;
+const BOMB_BALL_DAMAGE: f32 = 40.0;
 /// Bomb balls only fly this long (they're done well before; it just bounds how
 /// many can be alive at once).
 const BOMB_BALL_LIFE: f32 = 1.6;
@@ -54,8 +54,8 @@ const FLASH_RADIUS: f32 = 9.0;
 pub const FLASH_SECONDS: f32 = 10.0;
 /// The last part of it, when the paint fades away.
 const FLASH_FADE: f32 = 2.5;
-const THROW_SPEED: f32 = 15.0;
-const THROW_LIFT: f32 = 3.5;
+const THROW_SPEED: f32 = 19.0;
+const THROW_LIFT: f32 = 4.5;
 const GRAVITY: f32 = 9.81;
 const GRENADE_RADIUS: f32 = 0.09;
 
@@ -148,8 +148,10 @@ struct GrenadeAssets {
     flash: HashMap<Team, Handle<StandardMaterial>>,
     throw: Handle<AudioSource>,
     bounce: Handle<AudioSource>,
-    burst: Handle<AudioSource>,
-    pop: Handle<AudioSource>,
+    /// The paint bomb going off.
+    nade: Handle<AudioSource>,
+    /// The flashbang going off.
+    flash_bang: Handle<AudioSource>,
 }
 
 #[derive(Component)]
@@ -212,8 +214,8 @@ fn load_grenade_assets(
         flash,
         throw: assets.load("audio/weapons/pump_cycle.ogg"),
         bounce: assets.load("audio/impacts/ball_bounce.ogg"),
-        burst: assets.load("audio/impacts/splat_player_hit.ogg"),
-        pop: assets.load("audio/weapons/tank_hiss.ogg"),
+        nade: assets.load("audio/weapons/nade.flac"),
+        flash_bang: assets.load("audio/weapons/flashexplosion.flac"),
     });
 }
 
@@ -445,7 +447,7 @@ fn move_grenades(
         match g.kind {
             Kind::Bomb => {
                 paint_burst_fx(&mut commands, &mut fx, &mut materials, point, g.team, 1.0);
-                play_sfx_at(&mut commands, &assets.burst, 1.0, point, &settings);
+                play_sfx_at(&mut commands, &assets.nade, 1.0, point, &settings);
                 let twist = (g.owner as f32) * 0.37;
                 for dir in burst_directions(BOMB_BALLS, twist) {
                     spawn_paintball(
@@ -464,8 +466,7 @@ fn move_grenades(
             }
             Kind::Flash => {
                 paint_burst_fx(&mut commands, &mut fx, &mut materials, point, g.team, 2.0);
-                play_sfx_at(&mut commands, &assets.pop, 1.0, point, &settings);
-                play_sfx_at(&mut commands, &assets.burst, 0.8, point, &settings);
+                play_sfx_at(&mut commands, &assets.flash_bang, 1.0, point, &settings);
                 // Only the thrower's screen decides who got painted.
                 if Some(g.owner) != local_id {
                     continue;
