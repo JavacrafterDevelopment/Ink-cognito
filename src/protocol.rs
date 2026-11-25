@@ -255,7 +255,35 @@ impl<'de> Deserialize<'de> for MapId {
     }
 }
 
-/// What the host picked: mode, map, and whether it counts for ranked.
+/// How fast everyone moves, picked by the host when creating a game.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum MovementSpeed {
+    /// Slower movement; the jump direction is locked once you leave the ground.
+    #[default]
+    Normal,
+    /// The original fast movement and jump, with full control in the air.
+    SuperDuper,
+}
+
+impl MovementSpeed {
+    pub const ALL: [MovementSpeed; 2] = [MovementSpeed::Normal, MovementSpeed::SuperDuper];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            MovementSpeed::Normal => "Normal",
+            MovementSpeed::SuperDuper => "Super Duper Speed",
+        }
+    }
+
+    pub fn blurb(self) -> &'static str {
+        match self {
+            MovementSpeed::Normal => "Grounded pace. No steering mid-air",
+            MovementSpeed::SuperDuper => "Fast run, big jumps, air control",
+        }
+    }
+}
+
+/// What the host picked: mode, map, movement, and whether it counts for ranked.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MatchSettings {
@@ -263,6 +291,8 @@ pub struct MatchSettings {
     pub map: MapId,
     /// Ranked (Elimination only).
     pub ranked: bool,
+    /// How fast players move and jump.
+    pub movement: MovementSpeed,
 }
 
 /// Where a match is at.

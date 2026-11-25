@@ -452,6 +452,7 @@ mod tests {
                 mode,
                 map: MapId::DOCKYARD,
                 ranked: false,
+                ..default()
             },
             ..default()
         }
