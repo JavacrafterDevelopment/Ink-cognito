@@ -131,12 +131,13 @@ fn face_center(pos: Vec3) -> f32 {
 // --- The map library ------------------------------------------------------
 
 /// The built-in maps, compiled in so every player has the same ones.
-const BUILT_IN_FILES: [(MapId, &str); 5] = [
+const BUILT_IN_FILES: [(MapId, &str); 6] = [
     (MapId::SPLAT_PARK, include_str!("../assets/maps/SplatPark.json")),
     (MapId::DOCKYARD, include_str!("../assets/maps/Dockyard.json")),
     (MapId::RING_ROAD, include_str!("../assets/maps/RingRoad.json")),
     (MapId::THREE_LANES, include_str!("../assets/maps/ThreeLanes.json")),
     (MapId::PINE_HOLLOW, include_str!("../assets/maps/PineHollow.json")),
+    (MapId::CITY, include_str!("../assets/maps/City.json")),
 ];
 
 /// Where the map editor saves custom maps and the game looks for them.
@@ -472,7 +473,7 @@ mod tests {
     #[test]
     fn built_in_maps_have_no_problems() {
         let library = MapLibrary::built_in();
-        assert_eq!(library.ids().count(), 5);
+        assert_eq!(library.ids().count(), 6);
         for id in MapId::BUILT_IN {
             let file = library.get(id).unwrap();
             assert!(file.problems().is_empty(), "{id:?}: {:?}", file.problems());

@@ -132,6 +132,12 @@ fn drive_portside(
     let snap = portside.snapshot();
     let hosting = hosting_port(&net);
 
+    // Everyone in the game sees us by our Portside name. Without Portside
+    // (or before it answers) we stay "Player N".
+    if let Some(name) = &snap.my_name {
+        net.set_local_name(name);
+    }
+
     for event in portside.poll_events() {
         match event {
             Event::Hosted { sid } => {

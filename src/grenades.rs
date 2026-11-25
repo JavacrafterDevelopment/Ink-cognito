@@ -12,7 +12,18 @@
 //!   checks who is close with a clear line to it and sends each of them a
 //!   `HitEvent` with `flash` set (no damage); they get paint over most of
 //!   their screen for 10 seconds. The paint is the thrower's team colour,
-//!   so flashing yourself paints your screen your own colour.
+//!   so flashing yourself paints your screen your own colour. Each flash
+//!   adds its own layer of paint, so a second flash doesn't wipe the first,
+//!   and dying clears it all. A ringing loops while any paint is up and
+//!   fades out with the last layer.
+//!
+//! The loadout picks which kind each key throws (`Loadout::grenade` /
+//! `Loadout::flash`, sent to others in `PlayerState::throwables`):
+//!
+//! - **Ultra Bang** (G): lands like a paint bomb, then bursts like one every
+//!   0.5 s for 7 s. 90 s recharge.
+//! - **9-Banger** (Q): a flashbang that goes off 9 times in a row. Three
+//!   times the flashbang's recharge.
 
 use crate::{
     AppState, Overlay,
@@ -21,28 +32,43 @@ use crate::{
         CombatSystems, Fx, LocalState, paint_burst_fx, play_sfx, play_sfx_at, spawn_paintball,
     },
     hud::HudPart,
+    loadout::Loadout,
     net::NetworkState,
     protocol::{FLAG_CROUCH, HitEvent, PlayerId, Team, enemies},
     settings::{AudioSettings, KeyAction, KeybindSettings},
     world::{CROUCH_DROP, EYE_OFFSET, LocalPlayer, MainCamera, RemotePlayer},
 };
-use bevy::prelude::*;
+use bevy::{
+    audio::{AudioSink, AudioSinkPlayback, Volume},
+    prelude::*,
+};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Seconds for a used paint bomb to come back.
 pub const BOMB_RECHARGE: f32 = 18.0;
 /// Seconds for a used flashbang to come back.
 pub const FLASH_RECHARGE: f32 = 22.0;
+/// Seconds for a used Ultra Bang to come back.
+pub const ULTRA_RECHARGE: f32 = 90.0;
+/// Seconds for a used 9-Banger to come back: three flashbangs' worth.
+pub const NINE_BANG_RECHARGE: f32 = FLASH_RECHARGE * 3.0;
+/// The Ultra Bang bursts this often...
+const ULTRA_INTERVAL: f32 = 0.5;
+/// ...this many times: every 0.5 s over 7 s.
+const ULTRA_BURSTS: u32 = 14;
+/// The 9-Banger's bursts, and the time between them.
+const NINE_BANG_BURSTS: u32 = 9;
+const NINE_BANG_INTERVAL: f32 = 0.3;
 /// How many paintballs a paint bomb bursts into. Nothing per ball goes over
 /// the network: every screen bursts the same bomb itself from the thrower's
 /// throw counter, and the thrower's hits on a player are summed into one
 /// `HitEvent` per frame (see `combat::move_projectiles`).
 const BOMB_BALLS: u32 = 850;
-/// Three times the old 13 m/s, so the burst snaps out instead of drifting.
-const BOMB_BALL_SPEED: f32 = 39.0;
+/// Same as a normal paintball out of the stock marker (the Vanta body).
+const BOMB_BALL_SPEED: f32 = 80.0;
 const BOMB_BALL_GRAVITY: f32 = 6.0;
 /// Per ball.
-const BOMB_BALL_DAMAGE: f32 = 20.0;
+const BOMB_BALL_DAMAGE: f32 = 40.0;
 /// Bomb balls only fly this long (they're done well before; it just bounds how
 /// many can be alive at once).
 const BOMB_BALL_LIFE: f32 = 1.6;
@@ -54,8 +80,10 @@ const FLASH_RADIUS: f32 = 9.0;
 pub const FLASH_SECONDS: f32 = 10.0;
 /// The last part of it, when the paint fades away.
 const FLASH_FADE: f32 = 2.5;
-const THROW_SPEED: f32 = 15.0;
-const THROW_LIFT: f32 = 3.5;
+/// Volume of the ringing while flashed (before the SFX volume setting).
+const RING_VOLUME: f32 = 0.6;
+const THROW_SPEED: f32 = 19.0;
+const THROW_LIFT: f32 = 4.5;
 const GRAVITY: f32 = 9.81;
 const GRENADE_RADIUS: f32 = 0.09;
 
@@ -93,6 +121,68 @@ impl Plugin for GrenadesPlugin {
 enum Kind {
     Bomb,
     Flash,
+    UltraBang,
+    NineBang,
+}
+
+impl Kind {
+    /// What the paint bomb key throws for a `Loadout::grenade` index.
+    fn for_bomb_slot(i: u8) -> Self {
+        match i {
+            1 => Kind::UltraBang,
+            _ => Kind::Bomb,
+        }
+    }
+
+    /// What the flashbang key throws for a `Loadout::flash` index.
+    fn for_flash_slot(i: u8) -> Self {
+        match i {
+            1 => Kind::NineBang,
+            _ => Kind::Flash,
+        }
+    }
+
+    /// Both keys' kinds from `PlayerState::throwables`.
+    fn from_packed(packed: u8) -> (Self, Self) {
+        (
+            Self::for_bomb_slot(packed & 0xF),
+            Self::for_flash_slot(packed >> 4),
+        )
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Kind::Bomb => "Paint Bomb",
+            Kind::Flash => "Flashbang",
+            Kind::UltraBang => "Ultra Bang",
+            Kind::NineBang => "9-Banger",
+        }
+    }
+
+    fn recharge(self) -> f32 {
+        match self {
+            Kind::Bomb => BOMB_RECHARGE,
+            Kind::Flash => FLASH_RECHARGE,
+            Kind::UltraBang => ULTRA_RECHARGE,
+            Kind::NineBang => NINE_BANG_RECHARGE,
+        }
+    }
+
+    fn fuse(self) -> f32 {
+        match self {
+            Kind::Bomb | Kind::UltraBang => BOMB_FUSE,
+            Kind::Flash | Kind::NineBang => FLASH_FUSE,
+        }
+    }
+
+    /// How many times it goes off, and the seconds between.
+    fn bursts(self) -> (u32, f32) {
+        match self {
+            Kind::Bomb | Kind::Flash => (1, 0.0),
+            Kind::UltraBang => (ULTRA_BURSTS, ULTRA_INTERVAL),
+            Kind::NineBang => (NINE_BANG_BURSTS, NINE_BANG_INTERVAL),
+        }
+    }
 }
 
 /// Seconds until each throwable is ready again (0 = ready).
@@ -102,14 +192,42 @@ pub struct Throwables {
     pub flash: f32,
 }
 
-/// The paint over our screen from a flashbang.
+/// The paint over our screen from flashbangs: one layer per flash, each
+/// counting down and fading on its own.
 #[derive(Resource, Default)]
 struct FlashOverlay {
+    layers: Vec<FlashLayer>,
+    /// The looping ringing sound, while any layer is up.
+    ring: Option<Entity>,
+}
+
+struct FlashLayer {
     /// Seconds left.
     left: f32,
     /// Whose paint it is (the thrower's team).
-    paint: Option<Team>,
+    paint: Team,
+    /// Its UI nodes, once spawned.
     root: Option<Entity>,
+}
+
+impl FlashOverlay {
+    /// How opaque the layer that lasts longest is (1 until it starts to
+    /// fade): the ringing follows it.
+    fn last_fade(&self) -> f32 {
+        let left = self.layers.iter().map(|l| l.left).fold(0.0, f32::max);
+        (left / FLASH_FADE).min(1.0)
+    }
+
+    fn clear(&mut self, commands: &mut Commands) {
+        for layer in self.layers.drain(..) {
+            if let Some(root) = layer.root {
+                commands.entity(root).despawn();
+            }
+        }
+        if let Some(ring) = self.ring.take() {
+            commands.entity(ring).despawn();
+        }
+    }
 }
 
 /// Flash ids we sent, and ones we already took (UDP resends).
@@ -148,8 +266,13 @@ struct GrenadeAssets {
     flash: HashMap<Team, Handle<StandardMaterial>>,
     throw: Handle<AudioSource>,
     bounce: Handle<AudioSource>,
-    burst: Handle<AudioSource>,
-    pop: Handle<AudioSource>,
+    /// The paint bomb going off.
+    nade: Handle<AudioSource>,
+    /// The flashbang going off.
+    flash_bang: Handle<AudioSource>,
+    ringing: Handle<AudioSource>,
+    /// Plays through the Ultra Bang's bursts.
+    ultra: Handle<AudioSource>,
 }
 
 #[derive(Component)]
@@ -160,12 +283,20 @@ struct Grenade {
     velocity: Vec3,
     fuse: f32,
     resting: bool,
+    /// Bursts still to go (more than one for the Ultra Bang and 9-Banger).
+    bursts_left: u32,
 }
 
 #[derive(Component)]
 struct FlashSplat {
     alpha: f32,
+    /// The layer's root node, to find how far it has faded.
+    layer: Entity,
 }
+
+/// The looping ringing while flashed.
+#[derive(Component)]
+struct FlashRing;
 
 #[derive(Component)]
 struct ChargeText;
@@ -212,8 +343,10 @@ fn load_grenade_assets(
         flash,
         throw: assets.load("audio/weapons/pump_cycle.ogg"),
         bounce: assets.load("audio/impacts/ball_bounce.ogg"),
-        burst: assets.load("audio/impacts/splat_player_hit.ogg"),
-        pop: assets.load("audio/weapons/tank_hiss.ogg"),
+        nade: assets.load("audio/weapons/nade.flac"),
+        flash_bang: assets.load("audio/weapons/flashexplosion.flac"),
+        ringing: assets.load("audio/game/ringing.flac"),
+        ultra: assets.load("audio/weapons/ultra_bang.flac"),
     });
 }
 
@@ -223,7 +356,7 @@ fn reset_throwables(
     mut book: ResMut<FlashBookkeeping>,
 ) {
     *throwables = Throwables::default();
-    // The overlay's nodes go with the game (`DespawnOnExit`).
+    // The overlay's nodes and the ringing go with the game (`DespawnOnExit`).
     *overlay = FlashOverlay::default();
     book.seen.clear();
     book.order.clear();
@@ -247,8 +380,8 @@ fn spawn_grenade(
 ) {
     let team = Team::of(owner);
     let mat = match kind {
-        Kind::Bomb => assets.bomb[&team].clone(),
-        Kind::Flash => assets.flash[&team].clone(),
+        Kind::Bomb | Kind::UltraBang => assets.bomb[&team].clone(),
+        Kind::Flash | Kind::NineBang => assets.flash[&team].clone(),
     };
     commands.spawn((
         Mesh3d(assets.mesh.clone()),
@@ -259,11 +392,9 @@ fn spawn_grenade(
             owner,
             team,
             velocity,
-            fuse: match kind {
-                Kind::Bomb => BOMB_FUSE,
-                Kind::Flash => FLASH_FUSE,
-            },
+            fuse: kind.fuse(),
             resting: false,
+            bursts_left: kind.bursts().0,
         },
         DespawnOnExit(AppState::InGame),
     ));
@@ -280,6 +411,7 @@ fn throw_local(
     overlay: Res<Overlay>,
     net: Res<NetworkState>,
     settings: Res<AudioSettings>,
+    loadout: Res<Loadout>,
     assets: Option<Res<GrenadeAssets>>,
     mut throwables: ResMut<Throwables>,
     mut local_state: ResMut<LocalState>,
@@ -289,6 +421,12 @@ fn throw_local(
     let dt = time.delta_secs();
     throwables.bomb = (throwables.bomb - dt).max(0.0);
     throwables.flash = (throwables.flash - dt).max(0.0);
+    // Others throw whatever this says when our counters go up.
+    let packed = loadout.pack_throwables();
+    if local_state.0.throwables != packed {
+        local_state.0.throwables = packed;
+    }
+    let (bomb_kind, flash_kind) = Kind::from_packed(packed);
     let Some(assets) = assets else {
         return;
     };
@@ -301,14 +439,14 @@ fn throw_local(
     let kind = if throwables.bomb <= 0.0
         && keybinds.just_pressed(KeyAction::PaintBomb, &keys, &mouse)
     {
-        throwables.bomb = BOMB_RECHARGE;
+        throwables.bomb = bomb_kind.recharge();
         local_state.0.bombs = local_state.0.bombs.wrapping_add(1);
-        Kind::Bomb
+        bomb_kind
     } else if throwables.flash <= 0.0 && keybinds.just_pressed(KeyAction::Flashbang, &keys, &mouse)
     {
-        throwables.flash = FLASH_RECHARGE;
+        throwables.flash = flash_kind.recharge();
         local_state.0.flashes = local_state.0.flashes.wrapping_add(1);
-        Kind::Flash
+        flash_kind
     } else {
         return;
     };
@@ -352,9 +490,10 @@ fn throw_remote(
         let eye =
             remote.target_pos + Vec3::Y * (EYE_OFFSET - if crouched { CROUCH_DROP } else { 0.0 });
         let origin = eye + forward * 0.5 + rot * Vec3::new(-0.15, -0.1, 0.0);
+        let (bomb_kind, flash_kind) = Kind::from_packed(remote.state.throwables);
         for (kind, new) in [
-            (Kind::Bomb, now.0.wrapping_sub(before.0)),
-            (Kind::Flash, now.1.wrapping_sub(before.1)),
+            (bomb_kind, now.0.wrapping_sub(before.0)),
+            (flash_kind, now.1.wrapping_sub(before.1)),
         ] {
             // A handful at most (more means a rejoin or a wrapped counter).
             if new == 0 || new > 3 {
@@ -405,7 +544,8 @@ fn move_grenades(
     let Some(assets) = assets else {
         return;
     };
-    let dt = time.delta_secs().min(0.05);
+    // Capped only for hitches: the swept segment test keeps long steps out of walls.
+    let dt = time.delta_secs().min(0.1);
     let local = local_q.single().ok();
     let local_id = net.local_player_id.or(local.map(|(_, p)| p.id));
 
@@ -415,9 +555,10 @@ fn move_grenades(
             if g.resting {
                 continue;
             }
-            g.velocity.y -= GRAVITY * dt;
+            // Exact under constant gravity: the same arc at any frame rate.
             let from = tf.translation;
-            let to = from + g.velocity * dt;
+            let to = from + g.velocity * dt - Vec3::Y * (0.5 * GRAVITY * dt * dt);
+            g.velocity.y -= GRAVITY * dt;
             if let Some(hit) = colliders.segment_hit(from, to) {
                 let n = hit.normal.normalize_or(Vec3::Y);
                 let v = g.velocity;
@@ -439,13 +580,23 @@ fn move_grenades(
             continue;
         }
 
-        // Boom.
+        // Boom. The Ultra Bang and 9-Banger go again after a beat, from
+        // wherever they've rolled to.
         let point = tf.translation + Vec3::Y * 0.15;
-        commands.entity(entity).despawn();
+        let (total, interval) = g.kind.bursts();
+        if g.kind == Kind::UltraBang && g.bursts_left == total {
+            play_sfx_at(&mut commands, &assets.ultra, 1.0, point, &settings);
+        }
+        g.bursts_left = g.bursts_left.saturating_sub(1);
+        if g.bursts_left > 0 {
+            g.fuse = interval;
+        } else {
+            commands.entity(entity).despawn();
+        }
         match g.kind {
-            Kind::Bomb => {
+            Kind::Bomb | Kind::UltraBang => {
                 paint_burst_fx(&mut commands, &mut fx, &mut materials, point, g.team, 1.0);
-                play_sfx_at(&mut commands, &assets.burst, 1.0, point, &settings);
+                play_sfx_at(&mut commands, &assets.nade, 1.0, point, &settings);
                 let twist = (g.owner as f32) * 0.37;
                 for dir in burst_directions(BOMB_BALLS, twist) {
                     spawn_paintball(
@@ -462,10 +613,9 @@ fn move_grenades(
                     );
                 }
             }
-            Kind::Flash => {
+            Kind::Flash | Kind::NineBang => {
                 paint_burst_fx(&mut commands, &mut fx, &mut materials, point, g.team, 2.0);
-                play_sfx_at(&mut commands, &assets.pop, 1.0, point, &settings);
-                play_sfx_at(&mut commands, &assets.burst, 0.8, point, &settings);
+                play_sfx_at(&mut commands, &assets.flash_bang, 1.0, point, &settings);
                 // Only the thrower's screen decides who got painted.
                 if Some(g.owner) != local_id {
                     continue;
@@ -508,9 +658,13 @@ fn move_grenades(
     }
 }
 
+/// Adds a layer of paint on top of whatever is already there.
 fn paint_screen(overlay: &mut FlashOverlay, paint: Team) {
-    overlay.left = FLASH_SECONDS;
-    overlay.paint = Some(paint);
+    overlay.layers.push(FlashLayer {
+        left: FLASH_SECONDS,
+        paint,
+        root: None,
+    });
 }
 
 /// Flashbangs others say went off next to us.
@@ -547,43 +701,88 @@ fn receive_flashes(
 }
 
 /// Paint over ~90% of the screen while a flash lasts, fading at the end.
+/// Each flash is its own layer; the ringing loops while any is up and
+/// fades with the last one. Dying (or a round restart) wipes it all.
 #[allow(clippy::too_many_arguments)]
 fn update_flash_overlay(
     mut commands: Commands,
     time: Res<Time>,
     fx: Res<Fx>,
     net: Res<NetworkState>,
+    settings: Res<AudioSettings>,
+    assets: Option<Res<GrenadeAssets>>,
+    local_state: Res<LocalState>,
     mut overlay: ResMut<FlashOverlay>,
     mut splats: Query<(&FlashSplat, &mut ImageNode)>,
-    mut last_flash_left: Local<f32>,
+    mut ring_q: Query<&mut AudioSink, With<FlashRing>>,
+    mut last_resets: Local<Option<u32>>,
 ) {
-    let fresh = overlay.left > *last_flash_left + 0.01;
-    overlay.left = (overlay.left - time.delta_secs()).max(0.0);
-    *last_flash_left = overlay.left;
-
-    if fresh {
-        if let Some(old) = overlay.root.take() {
-            commands.entity(old).despawn();
-        }
-        // The thrower's colour: an enemy's flash is theirs, our own is ours.
-        let paint = overlay.paint.unwrap_or_else(|| {
-            match net.local_player_id.map(Team::of).unwrap_or(Team::Blue) {
-                Team::Blue => Team::Orange,
-                Team::Orange => Team::Blue,
-            }
-        });
-        overlay.root = Some(spawn_flash_overlay(&mut commands, &fx, paint));
+    let resets = net.match_state.resets;
+    let restarted = last_resets.is_some_and(|r| r != resets);
+    *last_resets = Some(resets);
+    if local_state.0.health <= 0.0 || restarted {
+        overlay.clear(&mut commands);
+        return;
     }
 
-    if overlay.left <= 0.0 {
-        if let Some(root) = overlay.root.take() {
+    let dt = time.delta_secs();
+    let overlay = &mut *overlay;
+    overlay.layers.retain_mut(|layer| {
+        layer.left = (layer.left - dt).max(0.0);
+        if layer.left > 0.0 {
+            return true;
+        }
+        if let Some(root) = layer.root.take() {
             commands.entity(root).despawn();
+        }
+        false
+    });
+    for layer in &mut overlay.layers {
+        if layer.root.is_none() {
+            layer.root = Some(spawn_flash_overlay(&mut commands, &fx, layer.paint));
+        }
+    }
+
+    for (splat, mut image) in &mut splats {
+        let Some(layer) = overlay
+            .layers
+            .iter()
+            .find(|l| l.root == Some(splat.layer))
+        else {
+            continue;
+        };
+        let fade = (layer.left / FLASH_FADE).min(1.0);
+        image.color = image.color.with_alpha(splat.alpha * fade);
+    }
+
+    // Ringing: on while any paint is up, fading out with the last layer.
+    if overlay.layers.is_empty() {
+        if let Some(ring) = overlay.ring.take() {
+            commands.entity(ring).despawn();
         }
         return;
     }
-    let fade = (overlay.left / FLASH_FADE).min(1.0);
-    for (splat, mut image) in &mut splats {
-        image.color = image.color.with_alpha(splat.alpha * fade);
+    let volume = RING_VOLUME * settings.effective_sfx() * overlay.last_fade();
+    match overlay.ring {
+        Some(ring) => {
+            if let Ok(mut sink) = ring_q.get_mut(ring) {
+                sink.set_volume(Volume::Linear(volume));
+            }
+        }
+        None => {
+            if let Some(assets) = assets {
+                overlay.ring = Some(
+                    commands
+                        .spawn((
+                            AudioPlayer::new(assets.ringing.clone()),
+                            PlaybackSettings::LOOP.with_volume(Volume::Linear(volume)),
+                            FlashRing,
+                            DespawnOnExit(AppState::InGame),
+                        ))
+                        .id(),
+                );
+            }
+        }
     }
 }
 
@@ -656,7 +855,7 @@ fn spawn_flash_overlay(commands: &mut Commands, fx: &Fx, paint: Team) -> Entity 
                         height: Val::Percent(h),
                         ..default()
                     },
-                    FlashSplat { alpha },
+                    FlashSplat { alpha, layer: root },
                     Pickable::IGNORE,
                 ));
             }
@@ -702,21 +901,23 @@ fn charge_line(key: &str, name: &str, left: f32) -> String {
 fn update_charge_hud(
     throwables: Res<Throwables>,
     keybinds: Res<KeybindSettings>,
+    loadout: Res<Loadout>,
     mut text_q: Query<&mut Text, With<ChargeText>>,
 ) {
     let Ok(mut text) = text_q.single_mut() else {
         return;
     };
+    let (bomb_kind, flash_kind) = Kind::from_packed(loadout.pack_throwables());
     let s = format!(
         "{}\n{}",
         charge_line(
             keybinds.get(KeyAction::PaintBomb).label(),
-            "Paint Bomb",
+            bomb_kind.name(),
             throwables.bomb
         ),
         charge_line(
             keybinds.get(KeyAction::Flashbang).label(),
-            "Flashbang",
+            flash_kind.name(),
             throwables.flash
         ),
     );
@@ -740,6 +941,23 @@ mod tests {
         assert!(sum.length() < 1.0, "burst is lopsided: {sum:?}");
         assert!(dirs.iter().any(|d| d.y > 0.9));
         assert!(dirs.iter().any(|d| d.y < -0.9));
+    }
+
+    #[test]
+    fn throwable_kinds_round_trip() {
+        let mut l = Loadout::default();
+        assert_eq!(
+            Kind::from_packed(l.pack_throwables()),
+            (Kind::Bomb, Kind::Flash)
+        );
+        l.grenade = 1;
+        l.flash = 1;
+        assert_eq!(
+            Kind::from_packed(l.pack_throwables()),
+            (Kind::UltraBang, Kind::NineBang)
+        );
+        assert_eq!(NINE_BANG_RECHARGE, 66.0);
+        assert_eq!(ULTRA_BURSTS as f32 * ULTRA_INTERVAL, 7.0);
     }
 
     #[test]

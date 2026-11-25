@@ -67,16 +67,17 @@ pub fn health_color(frac: f32) -> Color {
     Color::hsl(120.0 * frac.clamp(0.0, 1.0), 0.78, 0.47)
 }
 
-pub fn player_name(id: PlayerId, local: Option<PlayerId>) -> String {
-    if Some(id) == local {
+/// "You" for the local player, otherwise their Portside name (or "Player N").
+pub fn player_name(net: &NetworkState, id: PlayerId) -> String {
+    if Some(id) == net.local_player_id {
         "You".to_string()
     } else {
-        format!("Player {}", id + 1)
+        net.display_name(id)
     }
 }
 
 /// A player's colour: their team's, or neutral in free-for-all.
-fn player_color(ms: &MatchState, id: PlayerId) -> Color {
+pub fn player_color(ms: &MatchState, id: PlayerId) -> Color {
     if ms.settings.mode.teams() {
         team_color(Team::of(id)).lighter(0.15)
     } else {
@@ -954,7 +955,7 @@ fn update_center(
             img.image = assets.load(CROSSHAIRS[crosshair_settings.style as usize].1);
         }
         // Fades while aiming down a sight (the sight is the crosshair then).
-        let a = if alive && !overlay.blocks_input() {
+        let a = if alive && !overlay.menu_open() {
             0.9 * (1.0 - combat.aim_blend * 0.3)
         } else {
             0.0
@@ -1090,12 +1091,13 @@ fn update_score_header(
 
 /// What the banner shows: (image, big text, line).
 fn banner_for(
-    ms: &MatchState,
+    net: &NetworkState,
     me: PlayerId,
     combat: &Combat,
     local_state: &LocalState,
     rank: &RankResult,
 ) -> Option<(&'static str, String, String)> {
+    let ms = &net.match_state;
     let my_team = Team::of(me);
     let team_win = |w: u8| match w {
         WIN_BLUE => Some(Team::Blue),
@@ -1166,7 +1168,7 @@ fn banner_for(
             let by = if killer == me {
                 "You're out".to_string()
             } else {
-                format!("Splatted by Player {}", killer + 1)
+                format!("Splatted by {}", net.display_name(killer))
             };
             let line = if ms.respawns() {
                 format!("{by}  |  back in {}", left.ceil() as u32)
@@ -1192,7 +1194,7 @@ fn update_banner(
     mut toast_q: Query<&mut ImageNode, Without<BannerImage>>,
 ) {
     let me = net.local_player_id.unwrap_or(0);
-    let shown = banner_for(&net.match_state, me, &combat, &local_state, &rank);
+    let shown = banner_for(&net, me, &combat, &local_state, &rank);
     if let Ok(mut node) = banner_q.single_mut() {
         let want = if shown.is_some() {
             Display::Flex
@@ -1234,6 +1236,7 @@ fn update_killfeed(
     net: Res<NetworkState>,
     list_q: Query<Entity, With<KillfeedList>>,
     mut shown: Local<Vec<(PlayerId, PlayerId, u32)>>,
+    mut names_seen: Local<u32>,
 ) {
     let Ok(list) = list_q.single() else {
         return;
@@ -1243,10 +1246,11 @@ fn update_killfeed(
         .iter()
         .map(|(k, v, t)| (*k, *v, t.to_bits()))
         .collect();
-    if *shown == now {
+    if *shown == now && *names_seen == net.names_version {
         return;
     }
     *shown = now;
+    *names_seen = net.names_version;
     commands.entity(list).despawn_related::<Children>();
     let local = net.local_player_id;
     let ms = &net.match_state;
@@ -1271,7 +1275,7 @@ fn update_killfeed(
             ))
             .with_children(|row| {
                 row.spawn((
-                    Text::new(player_name(killer, local)),
+                    Text::new(player_name(&net, killer)),
                     TextFont::from_font_size(13.0),
                     TextColor(player_color(ms, killer)),
                     Pickable::IGNORE,
@@ -1292,7 +1296,7 @@ fn update_killfeed(
                     Pickable::IGNORE,
                 ));
                 row.spawn((
-                    Text::new(player_name(victim, local)),
+                    Text::new(player_name(&net, victim)),
                     TextFont::from_font_size(13.0),
                     TextColor(player_color(ms, victim)),
                     Pickable::IGNORE,
@@ -1438,6 +1442,7 @@ fn update_scoreboard(
     mut title_q: Query<&mut Text, With<ScoreboardTitle>>,
     rows_q: Query<Entity, With<ScoreboardRows>>,
     mut last: Local<Vec<(PlayerId, u32, u32, u16, bool)>>,
+    mut names_seen: Local<u32>,
 ) {
     let ms = &net.match_state;
     let open = keybinds.pressed(crate::settings::KeyAction::Scoreboard, &keys, &mouse)
@@ -1486,10 +1491,11 @@ fn update_scoreboard(
             .then(a.0.cmp(&b.0))
     });
     lines.truncate(16);
-    if *last == lines {
+    if *last == lines && *names_seen == net.names_version {
         return;
     }
     *last = lines.clone();
+    *names_seen = net.names_version;
     let Ok(rows) = rows_q.single() else {
         return;
     };
@@ -1531,9 +1537,9 @@ fn update_scoreboard(
                     ));
                 }
                 let name = if Some(id) == me {
-                    format!("Player {} (you)", id + 1)
+                    format!("{} (you)", net.display_name(id))
                 } else {
-                    format!("Player {}", id + 1)
+                    net.display_name(id)
                 };
                 r.spawn((
                     Text::new(name),

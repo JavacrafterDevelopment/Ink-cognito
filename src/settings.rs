@@ -203,11 +203,48 @@ impl WindowModeOption {
     }
 }
 
+/// Frame-rate caps offered in Display settings (0 = unlimited).
+pub const FPS_LIMITS: [u32; 7] = [30, 60, 120, 144, 165, 240, 0];
+
 /// Persisted display settings.
-#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DisplaySettings {
     pub window_mode: WindowModeOption,
+    /// Small frames-per-second readout in the top-right corner.
+    pub show_fps: bool,
+    /// Sync presentation to the monitor's refresh rate.
+    pub vsync: bool,
+    /// Frame-rate cap in frames per second; 0 means unlimited.
+    pub fps_limit: u32,
+}
+
+impl Default for DisplaySettings {
+    fn default() -> Self {
+        Self {
+            window_mode: WindowModeOption::default(),
+            show_fps: false,
+            vsync: true,
+            fps_limit: 0,
+        }
+    }
+}
+
+impl DisplaySettings {
+    pub fn sanitized(mut self) -> Self {
+        if self.fps_limit != 0 {
+            self.fps_limit = self.fps_limit.clamp(30, 1000);
+        }
+        self
+    }
+}
+
+fn fps_limit_label(limit: u32) -> String {
+    if limit == 0 {
+        "Unlimited".to_string()
+    } else {
+        limit.to_string()
+    }
 }
 
 /// Persisted crosshair choice (index into [`CROSSHAIRS`]).
@@ -436,10 +473,11 @@ pub enum KeyAction {
     PaintBomb,
     Flashbang,
     Scoreboard,
+    Chat,
 }
 
 impl KeyAction {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::MoveForward,
         Self::MoveBackward,
         Self::MoveLeft,
@@ -453,6 +491,7 @@ impl KeyAction {
         Self::PaintBomb,
         Self::Flashbang,
         Self::Scoreboard,
+        Self::Chat,
     ];
 
     pub fn label(self) -> &'static str {
@@ -470,6 +509,7 @@ impl KeyAction {
             Self::PaintBomb => "Paint Bomb",
             Self::Flashbang => "Flashbang",
             Self::Scoreboard => "Scoreboard",
+            Self::Chat => "Chat",
         }
     }
 }
@@ -491,6 +531,7 @@ pub struct KeybindSettings {
     pub paint_bomb: InputBinding,
     pub flashbang: InputBinding,
     pub scoreboard: InputBinding,
+    pub chat: InputBinding,
 }
 
 impl Default for KeybindSettings {
@@ -509,6 +550,7 @@ impl Default for KeybindSettings {
             paint_bomb: InputBinding::Key(KeyCode::KeyG),
             flashbang: InputBinding::Key(KeyCode::KeyQ),
             scoreboard: InputBinding::Key(KeyCode::Tab),
+            chat: InputBinding::Key(KeyCode::Enter),
         }
     }
 }
@@ -529,6 +571,7 @@ impl KeybindSettings {
             KeyAction::PaintBomb => self.paint_bomb,
             KeyAction::Flashbang => self.flashbang,
             KeyAction::Scoreboard => self.scoreboard,
+            KeyAction::Chat => self.chat,
         }
     }
 
@@ -547,6 +590,7 @@ impl KeybindSettings {
             KeyAction::PaintBomb => self.paint_bomb = binding,
             KeyAction::Flashbang => self.flashbang = binding,
             KeyAction::Scoreboard => self.scoreboard = binding,
+            KeyAction::Chat => self.chat = binding,
         }
     }
 
@@ -582,6 +626,7 @@ pub struct SavedSettings {
 impl SavedSettings {
     pub fn sanitized(mut self) -> Self {
         self.audio = self.audio.sanitized();
+        self.display = self.display.sanitized();
         self.crosshair = self.crosshair.sanitized();
         self
     }
@@ -622,7 +667,7 @@ impl SettingsTab {
 
     fn subtitle(self) -> &'static str {
         match self {
-            Self::Display => "Window mode and screen presentation",
+            Self::Display => "Window mode, frame rate and screen presentation",
             Self::Audio => "Volume levels  •  Click or drag bars to adjust",
             Self::Crosshair => "Choose the aiming reticle shown in-game",
             Self::View => "Look sensitivity and field of view  •  Click or drag bars to adjust",
@@ -663,6 +708,9 @@ struct SettingsRoot;
 enum SettingsAction {
     SelectTab(SettingsTab),
     SetWindowMode(WindowModeOption),
+    ToggleFpsCounter,
+    ToggleVsync,
+    SetFpsLimit(u32),
     StepAudio(AudioChannel, f32),
     ToggleMute,
     SetCrosshair(u8),
@@ -896,6 +944,18 @@ fn on_settings_click(
         }
         SettingsAction::SetWindowMode(mode) => {
             display.window_mode = mode;
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
+        }
+        SettingsAction::ToggleFpsCounter => {
+            display.show_fps = !display.show_fps;
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
+        }
+        SettingsAction::ToggleVsync => {
+            display.vsync = !display.vsync;
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
+        }
+        SettingsAction::SetFpsLimit(limit) => {
+            display.fps_limit = limit;
             save_all_settings(&audio, &display, &crosshair, &keybinds);
         }
         SettingsAction::StepAudio(ch, delta) => {
@@ -1266,7 +1326,10 @@ fn spawn_settings_view(
                             Pickable::IGNORE,
                         ))
                         .with_children(|body| match ui.tab {
-                            SettingsTab::Display => spawn_display_section(body, display),
+                            SettingsTab::Display => {
+                                spawn_display_section(body, display);
+                                spawn_frame_rate_section(body, display);
+                            }
                             SettingsTab::Audio => spawn_audio_section(body, audio),
                             SettingsTab::Crosshair => {
                                 spawn_crosshair_section(body, crosshair, assets)
@@ -1324,6 +1387,127 @@ fn spawn_display_section(parent: &mut ChildSpawnerCommands, display: &DisplaySet
                 ));
             });
     }
+}
+
+/// A labelled row with an On/Off button on the right.
+fn spawn_toggle_row(
+    parent: &mut ChildSpawnerCommands,
+    label: &str,
+    on: bool,
+    action: SettingsAction,
+) {
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                border_radius: BorderRadius::all(Val::Px(10.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.03, 0.05, 0.08, 0.72)),
+            BorderColor::all(BORDER_SUBTLE),
+            Pickable::IGNORE,
+        ))
+        .with_children(|row| {
+            row.spawn((
+                Text::new(label),
+                TextFont::from_font_size(15.0),
+                TextColor(TEXT_PRIMARY),
+                Pickable::IGNORE,
+            ));
+            row.spawn((
+                Node {
+                    width: Val::Px(120.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|wrap| {
+                spawn_button(
+                    wrap,
+                    if on { "On" } else { "Off" },
+                    action,
+                    style_for(on),
+                    34.0,
+                    14.0,
+                    false,
+                );
+            });
+        });
+}
+
+fn spawn_frame_rate_section(parent: &mut ChildSpawnerCommands, display: &DisplaySettings) {
+    parent.spawn((
+        Text::new("FRAME RATE"),
+        TextFont::from_font_size(13.0),
+        TextColor(TEXT_MUTED),
+        Node {
+            margin: UiRect::top(Val::Px(8.0)),
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    spawn_toggle_row(
+        parent,
+        "Show FPS Counter",
+        display.show_fps,
+        SettingsAction::ToggleFpsCounter,
+    );
+    spawn_toggle_row(parent, "VSync", display.vsync, SettingsAction::ToggleVsync);
+
+    parent.spawn((
+        Text::new("FPS LIMIT"),
+        TextFont::from_font_size(13.0),
+        TextColor(TEXT_MUTED),
+        Pickable::IGNORE,
+    ));
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: Val::Px(8.0),
+                row_gap: Val::Px(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|row| {
+            for limit in FPS_LIMITS {
+                row.spawn((
+                    Node {
+                        width: Val::Px(if limit == 0 { 120.0 } else { 76.0 }),
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|wrap| {
+                    spawn_button(
+                        wrap,
+                        &fps_limit_label(limit),
+                        SettingsAction::SetFpsLimit(limit),
+                        style_for(display.fps_limit == limit),
+                        34.0,
+                        14.0,
+                        false,
+                    );
+                });
+            }
+        });
+    parent.spawn((
+        Text::new(
+            "With VSync on, the frame rate also stops at your monitor's refresh rate. \
+             Gameplay runs the same at any frame rate.",
+        ),
+        TextFont::from_font_size(12.0),
+        TextColor(TEXT_MUTED),
+        Pickable::IGNORE,
+    ));
 }
 
 fn spawn_audio_section(parent: &mut ChildSpawnerCommands, audio: &AudioSettings) {

@@ -356,6 +356,35 @@ pub const WATER_GUNS: &[Part] = &[
     },
 ];
 
+/// What the paint bomb key (G) throws. No models: the throwables are drawn
+/// as plain spheres. Index order matches `grenades::Kind::for_bomb_slot`.
+pub const GRENADES: &[Part] = &[
+    Part {
+        name: "Paint Bomb",
+        blurb: "One big burst of paintballs. 18 s recharge.",
+        model: "",
+    },
+    Part {
+        name: "Ultra Bang",
+        blurb: "Keeps bursting every 0.5 s for 7 s. 90 s recharge.",
+        model: "",
+    },
+];
+
+/// What the flashbang key (Q) throws.
+pub const FLASHES: &[Part] = &[
+    Part {
+        name: "Flashbang",
+        blurb: "One cloud of paint over nearby screens. 22 s recharge.",
+        model: "",
+    },
+    Part {
+        name: "9-Banger",
+        blurb: "Bursts 9 times in a row. 66 s recharge.",
+        model: "",
+    },
+];
+
 /// Which crosshair the HUD shows.
 pub const CROSSHAIRS: &[(&str, &str)] = &[
     ("Cross", "textures/ui/crosshair_cross.png"),
@@ -386,6 +415,10 @@ pub struct Loadout {
     pub crosshair: u8,
     /// Camo skin (`SKINS`), paintball markers only.
     pub skin: u8,
+    /// Which grenade (`GRENADES`) the paint bomb key throws.
+    pub grenade: u8,
+    /// Which flash (`FLASHES`) the flashbang key throws.
+    pub flash: u8,
 }
 
 impl Default for Loadout {
@@ -403,6 +436,8 @@ impl Default for Loadout {
             water: 1,
             crosshair: 0,
             skin: 0,
+            grenade: 0,
+            flash: 0,
         }
     }
 }
@@ -419,6 +454,8 @@ pub enum Slot {
     Foregrip,
     Skin,
     Water,
+    Grenade,
+    Flash,
 }
 
 impl Slot {
@@ -433,6 +470,13 @@ impl Slot {
         Slot::Skin,
     ];
 
+    /// The throwables, chosen with either gun kind.
+    pub const THROWABLES: [Slot; 2] = [Slot::Grenade, Slot::Flash];
+
+    pub fn is_throwable(self) -> bool {
+        matches!(self, Slot::Grenade | Slot::Flash)
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Slot::Body => "Body",
@@ -444,6 +488,8 @@ impl Slot {
             Slot::Foregrip => "Foregrip",
             Slot::Skin => "Skin",
             Slot::Water => "Water Gun",
+            Slot::Grenade => "Grenade",
+            Slot::Flash => "Flash",
         }
     }
 
@@ -458,6 +504,8 @@ impl Slot {
             Slot::Foregrip => FOREGRIPS,
             Slot::Skin => SKINS,
             Slot::Water => WATER_GUNS,
+            Slot::Grenade => GRENADES,
+            Slot::Flash => FLASHES,
         }
     }
 }
@@ -474,6 +522,8 @@ impl Loadout {
             Slot::Foregrip => self.foregrip,
             Slot::Skin => self.skin,
             Slot::Water => self.water,
+            Slot::Grenade => self.grenade,
+            Slot::Flash => self.flash,
         }
     }
 
@@ -489,12 +539,18 @@ impl Loadout {
             Slot::Foregrip => self.foregrip = value,
             Slot::Skin => self.skin = value,
             Slot::Water => self.water = value,
+            Slot::Grenade => self.grenade = value,
+            Slot::Flash => self.flash = value,
         }
     }
 
     /// Keeps every index in range (a hand-edited or older save).
     pub fn sanitized(mut self) -> Self {
-        for slot in Slot::PAINTBALL.into_iter().chain([Slot::Water]) {
+        for slot in Slot::PAINTBALL
+            .into_iter()
+            .chain([Slot::Water])
+            .chain(Slot::THROWABLES)
+        {
             let v = self.get(slot);
             self.set(slot, v);
         }
@@ -520,6 +576,12 @@ impl Loadout {
                     | ((self.foregrip as u32) & 7) << 28
             }
         }
+    }
+
+    /// The throwables, packed for `PlayerState::throwables`: grenade in the
+    /// low 4 bits, flash in the high 4.
+    pub fn pack_throwables(&self) -> u8 {
+        (self.grenade & 0xF) | (self.flash & 0xF) << 4
     }
 
     pub fn unpack(v: u32) -> Self {
@@ -616,7 +678,7 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
         2 => (17.0, 0.075, 74.0, 0.026, 1.03), // Raptor
         3 => (30.0, 0.2, 95.0, 0.009, 1.0),    // Phantom
         4 => (22.0, 0.09, 78.0, 0.02, 0.9),    // Titan
-        5 => (13.0, 0.75, 68.0, 0.065, 0.98),  // Breacher (per ball)
+        5 => (13.0, 0.5, 68.0, 0.065, 0.98),   // Breacher (per ball)
         _ => (70.0, 1.0, 140.0, 0.002, 0.92),  // Longshot
     };
     let mut s = WeaponStats {

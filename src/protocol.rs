@@ -58,6 +58,9 @@ pub struct PlayerState {
     pub bombs: u8,
     /// Counts flashbangs thrown, the same way.
     pub flashes: u8,
+    /// Which grenade and flash they carry (`Loadout::pack_throwables`), so
+    /// others throw the right kind when the counters above go up.
+    pub throwables: u8,
 }
 
 /// `PlayerState::flags`: crouching.
@@ -83,6 +86,7 @@ impl Default for PlayerState {
             rank_points: 0,
             bombs: 0,
             flashes: 0,
+            throwables: 0,
         }
     }
 }
@@ -195,15 +199,17 @@ impl MapId {
     pub const RING_ROAD: MapId = MapId::new("RingRoad");
     pub const THREE_LANES: MapId = MapId::new("ThreeLanes");
     pub const PINE_HOLLOW: MapId = MapId::new("PineHollow");
+    pub const CITY: MapId = MapId::new("City");
 
     /// The maps that come with the game (`ink_map::BUILT_IN_IDS` lists the same names).
     #[allow(dead_code)]
-    pub const BUILT_IN: [MapId; 5] = [
+    pub const BUILT_IN: [MapId; 6] = [
         MapId::SPLAT_PARK,
         MapId::DOCKYARD,
         MapId::RING_ROAD,
         MapId::THREE_LANES,
         MapId::PINE_HOLLOW,
+        MapId::CITY,
     ];
 
     /// An id from a name (cut to 31 bytes, on a character boundary).
@@ -431,6 +437,12 @@ pub enum ClientMessage {
     Ping,
     /// The player is leaving (sent before closing).
     Leave,
+    /// The name to show for this player (their Portside name). Sent once
+    /// connected, and over UDP again every couple of seconds in case it's lost.
+    SetName(String),
+    /// A chat line. `seq` counts this player's lines so a resent datagram
+    /// is only shown once.
+    Chat { seq: u32, text: String },
 }
 
 /// Messages sent from the host to connected clients.
@@ -458,6 +470,62 @@ pub enum ServerMessage {
     Match(MatchState),
     /// Eliminated players' bodies as the host simulates them.
     Ragdolls(RagdollFrame),
+    /// Some players' names (`[id, name]`), added to what's already known.
+    /// Players without one show as "Player N". Sent whenever a name changes
+    /// and every couple of seconds, in pieces that fit a datagram.
+    Names(Vec<(PlayerId, String)>),
+    /// A chat line from `from`, for everyone. `id` is the host's count of
+    /// lines, so a resent datagram is only shown once.
+    Chat {
+        id: u32,
+        from: PlayerId,
+        text: String,
+    },
+}
+
+/// Longest chat line, in characters.
+pub const MAX_CHAT_CHARS: usize = 120;
+
+/// A chat line as it may be sent and shown: no control characters, trimmed,
+/// at most `MAX_CHAT_CHARS`. `None` when nothing is left.
+pub fn clean_chat(text: &str) -> Option<String> {
+    let cleaned: String = text
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .take(MAX_CHAT_CHARS)
+        .collect();
+    let trimmed = cleaned.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
+}
+
+/// Longest name shown, in characters.
+pub const MAX_NAME_CHARS: usize = 20;
+
+/// A name fit to show: no control characters, trimmed, at most
+/// `MAX_NAME_CHARS`. `None` when nothing is left.
+pub fn clean_name(raw: &str) -> Option<String> {
+    let cut: String = raw
+        .chars()
+        .filter(|c| !c.is_control())
+        .collect::<String>()
+        .trim()
+        .chars()
+        .take(MAX_NAME_CHARS)
+        .collect();
+    let cut = cut.trim_end().to_string();
+    (!cut.is_empty()).then_some(cut)
+}
+
+/// Names per `Names` message, so each fits a datagram (20 characters of up
+/// to 4 bytes each, plus the id and JSON around it).
+pub const NAMES_PER_MESSAGE: usize = 8;
+
+/// Splits a name list into `Names` messages that each fit a datagram.
+pub fn names_messages(names: &[(PlayerId, String)]) -> Vec<ServerMessage> {
+    names
+        .chunks(NAMES_PER_MESSAGE)
+        .map(|chunk| ServerMessage::Names(chunk.to_vec()))
+        .collect()
 }
 
 /// Joints in a ragdoll pose (see `ragdoll.rs`).
@@ -649,6 +717,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn names_are_cleaned() {
+        assert_eq!(clean_name("  Kit  ").as_deref(), Some("Kit"));
+        assert_eq!(clean_name("Jo\n\u{7}"), Some("Jo".to_string()));
+        assert_eq!(clean_name("   "), None);
+        assert_eq!(clean_name("").as_deref(), None);
+        let long = clean_name(&"a".repeat(50)).unwrap();
+        assert_eq!(long.chars().count(), MAX_NAME_CHARS);
+    }
+
+    #[test]
+    fn name_messages_fit_datagrams() {
+        let names: Vec<(PlayerId, String)> = (0..40)
+            .map(|id| (1_000_000 + id, "\u{1F600}".repeat(MAX_NAME_CHARS)))
+            .collect();
+        let msgs = names_messages(&names);
+        let mut seen = 0;
+        for msg in &msgs {
+            for d in encode_server_datagrams(msg) {
+                assert!(d.len() <= MAX_DATAGRAM, "datagram of {} bytes", d.len());
+            }
+            if let ServerMessage::Names(n) = msg {
+                seen += n.len();
+            }
+        }
+        assert_eq!(seen, 40);
+    }
+
+    #[test]
+    fn chat_lines_are_cleaned_and_fit_datagrams() {
+        assert_eq!(clean_chat("  hi\nthere  ").as_deref(), Some("hi there"));
+        assert_eq!(clean_chat(" \t "), None);
+        let long = "\u{1F3A8}".repeat(500);
+        let text = clean_chat(&long).unwrap();
+        assert_eq!(text.chars().count(), MAX_CHAT_CHARS);
+        let msg = ServerMessage::Chat {
+            id: u32::MAX,
+            from: u32::MAX,
+            text,
+        };
+        for d in encode_server_datagrams(&msg) {
+            assert!(d.len() <= MAX_DATAGRAM, "datagram of {} bytes", d.len());
+        }
+    }
+
+    #[test]
     fn ragdoll_frames_fit_datagrams() {
         let all: Vec<[u32; 2]> = (0..24).map(|i| [1000 + i, 123_456]).collect();
         let bodies: Vec<RagdollPose> = (0..24)
@@ -688,6 +801,7 @@ mod tests {
                     rank_points: 1234,
                     bombs: 255,
                     flashes: 255,
+                    throwables: 255,
                 },
             })
             .collect();

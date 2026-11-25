@@ -392,6 +392,7 @@ pub fn poll_network_events(
             }
             NetEvent::PlayerLeft { id } => {
                 net.players.remove(&id);
+                net.forget_name(id);
             }
             NetEvent::WorldState { players } => {
                 let local_id = net.local_player_id;
@@ -429,6 +430,12 @@ pub fn poll_network_events(
             NetEvent::Ragdolls(frame) => {
                 net.pending_ragdolls.push(frame);
             }
+            NetEvent::Names(names) => {
+                net.learn_names(names);
+            }
+            NetEvent::Chat { from, text } => {
+                net.pending_chat.push((from, text));
+            }
             NetEvent::Error(err) => {
                 net.disconnect();
                 net.error_text = Some(err);
@@ -446,6 +453,12 @@ pub fn poll_network_events(
         }
     }
 }
+
+/// Longest frame movement will catch up on at once (longer ones, like a
+/// loading hitch, are dropped rather than teleporting the player).
+const MAX_FRAME_DT: f32 = 0.25;
+/// Longest single physics step for the local player.
+const MAX_PHYSICS_STEP: f32 = 1.0 / 120.0;
 
 #[allow(clippy::too_many_arguments)]
 fn move_local_player(
@@ -469,7 +482,9 @@ fn move_local_player(
     let rig_yaw = camera_q.single().map(|r| r.yaw).unwrap_or(0.0);
     let alive = local_state.0.health > 0.0;
     let can_move = alive && !overlay.blocks_input() && !net.match_state.frozen();
-    let dt = time.delta_secs().min(0.05);
+    // A long frame (a hitch, or a low frame rate) is split into short physics
+    // steps, so movement, jumps and collisions play out the same at any FPS.
+    let dt = time.delta_secs().min(MAX_FRAME_DT);
 
     let crouch_held = alive
         && !overlay.blocks_input()
@@ -523,7 +538,6 @@ fn move_local_player(
         // Splatted or frozen mid-air: don't keep drifting.
         player.ground_velocity = Vec3::ZERO;
     }
-    transform.translation += player.ground_velocity * dt;
 
     // First person: the body faces where we look, so others see where that is.
     player.yaw = rig_yaw;
@@ -535,29 +549,36 @@ fn move_local_player(
         player.grounded = false;
     }
 
-    player.velocity_y -= tuning.gravity * dt;
-    transform.translation.y += player.velocity_y * dt;
-
-    // Bunkers push us out; their tops can be stood on.
-    let mut pos = transform.translation;
-    let feet = pos.y - PLAYER_GROUND_Y;
-    let top = pos.y + PLAYER_GROUND_Y;
-    let floor = colliders.resolve_player(&mut pos, PLAYER_RADIUS, feet, top);
-    transform.translation = pos;
-
-    let ground = floor + PLAYER_GROUND_Y;
-    if transform.translation.y <= ground {
-        transform.translation.y = ground;
-        player.velocity_y = 0.0;
-        player.grounded = true;
-    } else if transform.translation.y > ground + 0.05 {
-        player.grounded = false;
-    }
-
-    // Keep the player inside the field.
+    let steps = (dt / MAX_PHYSICS_STEP).ceil().max(1.0);
+    let step = dt / steps;
     let limit = map.half - Vec2::splat(PLAYER_RADIUS + 0.15);
-    transform.translation.x = transform.translation.x.clamp(-limit.x, limit.x);
-    transform.translation.z = transform.translation.z.clamp(-limit.y, limit.y);
+    for _ in 0..steps as u32 {
+        transform.translation += player.ground_velocity * step;
+
+        // Exact under constant gravity, so jump height doesn't vary with FPS.
+        transform.translation.y += player.velocity_y * step - 0.5 * tuning.gravity * step * step;
+        player.velocity_y -= tuning.gravity * step;
+
+        // Bunkers push us out; their tops can be stood on.
+        let mut pos = transform.translation;
+        let feet = pos.y - PLAYER_GROUND_Y;
+        let top = pos.y + PLAYER_GROUND_Y;
+        let floor = colliders.resolve_player(&mut pos, PLAYER_RADIUS, feet, top);
+        transform.translation = pos;
+
+        let ground = floor + PLAYER_GROUND_Y;
+        if transform.translation.y <= ground {
+            transform.translation.y = ground;
+            player.velocity_y = 0.0;
+            player.grounded = true;
+        } else if transform.translation.y > ground + 0.05 {
+            player.grounded = false;
+        }
+
+        // Keep the player inside the field.
+        transform.translation.x = transform.translation.x.clamp(-limit.x, limit.x);
+        transform.translation.z = transform.translation.z.clamp(-limit.y, limit.y);
+    }
 
     let moved = (transform.translation - before).with_y(0.0).length();
     player.speed = if dt > 0.0 { moved / dt } else { 0.0 };
@@ -627,7 +648,8 @@ fn update_game_camera(
     let zoom = 1.0 + (combat.stats.zoom - 1.0) * combat.aim_blend;
     let sensitivity = BASE_MOUSE_SENSITIVITY * view.look_multiplier(combat.aim_blend) / zoom;
     for motion in mouse_motion.read() {
-        if captured && !overlay.blocks_input() {
+        // Looking around still works while typing in chat.
+        if captured && !overlay.menu_open() {
             rig.yaw -= motion.delta.x * sensitivity;
             rig.pitch -= motion.delta.y * sensitivity * view.y_sign();
         }
@@ -693,7 +715,8 @@ fn keep_cursor_in_sync(
         return;
     };
     let captured = cursor.grab_mode != CursorGrabMode::None;
-    if overlay.blocks_input() {
+    // Chat keeps the mouse captured: only menus free it.
+    if overlay.menu_open() {
         if captured {
             set_cursor_grab(&mut cursor_q, false);
         }

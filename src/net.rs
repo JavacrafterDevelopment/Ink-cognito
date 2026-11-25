@@ -1,7 +1,8 @@
 use crate::protocol::{
     ClientDatagram, ClientMessage, GAME_PORT, HitEvent, MatchState, PING_EVERY, PlayerId,
     PlayerSnapshot, PlayerState, RagdollFrame, SILENCE_TIMEOUT, ServerDatagram, ServerMessage,
-    encode_server_datagrams, enemies, player_color, read_frame, spawn_position, write_frame,
+    clean_chat, clean_name, encode_server_datagrams, enemies, names_messages, player_color,
+    read_frame, spawn_position, write_frame,
 };
 use bevy::prelude::*;
 use std::{
@@ -62,6 +63,10 @@ enum OutboundCommand {
     Match(Box<MatchState>),
     /// Host only: the bodies' poses, for everyone.
     Ragdolls(Vec<RagdollFrame>),
+    /// The local player's name (from Portside), for everyone to see.
+    SetName(String),
+    /// A chat line the local player typed.
+    Chat(String),
 }
 
 /// Events produced by the background Tailcat networking tasks for Bevy to process.
@@ -98,6 +103,13 @@ pub enum NetEvent {
     Match(MatchState),
     /// The host's ragdolls.
     Ragdolls(RagdollFrame),
+    /// Players' names, added to what's known.
+    Names(Vec<(PlayerId, String)>),
+    /// A chat line from a player (the local one too, once the host has it).
+    Chat {
+        from: PlayerId,
+        text: String,
+    },
     Error(String),
     Disconnected(String),
 }
@@ -131,6 +143,15 @@ pub struct NetworkState {
     pub match_state: MatchState,
     /// The host's ragdoll updates, queued for the ragdolls to follow this frame.
     pub pending_ragdolls: Vec<RagdollFrame>,
+    /// Players' names (their Portside names), by id. Anyone missing shows as
+    /// "Player N".
+    pub names: HashMap<PlayerId, String>,
+    /// Bumped whenever `names` changes, so lists showing names redraw.
+    pub names_version: u32,
+    /// The name we've told this session, if any.
+    name_sent: Option<String>,
+    /// Chat lines heard, queued for the chat box (`chat.rs`).
+    pub pending_chat: Vec<(PlayerId, String)>,
 }
 
 impl Default for NetworkState {
@@ -157,6 +178,10 @@ impl Default for NetworkState {
             pending_hits: Vec::new(),
             match_state: MatchState::default(),
             pending_ragdolls: Vec::new(),
+            names: HashMap::new(),
+            names_version: 0,
+            name_sent: None,
+            pending_chat: Vec::new(),
         }
     }
 }
@@ -298,6 +323,70 @@ impl NetworkState {
         }
     }
 
+    /// Tells everyone in this game the local player's name. Does nothing until
+    /// connected, or when the name was already sent this session.
+    pub fn set_local_name(&mut self, name: &str) {
+        if self.local_player_id.is_none() {
+            return;
+        }
+        let Some(name) = clean_name(name) else {
+            return;
+        };
+        if self.name_sent.as_deref() == Some(name.as_str()) {
+            return;
+        }
+        if let Some(session) = &self.session
+            && session
+                .tx_out
+                .send(OutboundCommand::SetName(name.clone()))
+                .is_ok()
+        {
+            self.name_sent = Some(name);
+        }
+    }
+
+    /// What to call a player: their name, or "Player N" without one.
+    pub fn display_name(&self, id: PlayerId) -> String {
+        self.names
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| format!("Player {}", id + 1))
+    }
+
+    /// Adds names the host sent.
+    pub fn learn_names(&mut self, names: Vec<(PlayerId, String)>) {
+        let mut changed = false;
+        for (id, name) in names {
+            let Some(name) = clean_name(&name) else {
+                continue;
+            };
+            if self.names.get(&id) != Some(&name) {
+                self.names.insert(id, name);
+                changed = true;
+            }
+        }
+        if changed {
+            self.names_version = self.names_version.wrapping_add(1);
+        }
+    }
+
+    /// Forgets a player's name (they left).
+    pub fn forget_name(&mut self, id: PlayerId) {
+        if self.names.remove(&id).is_some() {
+            self.names_version = self.names_version.wrapping_add(1);
+        }
+    }
+
+    /// Sends a chat line to everyone (it comes back as `NetEvent::Chat`).
+    pub fn send_chat(&self, text: &str) {
+        let Some(text) = clean_chat(text) else {
+            return;
+        };
+        if let Some(session) = &self.session {
+            let _ = session.tx_out.send(OutboundCommand::Chat(text));
+        }
+    }
+
     /// Drains all pending network events produced by background tasks without blocking.
     pub fn poll_events(&self) -> Vec<NetEvent> {
         let Some(session) = &self.session else {
@@ -328,6 +417,10 @@ impl NetworkState {
         self.players.clear();
         self.pending_hits.clear();
         self.pending_ragdolls.clear();
+        self.names.clear();
+        self.names_version = self.names_version.wrapping_add(1);
+        self.name_sent = None;
+        self.pending_chat.clear();
         self.match_state = MatchState::default();
         crate::protocol::set_free_for_all(false);
     }
@@ -380,6 +473,12 @@ struct HostSharedState {
     clients: HashMap<PlayerId, mpsc::UnboundedSender<ServerMessage>>,
     seen_hits: HitTracker,
     match_state: Option<MatchState>,
+    /// Players' names, by id (the host is 0).
+    names: HashMap<PlayerId, String>,
+    /// `(player, seq)` of chat lines already passed on.
+    seen_chat: HitTracker,
+    /// Counts chat lines passed on (each gets the next number).
+    chat_count: u32,
 }
 
 impl HostSharedState {
@@ -398,6 +497,46 @@ impl HostSharedState {
     fn snapshot_list(&self) -> Vec<PlayerSnapshot> {
         self.players.values().copied().collect()
     }
+
+    fn name_list(&self) -> Vec<(PlayerId, String)> {
+        let mut names: Vec<_> = self
+            .names
+            .iter()
+            .map(|(id, name)| (*id, name.clone()))
+            .collect();
+        names.sort_by_key(|(id, _)| *id);
+        names
+    }
+
+    /// Sends everyone every name.
+    fn broadcast_names(&mut self) {
+        if self.clients.is_empty() || self.names.is_empty() {
+            return;
+        }
+        for msg in names_messages(&self.name_list()) {
+            self.broadcast(&msg);
+        }
+    }
+}
+
+/// A player (or the host, id 0) says what they're called: remember it, tell
+/// everyone, and tell the host's own game.
+async fn set_player_name(
+    id: PlayerId,
+    name: &str,
+    shared: &Arc<AsyncMutex<HostSharedState>>,
+    tx_in: &mpsc::UnboundedSender<NetEvent>,
+) {
+    let Some(name) = clean_name(name) else {
+        return;
+    };
+    let mut guard = shared.lock().await;
+    if !guard.players.contains_key(&id) || guard.names.get(&id) == Some(&name) {
+        return;
+    }
+    guard.names.insert(id, name.clone());
+    guard.broadcast(&ServerMessage::Names(vec![(id, name.clone())]));
+    let _ = tx_in.send(NetEvent::Names(vec![(id, name)]));
 }
 
 /// Validates, deduplicates, and forwards a shooter-reported hit to its victim.
@@ -430,6 +569,34 @@ async fn relay_hit(
     }
 }
 
+/// Passes a player's chat line on to everyone (the host's own game too).
+async fn relay_chat(
+    sender_id: PlayerId,
+    seq: u32,
+    text: &str,
+    shared: &Arc<AsyncMutex<HostSharedState>>,
+    tx_in: &mpsc::UnboundedSender<NetEvent>,
+) {
+    let Some(text) = clean_chat(text) else {
+        return;
+    };
+    let mut guard = shared.lock().await;
+    if !guard.seen_chat.record(sender_id, seq) {
+        return;
+    }
+    guard.chat_count = guard.chat_count.wrapping_add(1);
+    let id = guard.chat_count;
+    guard.broadcast(&ServerMessage::Chat {
+        id,
+        from: sender_id,
+        text: text.clone(),
+    });
+    let _ = tx_in.send(NetEvent::Chat {
+        from: sender_id,
+        text,
+    });
+}
+
 async fn run_host_session(
     region: Option<Region>,
     mut rx_out: mpsc::UnboundedReceiver<OutboundCommand>,
@@ -449,6 +616,9 @@ async fn run_host_session(
         clients: HashMap::new(),
         seen_hits: HitTracker::default(),
         match_state: None,
+        names: HashMap::new(),
+        seen_chat: HitTracker::default(),
+        chat_count: 0,
     }));
     let next_id = Arc::new(AtomicU32::new(1));
 
@@ -498,6 +668,11 @@ async fn run_host_session(
 
     let mut broadcast_tick = tokio::time::interval(NET_TICK);
     broadcast_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    // Counts the host's own chat lines.
+    let mut host_chat_seq = 0u32;
+
+    let mut names_tick = tokio::time::interval(PING_EVERY);
+    names_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     // TailCat (for a pasted address) can take a while; keep broadcasting to
     // Portside UDP players meanwhile so movement stays live from frame one.
@@ -522,6 +697,13 @@ async fn run_host_session(
                 Some(OutboundCommand::Ragdolls(frames)) => {
                     broadcast_ragdolls(&shared, frames).await;
                 }
+                Some(OutboundCommand::SetName(name)) => {
+                    set_player_name(0, &name, &shared, &tx_in).await;
+                }
+                Some(OutboundCommand::Chat(text)) => {
+                    host_chat_seq = host_chat_seq.wrapping_add(1);
+                    relay_chat(0, host_chat_seq, &text, &shared, &tx_in).await;
+                }
                 None => {
                     host_goodbye(&shared, &shutdown, udp_task).await;
                     return;
@@ -533,6 +715,10 @@ async fn run_host_session(
                     let players = guard.snapshot_list();
                     guard.broadcast(&ServerMessage::WorldState { players });
                 }
+            }
+            _ = names_tick.tick() => {
+                // Again now and then: UDP players may have missed a change.
+                shared.lock().await.broadcast_names();
             }
             res = &mut start => break res,
         }
@@ -571,6 +757,13 @@ async fn run_host_session(
                     Some(OutboundCommand::Ragdolls(frames)) => {
                         broadcast_ragdolls(&shared, frames).await;
                     }
+                    Some(OutboundCommand::SetName(name)) => {
+                        set_player_name(0, &name, &shared, &tx_in).await;
+                    }
+                    Some(OutboundCommand::Chat(text)) => {
+                        host_chat_seq = host_chat_seq.wrapping_add(1);
+                        relay_chat(0, host_chat_seq, &text, &shared, &tx_in).await;
+                    }
                     None => break,
                 }
             }
@@ -580,6 +773,10 @@ async fn run_host_session(
                     let players = guard.snapshot_list();
                     guard.broadcast(&ServerMessage::WorldState { players });
                 }
+            }
+            _ = names_tick.tick() => {
+                // Again now and then: UDP players may have missed a change.
+                shared.lock().await.broadcast_names();
             }
         }
     }
@@ -691,18 +888,23 @@ async fn run_udp_host(
                             state: PlayerState::default(),
                         };
                         let (client_tx, mut client_rx) = mpsc::unbounded_channel::<ServerMessage>();
-                        let welcome = {
+                        let (welcome, names) = {
                             let mut guard = shared.lock().await;
                             guard.broadcast(&ServerMessage::PlayerJoined(snapshot));
                             guard.players.insert(id, snapshot);
                             guard.clients.insert(id, client_tx);
-                            ServerMessage::Welcome {
+                            let welcome = ServerMessage::Welcome {
                                 your_id: id,
                                 players: guard.snapshot_list(),
                                 match_state: guard.match_state.clone(),
-                            }
+                            };
+                            (welcome, guard.name_list())
                         };
-                        let welcome = encode_server_datagrams(&welcome);
+                        let mut welcome = encode_server_datagrams(&welcome);
+                        // Everyone's names right behind it.
+                        for msg in names_messages(&names) {
+                            welcome.extend(encode_server_datagrams(&msg));
+                        }
                         for d in &welcome {
                             let _ = sock.send_to(d, from).await;
                         }
@@ -712,7 +914,11 @@ async fn run_udp_host(
                         let sock = sock.clone();
                         tokio::spawn(async move {
                             while let Some(msg) = client_rx.recv().await {
-                                let is_hit = matches!(msg, ServerMessage::PlayerHit(_));
+                                // Hits and chat must arrive: send them a few times.
+                                let is_hit = matches!(
+                                    msg,
+                                    ServerMessage::PlayerHit(_) | ServerMessage::Chat { .. }
+                                );
                                 let datagrams = encode_server_datagrams(&msg);
                                 for d in &datagrams {
                                     let _ = sock.send_to(d, from).await;
@@ -759,7 +965,17 @@ async fn run_udp_host(
                             relay_hit(peer.id, hit, &shared, &tx_in).await;
                         }
                     }
+                    ClientDatagram::Msg(ClientMessage::Chat { seq, text }) => {
+                        if let Some(peer) = peers.get(&from) {
+                            relay_chat(peer.id, seq, &text, &shared, &tx_in).await;
+                        }
+                    }
                     ClientDatagram::Msg(ClientMessage::Ping) => {}
+                    ClientDatagram::Msg(ClientMessage::SetName(name)) => {
+                        if let Some(peer) = peers.get(&from) {
+                            set_player_name(peer.id, &name, &shared, &tx_in).await;
+                        }
+                    }
                     ClientDatagram::Msg(ClientMessage::Leave) => {
                         if let Some(peer) = peers.remove(&from) {
                             cleanup_host_client(peer.id, &shared, &tx_in).await;
@@ -813,19 +1029,24 @@ async fn handle_host_client(
 
     let (client_tx, mut client_rx) = mpsc::unbounded_channel::<ServerMessage>();
 
-    let welcome = {
+    let (welcome, names) = {
         let mut guard = shared.lock().await;
         guard.broadcast(&ServerMessage::PlayerJoined(snapshot));
         guard.players.insert(player_id, snapshot);
         guard.clients.insert(player_id, client_tx.clone());
-        ServerMessage::Welcome {
+        let welcome = ServerMessage::Welcome {
             your_id: player_id,
             players: guard.snapshot_list(),
             match_state: guard.match_state.clone(),
-        }
+        };
+        (welcome, guard.name_list())
     };
-    // Welcome goes first, through the same writer as everything else.
+    // Welcome goes first, through the same writer as everything else, then
+    // everyone's names.
     let _ = client_tx.send(welcome);
+    for msg in names_messages(&names) {
+        let _ = client_tx.send(msg);
+    }
     drop(client_tx);
 
     let _ = tx_in.send(NetEvent::PlayerJoined(snapshot));
@@ -873,7 +1094,13 @@ async fn handle_host_client(
                     Some(ClientMessage::ReportHit(hit)) => {
                         relay_hit(player_id, hit, &shared, &tx_in).await;
                     }
+                    Some(ClientMessage::Chat { seq, text }) => {
+                        relay_chat(player_id, seq, &text, &shared, &tx_in).await;
+                    }
                     Some(ClientMessage::Ping) => {}
+                    Some(ClientMessage::SetName(name)) => {
+                        set_player_name(player_id, &name, &shared, &tx_in).await;
+                    }
                     Some(ClientMessage::Leave) | None => break,
                 }
             }
@@ -919,6 +1146,7 @@ async fn cleanup_host_client(
 ) {
     let mut guard = shared.lock().await;
     guard.clients.remove(&player_id);
+    guard.names.remove(&player_id);
     if guard.players.remove(&player_id).is_some() {
         guard.broadcast(&ServerMessage::PlayerLeft { id: player_id });
         let _ = tx_in.send(NetEvent::PlayerLeft { id: player_id });
@@ -1007,6 +1235,7 @@ async fn run_client_session(
     let mut ping_tick = tokio::time::interval(PING_EVERY);
     ping_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut last_heard = Instant::now();
+    let mut chat_seq = 0u32;
 
     let reason = loop {
         tokio::select! {
@@ -1031,6 +1260,23 @@ async fn run_client_session(
                     }
                     Some(OutboundCommand::ReportHit(hit)) => {
                         if write_frame(&mut writer, &ClientMessage::ReportHit(hit))
+                            .await
+                            .is_err()
+                        {
+                            break Some("Lost connection to host.".to_string());
+                        }
+                    }
+                    Some(OutboundCommand::SetName(name)) => {
+                        if write_frame(&mut writer, &ClientMessage::SetName(name))
+                            .await
+                            .is_err()
+                        {
+                            break Some("Lost connection to host.".to_string());
+                        }
+                    }
+                    Some(OutboundCommand::Chat(text)) => {
+                        chat_seq = chat_seq.wrapping_add(1);
+                        if write_frame(&mut writer, &ClientMessage::Chat { seq: chat_seq, text })
                             .await
                             .is_err()
                         {
@@ -1081,6 +1327,12 @@ async fn run_client_session(
                     }
                     Some(ServerMessage::Ragdolls(frame)) => {
                         let _ = tx_in.send(NetEvent::Ragdolls(frame));
+                    }
+                    Some(ServerMessage::Names(names)) => {
+                        let _ = tx_in.send(NetEvent::Names(names));
+                    }
+                    Some(ServerMessage::Chat { from, text, .. }) => {
+                        let _ = tx_in.send(NetEvent::Chat { from, text });
                     }
                     Some(ServerMessage::Welcome { your_id, players, match_state }) => {
                         let _ = tx_in.send(NetEvent::Connected { your_id, players, match_state });
@@ -1143,6 +1395,7 @@ async fn run_udp_client_session(
     let mut welcome_id: Option<PlayerId> = None;
     let mut welcome_players: Vec<PlayerSnapshot> = Vec::new();
     let mut welcome_match: Option<MatchState> = None;
+    let mut welcome_names: Vec<(PlayerId, String)> = Vec::new();
     loop {
         tokio::select! {
             _ = shutdown.notified() => return,
@@ -1171,6 +1424,10 @@ async fn run_udp_client_session(
                     Ok(ServerDatagram::Players { players }) if welcome_id.is_some() => {
                         welcome_players.extend(players);
                     }
+                    // So are everyone's names.
+                    Ok(ServerDatagram::Msg(ServerMessage::Names(names))) if welcome_id.is_some() => {
+                        welcome_names.extend(names);
+                    }
                     _ => {}
                 }
             }
@@ -1181,6 +1438,9 @@ async fn run_udp_client_session(
         players: welcome_players,
         match_state: welcome_match,
     });
+    if !welcome_names.is_empty() {
+        let _ = tx_in.send(NetEvent::Names(welcome_names));
+    }
 
     let mut latest_transform: Option<([f32; 3], f32, PlayerState)> = None;
     let mut last_sent_shots = 0u32;
@@ -1189,6 +1449,11 @@ async fn run_udp_client_session(
     send_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut keepalive = tokio::time::interval(Duration::from_secs(2));
     let mut last_heard = Instant::now();
+    // Our name, said again with every keepalive in case a datagram was lost.
+    let mut my_name: Option<String> = None;
+    let mut chat_seq = 0u32;
+    // The host sends each chat line a few times: show it once.
+    let mut seen_chat = HitTracker::default();
 
     let reason = loop {
         tokio::select! {
@@ -1217,6 +1482,22 @@ async fn run_udp_client_session(
                         }
                     });
                 }
+                Some(OutboundCommand::SetName(name)) => {
+                    let _ = sock.send(&send(&ClientDatagram::Msg(ClientMessage::SetName(name.clone())))).await;
+                    my_name = Some(name);
+                }
+                Some(OutboundCommand::Chat(text)) => {
+                    chat_seq = chat_seq.wrapping_add(1);
+                    let packet = send(&ClientDatagram::Msg(ClientMessage::Chat { seq: chat_seq, text }));
+                    let _ = sock.send(&packet).await;
+                    let sock_retry = sock.clone();
+                    tokio::spawn(async move {
+                        for delay_ms in [35u64, 40] {
+                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                            let _ = sock_retry.send(&packet).await;
+                        }
+                    });
+                }
                 Some(OutboundCommand::Match(_) | OutboundCommand::Ragdolls(_)) => {}
                 None => break None,
             },
@@ -1233,6 +1514,9 @@ async fn run_udp_client_session(
                     break Some("Lost connection to host.".to_string());
                 }
                 let _ = sock.send(&send(&ClientDatagram::Keepalive)).await;
+                if let Some(name) = &my_name {
+                    let _ = sock.send(&send(&ClientDatagram::Msg(ClientMessage::SetName(name.clone())))).await;
+                }
             }
             res = sock.recv(&mut buf) => {
                 let Ok(len) = res else { continue };
@@ -1245,6 +1529,13 @@ async fn run_udp_client_session(
                     ServerDatagram::Msg(ServerMessage::PlayerHit(hit)) => NetEvent::HitReceived(hit),
                     ServerDatagram::Msg(ServerMessage::Match(state)) => NetEvent::Match(state),
                     ServerDatagram::Msg(ServerMessage::Ragdolls(frame)) => NetEvent::Ragdolls(frame),
+                    ServerDatagram::Msg(ServerMessage::Names(names)) => NetEvent::Names(names),
+                    ServerDatagram::Msg(ServerMessage::Chat { id, from, text }) => {
+                        if !seen_chat.record(0, id) {
+                            continue;
+                        }
+                        NetEvent::Chat { from, text }
+                    }
                     ServerDatagram::Msg(ServerMessage::Welcome { .. }) => continue,
                     ServerDatagram::Players { players } => NetEvent::PlayerUpdates(players),
                     ServerDatagram::Roster { ids } => NetEvent::Roster(ids),
@@ -1533,6 +1824,69 @@ mod tests {
 
     /// The way a Portside session reaches the game: UDP to a port on 127.0.0.1.
     /// (Portside forwards that port to the host's; here the client uses the host's directly.)
+    #[test]
+    fn udp_names_reach_everyone() {
+        let mut host = NetworkState::default();
+        host.start_host_with_region(None);
+        let mut port = None;
+        for _ in 0..100 {
+            for ev in host.poll_events() {
+                if let NetEvent::HostingStarted { udp_port, local_player } = ev {
+                    port = Some(udp_port);
+                    host.local_player_id = Some(local_player.id);
+                }
+            }
+            if port.is_some() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let port = port.expect("host did not emit HostingStarted");
+        host.set_local_name("  Kit ");
+
+        let mut client = NetworkState::default();
+        client.join_udp(port, "test");
+        for _ in 0..200 {
+            for ev in client.poll_events() {
+                match ev {
+                    NetEvent::Connected { your_id, .. } => client.local_player_id = Some(your_id),
+                    NetEvent::Names(names) => client.learn_names(names),
+                    _ => {}
+                }
+            }
+            if client.local_player_id.is_some() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let me = client.local_player_id.expect("client did not get its welcome");
+        client.set_local_name("Jo");
+
+        for _ in 0..200 {
+            for ev in host.poll_events() {
+                if let NetEvent::Names(names) = ev {
+                    host.learn_names(names);
+                }
+            }
+            for ev in client.poll_events() {
+                if let NetEvent::Names(names) = ev {
+                    client.learn_names(names);
+                }
+            }
+            if host.names.get(&me).map(String::as_str) == Some("Jo")
+                && client.names.get(&0).map(String::as_str) == Some("Kit")
+            {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(host.display_name(me), "Jo");
+        assert_eq!(host.display_name(0), "Kit");
+        assert_eq!(client.display_name(0), "Kit");
+        assert_eq!(client.display_name(me), "Jo");
+        assert_eq!(client.display_name(99), "Player 100");
+    }
+
     #[test]
     fn udp_host_and_client_sync_positions() {
         let mut host = NetworkState::default();

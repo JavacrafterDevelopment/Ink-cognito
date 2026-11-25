@@ -39,6 +39,7 @@ and Diamond (three divisions of 100 RP each, from 0, 300, 600, 900 and 1200 RP) 
 | Ring Road | A wide outer loop around two walled blocks, joined by cross-paths. |
 | Three Lanes | A middle lane and two flanks (the Yard and the Woods), linked by connectors. |
 | Pine Hollow | Woods with a raised skybridge in the middle and perches to hold. |
+| City | A medium city block of roads and buildings, with nets around the edge. |
 
 Custom maps made with the map editor show up in the map picker after these. Everyone in a
 match needs the host's map file; a player without it plays Splat Park's layout in its place.

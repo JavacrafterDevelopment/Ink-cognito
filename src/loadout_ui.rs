@@ -247,11 +247,7 @@ fn on_loadout_click(
             lock_loadout(&mut active, &progress);
             book.active_preset_mut().loadout = active;
             *loadout = active;
-            screen.slot = match loadout.kind {
-                GunKind::Water => Slot::Water,
-                GunKind::Paintball if screen.slot == Slot::Water => Slot::Body,
-                GunKind::Paintball => screen.slot,
-            };
+            screen.slot = tab_for(loadout.kind, screen.slot);
             save_loadout_book(&book);
             save_loadout(&loadout);
         }
@@ -274,11 +270,7 @@ fn on_loadout_click(
                 lock_loadout(&mut active, &progress);
                 book.active_preset_mut().loadout = active;
                 *loadout = active;
-                screen.slot = match loadout.kind {
-                    GunKind::Water => Slot::Water,
-                    GunKind::Paintball if screen.slot == Slot::Water => Slot::Body,
-                    GunKind::Paintball => screen.slot,
-                };
+                screen.slot = tab_for(loadout.kind, screen.slot);
                 save_loadout_book(&book);
                 save_loadout(&loadout);
             }
@@ -318,7 +310,7 @@ fn on_loadout_click(
             lock_loadout(&mut loadout, &progress);
             if slot == Slot::Water {
                 loadout.kind = GunKind::Water;
-            } else {
+            } else if !slot.is_throwable() {
                 loadout.kind = GunKind::Paintball;
             }
             book.active_preset_mut().loadout = *loadout;
@@ -378,11 +370,7 @@ fn show_loadout_screen(
     }
     if !*was_open {
         // Open on the right tab for the current gun.
-        screen.slot = match loadout.kind {
-            GunKind::Water => Slot::Water,
-            GunKind::Paintball if screen.slot == Slot::Water => Slot::Body,
-            GunKind::Paintball => screen.slot,
-        };
+        screen.slot = tab_for(loadout.kind, screen.slot);
     }
     *was_open = true;
     *was_embedded = embedded;
@@ -390,6 +378,17 @@ fn show_loadout_screen(
         commands.entity(root).despawn();
     }
     spawn_screen(&mut commands, embedded, &loadout, &book, &screen, &assets, &progress);
+}
+
+/// The tab to show for this gun kind: the throwables tabs work with either
+/// gun, the rest only with their own kind.
+fn tab_for(kind: GunKind, slot: Slot) -> Slot {
+    match (kind, slot) {
+        (_, s) if s.is_throwable() => s,
+        (GunKind::Water, _) => Slot::Water,
+        (GunKind::Paintball, Slot::Water) => Slot::Body,
+        (GunKind::Paintball, s) => s,
+    }
 }
 
 fn style_for(selected: bool) -> ButtonStyle {
@@ -423,11 +422,7 @@ fn spawn_screen(
     assets: &AssetServer,
     progress: &Progress,
 ) {
-    let slot = match (loadout.kind, screen.slot) {
-        (GunKind::Water, _) => Slot::Water,
-        (GunKind::Paintball, Slot::Water) => Slot::Body,
-        (_, s) => s,
-    };
+    let slot = tab_for(loadout.kind, screen.slot);
 
     let root_node = if embedded {
         Node {
@@ -763,6 +758,19 @@ fn spawn_screen(
                         GunKind::Water => vec![Slot::Water],
                     };
                     for s in slots {
+                        let current = s.parts()[loadout.get(s) as usize].name;
+                        spawn_button(
+                            col,
+                            &format!("{}:  {current}", s.label()),
+                            LoadoutAction::Slot(s),
+                            style_for(s == slot),
+                            36.0,
+                            14.0,
+                            false,
+                        );
+                    }
+                    label(col, "THROWABLES");
+                    for s in Slot::THROWABLES {
                         let current = s.parts()[loadout.get(s) as usize].name;
                         spawn_button(
                             col,
