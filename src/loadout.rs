@@ -366,7 +366,7 @@ pub const GRENADES: &[Part] = &[
     },
     Part {
         name: "Ultra Bang",
-        blurb: "Keeps bursting every 0.5 s for 7 s. 90 s recharge.",
+        blurb: "Keeps rolling and bursts 9 times, 0.5 s apart. 90 s recharge.",
         model: "",
     },
 ];

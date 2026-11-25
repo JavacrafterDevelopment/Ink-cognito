@@ -77,26 +77,49 @@ impl Overlay {
     }
 }
 
+/// Where the assets folder is, relative to the executable's folder (what
+/// Bevy's `AssetPlugin::file_path` is relative to). In the macOS app bundle
+/// they're in `Contents/Resources/assets`, since code signing wants only code
+/// in `Contents/MacOS`; everywhere else they're next to the executable.
+pub fn asset_folder() -> &'static str {
+    const BUNDLED: &str = "../Resources/assets";
+    if cfg!(target_os = "macos")
+        && let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+        && dir.join(BUNDLED).is_dir()
+    {
+        return BUNDLED;
+    }
+    "assets"
+}
+
 fn main() {
     let saved_settings = settings::load_saved_settings();
     let saved_book = loadout::load_saved_loadout_book();
     let active_loadout = saved_book.active_loadout();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Ink-cognito".to_string(),
-                resolution: (1280, 720).into(),
-                mode: saved_settings.display.window_mode.to_window_mode(),
-                present_mode: if saved_settings.display.vsync {
-                    bevy::window::PresentMode::AutoVsync
-                } else {
-                    bevy::window::PresentMode::AutoNoVsync
-                },
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Ink-cognito".to_string(),
+                        resolution: (1280, 720).into(),
+                        mode: saved_settings.display.window_mode.to_window_mode(),
+                        present_mode: if saved_settings.display.vsync {
+                            bevy::window::PresentMode::AutoVsync
+                        } else {
+                            bevy::window::PresentMode::AutoNoVsync
+                        },
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(AssetPlugin {
+                    file_path: asset_folder().to_string(),
+                    ..default()
+                }),
+        )
         .init_state::<AppState>()
         .init_resource::<NetworkState>()
         .init_resource::<Overlay>()

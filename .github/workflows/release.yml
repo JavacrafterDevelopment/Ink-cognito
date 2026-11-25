@@ -10,14 +10,18 @@
 #     the packages are added to that release instead of making a new one.
 #
 # Either way a version is only ever built once: a release that already has the
-# packages is left alone. A version with a hyphen (0.2.0-beta.1) is published
+# packages is left alone.
+#
+# Running this workflow by hand on any other branch is a test run: both
+# builds and their tests run, nothing is tagged or published. A version with a hyphen (0.2.0-beta.1) is published
 # as a pre-release, which the Launcher only offers on its beta channel.
 #
 # Windows: an MSVC build with the C runtime linked statically (see
 # .cargo/config.toml), so the folder is just ink-cognito.exe, plus the map
 # editor (ink-map-editor.exe, a separate program that shares the assets).
 #
-# macOS: one universal app (Apple Silicon and Intel), Ink-cognito.app.
+# macOS: Apple Silicon only (no Intel build), Ink-cognito.app, ad-hoc
+# signed, with the map editor inside it and the assets in Contents/Resources.
 #
 # The release carries Ink-cognito-windows-x64.zip and Ink-cognito-macos.zip
 # (each the game folder plus launcher-manifest.json, every file's SHA-256),
@@ -34,7 +38,9 @@ on:
   workflow_dispatch:
 
 # One release at a time, so two tags pushed together can't race on update.json.
-concurrency: release
+# Test runs from other branches don't hold up (or get held up by) releases.
+concurrency:
+  group: ${{ (github.ref == 'refs/heads/main' || github.ref_type == 'tag') && 'release' || format('test-{0}', github.ref) }}
 
 permissions:
   contents: write
@@ -62,8 +68,12 @@ jobs:
             echo "Tag $GITHUB_REF_NAME doesn't match Cargo.toml version $ver" >&2
             exit 1
           fi
-          if assets="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null)"; then
-            if printf '%s\n' "$assets" | grep -qx 'Ink-cognito-windows-x64.zip'; then
+          if [ "$GITHUB_REF_TYPE" != "tag" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Test run on $GITHUB_REF_NAME: building $tag without publishing."
+            mode=test
+          elif assets="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            if printf '%s\n' "$assets" | grep -qx 'Ink-cognito-windows-x64.zip' \
+              && printf '%s\n' "$assets" | grep -qx 'Ink-cognito-macos.zip'; then
               echo "$tag is already released with its packages; nothing to do."
               mode=none
             else
@@ -122,8 +132,56 @@ jobs:
             release/Ink-cognito-windows-x64.zip
             release/release-entry.json
 
+  build-macos:
+    needs: version
+    if: needs.version.outputs.mode != 'none'
+    runs-on: macos-latest
+    timeout-minutes: 150
+    env:
+      # Matches LSMinimumSystemVersion in tools/package-macos.sh.
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      # The runner is Apple Silicon: test the arm64 build, sharing its
+      # artifacts with the build below instead of compiling twice.
+      - name: Test
+        run: cargo test --release --locked --workspace --target aarch64-apple-darwin
+
+      - name: Build (Apple Silicon)
+        run: cargo build --release --locked --workspace --target aarch64-apple-darwin
+
+      - name: Package
+        run: ./tools/package-macos.sh target/aarch64-apple-darwin/release/ink-cognito dist target/aarch64-apple-darwin/release/ink-map-editor
+
+      - name: Check the package
+        run: |
+          app=dist/Ink-cognito/Ink-cognito.app
+          test -f "$app/Contents/Resources/assets/maps/Dockyard.json"
+          codesign --verify --strict --verbose=2 "$app"
+          # Unzipped the way the Launcher gets it: still signed and runnable.
+          rm -rf unzip-check && mkdir unzip-check
+          ditto -x -k dist/Ink-cognito-macos.zip unzip-check
+          test -x unzip-check/Ink-cognito.app/Contents/MacOS/ink-cognito
+          codesign --verify --strict --verbose=2 unzip-check/Ink-cognito.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos
+          path: |
+            dist/Ink-cognito-macos.zip
+            dist/Ink-cognito-macos.dmg
+            dist/release-entry-macos.json
+
   publish:
-    needs: [version, build-windows]
+    needs: [version, build-windows, build-macos]
+    if: needs.version.outputs.mode == 'create' || needs.version.outputs.mode == 'upload'
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -134,13 +192,19 @@ jobs:
           name: dist-windows
           path: release
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-macos
+          path: dist
+
       - name: Publish release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = '${{ needs.version.outputs.tag }}'
-          $assets = @('release/Ink-cognito-windows-x64.zip')
+          $assets = @('release/Ink-cognito-windows-x64.zip', 'dist/Ink-cognito-macos.zip')
+          if (Test-Path 'dist/Ink-cognito-macos.dmg') { $assets += 'dist/Ink-cognito-macos.dmg' }
           if ('${{ needs.version.outputs.mode }}' -eq 'upload') {
             gh release upload $tag @assets --clobber
           } else {
@@ -151,9 +215,10 @@ jobs:
           }
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
-      # update.json (Windows) lives on its own `updates` branch so releases never
-      # add commits to main. The Launcher reads it from raw.githubusercontent.com.
-      - name: Publish update.json
+      # update.json (Windows) and update-macos.json (macOS) live on their own
+      # `updates` branch so releases never add commits to main. The Launcher
+      # reads them from raw.githubusercontent.com.
+      - name: Publish update.json and update-macos.json
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -180,6 +245,10 @@ jobs:
             -UpdateJson updates-branch/update.json -Prerelease:$info.isPrerelease `
             -Notes "$($info.body)" -Published $published
 
-          git -C updates-branch add update.json
-          git -C updates-branch commit -m "update.json for $tag"
+          ./tools/publish-update.ps1 -Entry dist/release-entry-macos.json -Repo $repo -Tag $tag `
+            -UpdateJson updates-branch/update-macos.json -Prerelease:$info.isPrerelease `
+            -Notes "$($info.body)" -Published $published
+
+          git -C updates-branch add update.json update-macos.json
+          git -C updates-branch commit -m "update.json and update-macos.json for $tag"
           git -C updates-branch push origin HEAD:refs/heads/updates

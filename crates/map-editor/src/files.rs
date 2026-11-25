@@ -10,9 +10,11 @@ pub fn assets_dir() -> PathBuf {
     if let Ok(exe) = std::env::current_exe()
         && let Some(dir) = exe.parent()
     {
-        let assets = dir.join("assets");
-        if assets.is_dir() {
-            return assets;
+        // Next to the exe, or in the macOS app bundle's Resources.
+        for assets in [dir.join("assets"), dir.join("../Resources/assets")] {
+            if assets.is_dir() {
+                return assets;
+            }
         }
     }
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets");
