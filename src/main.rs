@@ -68,11 +68,16 @@ impl Overlay {
 }
 
 fn main() {
+    let saved_settings = settings::load_saved_settings();
+    let saved_book = loadout::load_saved_loadout_book();
+    let active_loadout = saved_book.active_loadout();
+
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Ink-cognito".to_string(),
                 resolution: (1280, 720).into(),
+                mode: saved_settings.display.window_mode.to_window_mode(),
                 ..default()
             }),
             ..default()
@@ -80,8 +85,12 @@ fn main() {
         .init_state::<AppState>()
         .init_resource::<NetworkState>()
         .init_resource::<Overlay>()
-        .insert_resource(loadout::load_saved_loadout())
-        .insert_resource(settings::load_saved_settings())
+        .insert_resource(saved_book)
+        .insert_resource(active_loadout)
+        .insert_resource(saved_settings.audio)
+        .insert_resource(saved_settings.display)
+        .insert_resource(saved_settings.crosshair)
+        .insert_resource(saved_settings.keybinds)
         .add_systems(Startup, loadout::load_gun_assets)
         .add_observer(loadout::apply_gun_skin)
         .add_plugins((

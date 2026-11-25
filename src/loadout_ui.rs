@@ -1,19 +1,32 @@
-//! The loadout screen: pick a paintball marker (body and each attachment) or a
-//! water gun, see it turn in a 3D preview, compare stats and pick a crosshair.
-//! Opens from the main menu and from the Escape menu; saved between runs.
+//! The loadout screen: Call of Duty-style custom named loadouts where each
+//! loadout has its own paintball marker (body and attachments) or water gun,
+//! with a 3D preview and stat comparison.
+//!
+//! Opens as a top-bar tab in the Main Menu (keeping the top bar clickable) and
+//! as a full-screen overlay from the in-game Escape pause menu.
 
 use crate::{
-    Overlay,
+    AppState, Overlay,
     loadout::{
-        CROSSHAIRS, GunAssets, GunKind, GunModel, Loadout, Slot, WeaponStats, save_loadout,
-        spawn_gun_parts,
+        GunAssets, GunKind, GunModel, Loadout, LoadoutBook, MAX_LOADOUT_NAME_LEN, MAX_LOADOUTS,
+        Slot, WeaponStats, save_loadout, save_loadout_book, spawn_gun_parts,
     },
-    menu::{BG_CARD, BORDER_SUBTLE, ButtonStyle, TEXT_MUTED, TEXT_PRIMARY, spawn_button},
+    menu::{
+        BG_CARD, BORDER_SUBTLE, ButtonStyle, MenuScreen, MenuState, TEXT_MUTED, TEXT_PRIMARY,
+        TOP_BAR_HEIGHT, spawn_button,
+    },
     progression::{Progress, lock_loadout},
     ui_kit::{KIT_YELLOW, kit},
 };
 use bevy::{
-    camera::RenderTarget, picking::prelude::*, prelude::*, render::render_resource::TextureFormat,
+    camera::RenderTarget,
+    input::{
+        ButtonState,
+        keyboard::{Key, KeyboardInput},
+    },
+    picking::prelude::*,
+    prelude::*,
+    render::render_resource::TextureFormat,
 };
 
 pub struct LoadoutUiPlugin;
@@ -22,7 +35,14 @@ impl Plugin for LoadoutUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_preview)
             .add_observer(on_loadout_click)
-            .add_systems(Update, (show_loadout_screen, spin_preview));
+            .add_systems(
+                Update,
+                (
+                    handle_rename_input,
+                    show_loadout_screen,
+                    spin_preview,
+                ),
+            );
     }
 }
 
@@ -31,9 +51,17 @@ const STAGE: Vec3 = Vec3::new(4000.0, 4000.0, 4000.0);
 const PREVIEW_SIZE: UVec2 = UVec2::new(800, 450);
 
 #[derive(Resource)]
-struct LoadoutScreen {
+pub struct LoadoutScreen {
     slot: Slot,
     image: Handle<Image>,
+    renaming: bool,
+    rename_draft: String,
+}
+
+impl LoadoutScreen {
+    pub fn is_renaming(&self) -> bool {
+        self.renaming
+    }
 }
 
 #[derive(Component)]
@@ -47,10 +75,14 @@ struct PreviewGun;
 
 #[derive(Component, Clone, Copy)]
 enum LoadoutAction {
+    SelectPreset(usize),
+    AddPreset,
+    DeletePreset,
+    ToggleRename,
+    CancelRename,
     Kind(GunKind),
     Slot(Slot),
     Pick(Slot, u8),
-    Crosshair(u8),
     Done,
 }
 
@@ -100,18 +132,29 @@ fn setup_preview(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.insert_resource(LoadoutScreen {
         slot: Slot::Body,
         image,
+        renaming: false,
+        rename_draft: String::new(),
     });
 }
 
+fn is_loadout_open(state: &State<AppState>, menu: &MenuState, overlay: &Overlay) -> (bool, bool) {
+    let embedded = *state.get() == AppState::MainMenu && menu.screen == MenuScreen::Loadout;
+    (embedded || overlay.loadout, embedded)
+}
+
+#[allow(clippy::too_many_arguments)]
 fn spin_preview(
     mut commands: Commands,
     time: Res<Time>,
+    state: Res<State<AppState>>,
+    menu: Res<MenuState>,
     overlay: Res<Overlay>,
     loadout: Res<Loadout>,
     guns: Option<Res<GunAssets>>,
     mut gun_q: Query<(Entity, &mut Transform, &mut GunModel), With<PreviewGun>>,
 ) {
-    if !overlay.loadout {
+    let (open, _) = is_loadout_open(&state, &menu, &overlay);
+    if !open {
         return;
     }
     let Ok((entity, mut tf, mut gun)) = gun_q.single_mut() else {
@@ -127,10 +170,59 @@ fn spin_preview(
     }
 }
 
+fn handle_rename_input(
+    mut key_events: MessageReader<KeyboardInput>,
+    state: Res<State<AppState>>,
+    menu: Res<MenuState>,
+    overlay: Res<Overlay>,
+    mut screen: ResMut<LoadoutScreen>,
+    mut book: ResMut<LoadoutBook>,
+) {
+    let (open, _) = is_loadout_open(&state, &menu, &overlay);
+    if !open || !screen.renaming {
+        key_events.clear();
+        return;
+    }
+
+    for event in key_events.read() {
+        if event.state != ButtonState::Pressed {
+            continue;
+        }
+        match &event.logical_key {
+            Key::Backspace => {
+                screen.rename_draft.pop();
+            }
+            Key::Enter => {
+                let draft = screen.rename_draft.clone();
+                book.rename_active(&draft);
+                save_loadout_book(&book);
+                screen.renaming = false;
+            }
+            Key::Escape => {
+                screen.renaming = false;
+                screen.rename_draft.clear();
+            }
+            _ => {
+                if let Some(text) = &event.text {
+                    for ch in text.chars() {
+                        if !ch.is_control()
+                            && screen.rename_draft.chars().count() < MAX_LOADOUT_NAME_LEN
+                        {
+                            screen.rename_draft.push(ch);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn on_loadout_click(
     click: On<PointerClick>,
     actions: Query<&LoadoutAction>,
     mut loadout: ResMut<Loadout>,
+    mut book: ResMut<LoadoutBook>,
     mut screen: ResMut<LoadoutScreen>,
     mut overlay: ResMut<Overlay>,
     progress: Res<Progress>,
@@ -142,12 +234,73 @@ fn on_loadout_click(
         return;
     };
     match *action {
+        LoadoutAction::SelectPreset(idx) => {
+            screen.renaming = false;
+            book.select(idx);
+            let mut active = book.active_loadout();
+            lock_loadout(&mut active, &progress);
+            book.active_preset_mut().loadout = active;
+            *loadout = active;
+            screen.slot = match loadout.kind {
+                GunKind::Water => Slot::Water,
+                GunKind::Paintball if screen.slot == Slot::Water => Slot::Body,
+                GunKind::Paintball => screen.slot,
+            };
+            save_loadout_book(&book);
+            save_loadout(&loadout);
+        }
+        LoadoutAction::AddPreset => {
+            screen.renaming = false;
+            if book.add_preset().is_some() {
+                let mut active = book.active_loadout();
+                lock_loadout(&mut active, &progress);
+                book.active_preset_mut().loadout = active;
+                *loadout = active;
+                screen.slot = Slot::Body;
+                save_loadout_book(&book);
+                save_loadout(&loadout);
+            }
+        }
+        LoadoutAction::DeletePreset => {
+            screen.renaming = false;
+            if book.delete_active() {
+                let mut active = book.active_loadout();
+                lock_loadout(&mut active, &progress);
+                book.active_preset_mut().loadout = active;
+                *loadout = active;
+                screen.slot = match loadout.kind {
+                    GunKind::Water => Slot::Water,
+                    GunKind::Paintball if screen.slot == Slot::Water => Slot::Body,
+                    GunKind::Paintball => screen.slot,
+                };
+                save_loadout_book(&book);
+                save_loadout(&loadout);
+            }
+        }
+        LoadoutAction::ToggleRename => {
+            if screen.renaming {
+                let draft = screen.rename_draft.clone();
+                book.rename_active(&draft);
+                save_loadout_book(&book);
+                screen.renaming = false;
+            } else {
+                screen.rename_draft = book.active_preset().name.clone();
+                screen.renaming = true;
+            }
+        }
+        LoadoutAction::CancelRename => {
+            screen.renaming = false;
+            screen.rename_draft.clear();
+        }
         LoadoutAction::Kind(kind) => {
             loadout.kind = kind;
+            book.active_preset_mut().loadout = *loadout;
             screen.slot = match kind {
                 GunKind::Water => Slot::Water,
                 GunKind::Paintball => Slot::Body,
             };
+            save_loadout_book(&book);
+            save_loadout(&loadout);
         }
         LoadoutAction::Slot(slot) => screen.slot = slot,
         LoadoutAction::Pick(slot, i) => {
@@ -162,33 +315,47 @@ fn on_loadout_click(
             } else {
                 loadout.kind = GunKind::Paintball;
             }
+            book.active_preset_mut().loadout = *loadout;
+            save_loadout_book(&book);
+            save_loadout(&loadout);
         }
-        LoadoutAction::Crosshair(i) => loadout.crosshair = i,
-        LoadoutAction::Done => overlay.loadout = false,
+        LoadoutAction::Done => {
+            screen.renaming = false;
+            save_loadout_book(&book);
+            save_loadout(&loadout);
+            overlay.loadout = false;
+        }
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 fn show_loadout_screen(
     mut commands: Commands,
+    state: Res<State<AppState>>,
+    menu: Res<MenuState>,
     overlay: Res<Overlay>,
     loadout: Res<Loadout>,
+    book: Res<LoadoutBook>,
     mut screen: ResMut<LoadoutScreen>,
     assets: Res<AssetServer>,
     progress: Res<Progress>,
     root_q: Query<Entity, With<LoadoutRoot>>,
     mut camera_q: Query<&mut Camera, With<PreviewCamera>>,
     mut was_open: Local<bool>,
+    mut was_embedded: Local<bool>,
 ) {
+    let (open, embedded) = is_loadout_open(&state, &menu, &overlay);
     if let Ok(mut camera) = camera_q.single_mut()
-        && camera.is_active != overlay.loadout
+        && camera.is_active != open
     {
-        camera.is_active = overlay.loadout;
+        camera.is_active = open;
     }
-    let open = overlay.loadout;
     if !open {
         if *was_open {
             *was_open = false;
+            *was_embedded = false;
+            screen.renaming = false;
+            save_loadout_book(&book);
             save_loadout(&loadout);
             for root in &root_q {
                 commands.entity(root).despawn();
@@ -196,8 +363,11 @@ fn show_loadout_screen(
         }
         return;
     }
-    let screen_changed = screen.is_changed();
-    if *was_open && !loadout.is_changed() && !screen_changed && !root_q.is_empty() {
+    let changed = loadout.is_changed()
+        || book.is_changed()
+        || screen.is_changed()
+        || *was_embedded != embedded;
+    if *was_open && !changed && !root_q.is_empty() {
         return;
     }
     if !*was_open {
@@ -209,10 +379,11 @@ fn show_loadout_screen(
         };
     }
     *was_open = true;
+    *was_embedded = embedded;
     for root in &root_q {
         commands.entity(root).despawn();
     }
-    spawn_screen(&mut commands, &loadout, &screen, &assets, &progress);
+    spawn_screen(&mut commands, embedded, &loadout, &book, &screen, &assets, &progress);
 }
 
 fn style_for(selected: bool) -> ButtonStyle {
@@ -236,9 +407,12 @@ fn label(parent: &mut ChildSpawnerCommands, text: &str) {
     ));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_screen(
     commands: &mut Commands,
+    embedded: bool,
     loadout: &Loadout,
+    book: &LoadoutBook,
     screen: &LoadoutScreen,
     assets: &AssetServer,
     progress: &Progress,
@@ -248,75 +422,300 @@ fn spawn_screen(
         (GunKind::Paintball, Slot::Water) => Slot::Body,
         (_, s) => s,
     };
+
+    let root_node = if embedded {
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: Val::Px(TOP_BAR_HEIGHT),
+            bottom: Val::Px(0.0),
+            padding: UiRect::axes(Val::Px(32.0), Val::Px(18.0)),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(12.0),
+            ..default()
+        }
+    } else {
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            padding: UiRect::all(Val::Px(24.0)),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(12.0),
+            ..default()
+        }
+    };
+
+    let root_bg = if embedded {
+        Color::NONE
+    } else {
+        Color::srgba(0.02, 0.03, 0.06, 0.985)
+    };
+    let z = if embedded { 1 } else { 30 };
+
     commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                padding: UiRect::all(Val::Px(24.0)),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(14.0),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.02, 0.03, 0.06, 0.985)),
-            GlobalZIndex(30),
-            LoadoutRoot,
-        ))
+        .spawn((root_node, BackgroundColor(root_bg), GlobalZIndex(z), LoadoutRoot))
         .with_children(|root| {
-            // Header.
+            // CoD-style custom loadout class tabs strip.
+            root.spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    flex_wrap: FlexWrap::Wrap,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(8.0),
+                    row_gap: Val::Px(8.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|strip| {
+                for (idx, preset) in book.presets.iter().enumerate() {
+                    let selected = idx == book.active;
+                    let style = style_for(selected);
+                    strip
+                        .spawn((
+                            Node {
+                                min_width: Val::Px(124.0),
+                                padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(2.0),
+                                border_radius: BorderRadius::all(Val::Px(10.0)),
+                                ..default()
+                            },
+                            BackgroundColor(style.normal),
+                            style,
+                            LoadoutAction::SelectPreset(idx),
+                        ))
+                        .with_children(|tab| {
+                            tab.spawn((
+                                Text::new(preset.name.clone()),
+                                TextFont::from_font_size(14.0),
+                                TextColor(TEXT_PRIMARY),
+                                Pickable::IGNORE,
+                            ));
+                            tab.spawn((
+                                Text::new(preset.loadout.display_name()),
+                                TextFont::from_font_size(11.0),
+                                TextColor(if selected {
+                                    Color::srgb(0.15, 0.17, 0.20)
+                                } else {
+                                    TEXT_MUTED
+                                }),
+                                Pickable::IGNORE,
+                            ));
+                        });
+                }
+                if book.presets.len() < MAX_LOADOUTS {
+                    strip
+                        .spawn((
+                            Node {
+                                width: Val::Px(110.0),
+                                flex_direction: FlexDirection::Column,
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|wrap| {
+                            spawn_button(
+                                wrap,
+                                "+ New",
+                                LoadoutAction::AddPreset,
+                                ButtonStyle::SECONDARY,
+                                44.0,
+                                14.0,
+                                false,
+                            );
+                        });
+                }
+            });
+
+            // Active loadout header: name / rename controls / delete / (Done if overlay).
             root.spawn((
                 Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    column_gap: Val::Px(16.0),
+                    column_gap: Val::Px(12.0),
+                    padding: UiRect::axes(Val::Px(16.0), Val::Px(10.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(12.0)),
                     ..default()
                 },
+                BackgroundColor(BG_CARD),
+                BorderColor::all(BORDER_SUBTLE),
                 Pickable::IGNORE,
             ))
             .with_children(|row| {
                 row.spawn((
                     ImageNode::new(assets.load("textures/ui/team_shield_white.png")),
                     Node {
-                        width: Val::Px(34.0),
-                        height: Val::Px(34.0),
+                        width: Val::Px(30.0),
+                        height: Val::Px(30.0),
                         ..default()
                     },
                     Pickable::IGNORE,
                 ));
-                row.spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        flex_grow: 1.0,
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .with_children(|col| {
-                    col.spawn((
-                        Text::new("LOADOUT"),
-                        TextFont::from_font_size(30.0),
-                        TextColor(TEXT_PRIMARY),
+
+                if screen.renaming {
+                    row.spawn((
+                        Node {
+                            flex_grow: 1.0,
+                            height: Val::Px(40.0),
+                            padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
+                            align_items: AlignItems::Center,
+                            border: UiRect::all(Val::Px(1.5)),
+                            border_radius: BorderRadius::all(Val::Px(8.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.03, 0.05, 0.08, 0.92)),
+                        BorderColor::all(KIT_YELLOW),
                         Pickable::IGNORE,
-                    ));
-                    col.spawn((
-                        Text::new("Splat with a marker to unlock its parts and camos. Each body levels up on its own."),
-                        TextFont::from_font_size(13.0),
-                        TextColor(TEXT_MUTED),
+                    ))
+                    .with_children(|input| {
+                        let shown = if screen.rename_draft.is_empty() {
+                            "Type a loadout name...".to_string()
+                        } else {
+                            format!("{}|", screen.rename_draft)
+                        };
+                        input.spawn((
+                            Text::new(shown),
+                            TextFont::from_font_size(18.0),
+                            TextColor(if screen.rename_draft.is_empty() {
+                                TEXT_MUTED
+                            } else {
+                                TEXT_PRIMARY
+                            }),
+                            Pickable::IGNORE,
+                        ));
+                    });
+
+                    row.spawn((
+                        Node {
+                            width: Val::Px(110.0),
+                            flex_direction: FlexDirection::Column,
+                            ..default()
+                        },
                         Pickable::IGNORE,
-                    ));
-                });
-                row.spawn((
-                    Node {
-                        width: Val::Px(160.0),
-                        flex_direction: FlexDirection::Column,
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .with_children(|wrap| {
-                    spawn_button(wrap, "Done", LoadoutAction::Done, ButtonStyle::PRIMARY, 44.0, 18.0, false);
-                });
+                    ))
+                    .with_children(|w| {
+                        spawn_button(
+                            w,
+                            "Save",
+                            LoadoutAction::ToggleRename,
+                            ButtonStyle::PRIMARY,
+                            38.0,
+                            14.0,
+                            false,
+                        );
+                    });
+
+                    row.spawn((
+                        Node {
+                            width: Val::Px(100.0),
+                            flex_direction: FlexDirection::Column,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|w| {
+                        spawn_button(
+                            w,
+                            "Cancel",
+                            LoadoutAction::CancelRename,
+                            ButtonStyle::SECONDARY,
+                            38.0,
+                            14.0,
+                            false,
+                        );
+                    });
+                } else {
+                    row.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            flex_grow: 1.0,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|col| {
+                        col.spawn((
+                            Text::new(book.active_preset().name.to_uppercase()),
+                            TextFont::from_font_size(24.0),
+                            TextColor(TEXT_PRIMARY),
+                            Pickable::IGNORE,
+                        ));
+                        col.spawn((
+                            Text::new("Splat with a marker to unlock its parts and camos. Each body levels up on its own."),
+                            TextFont::from_font_size(12.0),
+                            TextColor(TEXT_MUTED),
+                            Pickable::IGNORE,
+                        ));
+                    });
+
+                    row.spawn((
+                        Node {
+                            width: Val::Px(110.0),
+                            flex_direction: FlexDirection::Column,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|w| {
+                        spawn_button(
+                            w,
+                            "Rename",
+                            LoadoutAction::ToggleRename,
+                            ButtonStyle::SECONDARY,
+                            38.0,
+                            14.0,
+                            false,
+                        );
+                    });
+
+                    if book.presets.len() > 1 {
+                        row.spawn((
+                            Node {
+                                width: Val::Px(100.0),
+                                flex_direction: FlexDirection::Column,
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|w| {
+                            spawn_button(
+                                w,
+                                "Delete",
+                                LoadoutAction::DeletePreset,
+                                ButtonStyle::DANGER,
+                                38.0,
+                                14.0,
+                                false,
+                            );
+                        });
+                    }
+                }
+
+                if !embedded {
+                    row.spawn((
+                        Node {
+                            width: Val::Px(130.0),
+                            flex_direction: FlexDirection::Column,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|wrap| {
+                        spawn_button(
+                            wrap,
+                            "Done",
+                            LoadoutAction::Done,
+                            ButtonStyle::PRIMARY,
+                            38.0,
+                            16.0,
+                            false,
+                        );
+                    });
+                }
             });
 
             // Body: slots | options | preview + stats.
@@ -331,7 +730,7 @@ fn spawn_screen(
                 Pickable::IGNORE,
             ))
             .with_children(|body| {
-                // Slots.
+                // Slots (no Crosshair here — moved to Options).
                 body.spawn(column(220.0)).with_children(|col| {
                     label(col, "GUN TYPE");
                     spawn_button(
@@ -369,43 +768,6 @@ fn spawn_screen(
                             false,
                         );
                     }
-                    label(col, "CROSSHAIR");
-                    col.spawn((
-                        Node {
-                            flex_direction: FlexDirection::Row,
-                            column_gap: Val::Px(10.0),
-                            ..default()
-                        },
-                        Pickable::IGNORE,
-                    ))
-                    .with_children(|row| {
-                        for (i, (_, path)) in CROSSHAIRS.iter().enumerate() {
-                            let style = style_for(loadout.crosshair == i as u8);
-                            row.spawn((
-                                Node {
-                                    width: Val::Px(52.0),
-                                    height: Val::Px(52.0),
-                                    padding: UiRect::all(Val::Px(10.0)),
-                                    border_radius: BorderRadius::all(Val::Px(10.0)),
-                                    ..default()
-                                },
-                                BackgroundColor(style.normal),
-                                style,
-                                LoadoutAction::Crosshair(i as u8),
-                            ))
-                            .with_children(|b| {
-                                b.spawn((
-                                    ImageNode::new(assets.load(*path)),
-                                    Node {
-                                        width: Val::Percent(100.0),
-                                        height: Val::Percent(100.0),
-                                        ..default()
-                                    },
-                                    Pickable::IGNORE,
-                                ));
-                            });
-                        }
-                    });
                 });
 
                 // Options for the chosen slot.

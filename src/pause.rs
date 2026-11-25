@@ -42,8 +42,13 @@ fn escape_key(
     keys: Res<ButtonInput<KeyCode>>,
     state: Res<State<AppState>>,
     mut overlay: ResMut<Overlay>,
+    settings_ui: Res<crate::settings::SettingsUiState>,
+    loadout_screen: Option<Res<crate::loadout_ui::LoadoutScreen>>,
 ) {
     if !keys.just_pressed(KeyCode::Escape) {
+        return;
+    }
+    if settings_ui.is_listening() || loadout_screen.is_some_and(|s| s.is_renaming()) {
         return;
     }
     if overlay.settings {
