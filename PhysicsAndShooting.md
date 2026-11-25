@@ -113,7 +113,7 @@ Shooter (Client A)                  Host (Relay & Validator)                Vict
 - **Health, Regen & Elimination (`take_damage`, `regen_and_respawn`)**:
   - Max health is `100.0`.
   - After `7.0 s` without taking damage (`REGEN_DELAY`), health regenerates at `14.0 HP/s` (`REGEN_RATE`).
-  - At `0 HP`, the player's `deaths` counter increments, `killer` is recorded, a physics ragdoll spawns pushed along the impact velocity, the death camera orbits for `5.0 s` (`RESPAWN_TIME`), and the player respawns with full health and ammo on their team's spawn pad.
+  - At `0 HP`, the player's `deaths` counter increments, `killer` is recorded, a physics ragdoll spawns pushed along the impact velocity (the host simulates it and sends its pose to everyone at 20 Hz; paintballs shove it; its limbs are capsules that collide with each other and with other bodies; it sinks away after its player respawns 3 times), the death camera orbits for `5.0 s` (`RESPAWN_TIME`), and the player respawns with full health and ammo on their team's spawn pad.
 
 ---
 

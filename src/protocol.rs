@@ -412,6 +412,47 @@ pub enum ServerMessage {
     HostLeaving,
     /// The match clock, phase and scores.
     Match(MatchState),
+    /// Eliminated players' bodies as the host simulates them.
+    Ragdolls(RagdollFrame),
+}
+
+/// Joints in a ragdoll pose (see `ragdoll.rs`).
+pub const RAGDOLL_JOINTS: usize = 13;
+
+/// One body: whose it is, which of their eliminations made it, and where its
+/// joints are (centimeters, x/y/z per joint).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RagdollPose {
+    pub owner: PlayerId,
+    pub death: u32,
+    pub joints: Vec<i32>,
+}
+
+/// Part of the host's ragdolls. `all`, when there, lists every body that
+/// exists right now (`[owner, death]`): any other is gone. `bodies` are the
+/// poses of the ones that moved (and, now and then, all of them).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RagdollFrame {
+    pub all: Option<Vec<[u32; 2]>>,
+    pub bodies: Vec<RagdollPose>,
+}
+
+/// Splits the host's bodies into frames that each fit a datagram: the first
+/// lists every body (and carries one pose), the rest carry two poses each.
+pub fn pack_ragdoll_frames(all: Vec<[u32; 2]>, bodies: Vec<RagdollPose>) -> Vec<RagdollFrame> {
+    let mut rest = bodies.into_iter();
+    let first = RagdollFrame {
+        all: Some(all),
+        bodies: rest.next().into_iter().collect(),
+    };
+    let rest: Vec<RagdollPose> = rest.collect();
+    std::iter::once(first)
+        .chain(rest.chunks(2).map(|chunk| RagdollFrame {
+            all: None,
+            bodies: chunk.to_vec(),
+        }))
+        .collect()
 }
 
 /// What a joining player sends the host over UDP (one JSON datagram each).
@@ -562,6 +603,26 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ragdoll_frames_fit_datagrams() {
+        let all: Vec<[u32; 2]> = (0..24).map(|i| [1000 + i, 123_456]).collect();
+        let bodies: Vec<RagdollPose> = (0..24)
+            .map(|i| RagdollPose {
+                owner: 1000 + i,
+                death: 123_456,
+                joints: vec![-123_456; RAGDOLL_JOINTS * 3],
+            })
+            .collect();
+        let frames = pack_ragdoll_frames(all, bodies);
+        assert!(frames[0].all.as_ref().is_some_and(|a| a.len() == 24));
+        assert_eq!(frames.iter().map(|f| f.bodies.len()).sum::<usize>(), 24);
+        for frame in frames {
+            for d in encode_server_datagrams(&ServerMessage::Ragdolls(frame)) {
+                assert!(d.len() <= MAX_DATAGRAM, "datagram of {} bytes", d.len());
+            }
+        }
+    }
 
     #[test]
     fn big_world_state_is_split_into_datagrams_that_fit() {

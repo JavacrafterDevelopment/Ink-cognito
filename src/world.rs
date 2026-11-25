@@ -312,6 +312,7 @@ pub fn poll_network_events(
                 net.status_text = "Hosting".to_string();
                 net.players.clear();
                 net.pending_hits.clear();
+                net.pending_ragdolls.clear();
                 net.players.insert(local_player.id, local_player);
                 net.match_state = MatchState {
                     settings: setup.0,
@@ -339,6 +340,7 @@ pub fn poll_network_events(
                 net.status_text = "Connected".to_string();
                 net.players.clear();
                 net.pending_hits.clear();
+                net.pending_ragdolls.clear();
                 for player in players {
                     net.players.insert(player.id, player);
                 }
@@ -384,6 +386,9 @@ pub fn poll_network_events(
             }
             NetEvent::HitReceived(hit) => {
                 net.pending_hits.push(hit);
+            }
+            NetEvent::Ragdolls(frame) => {
+                net.pending_ragdolls.push(frame);
             }
             NetEvent::Error(err) => {
                 net.disconnect();
