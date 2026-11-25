@@ -433,6 +433,9 @@ pub fn poll_network_events(
             NetEvent::Names(names) => {
                 net.learn_names(names);
             }
+            NetEvent::Chat { from, text } => {
+                net.pending_chat.push((from, text));
+            }
             NetEvent::Error(err) => {
                 net.disconnect();
                 net.error_text = Some(err);
@@ -645,7 +648,8 @@ fn update_game_camera(
     let zoom = 1.0 + (combat.stats.zoom - 1.0) * combat.aim_blend;
     let sensitivity = BASE_MOUSE_SENSITIVITY * view.look_multiplier(combat.aim_blend) / zoom;
     for motion in mouse_motion.read() {
-        if captured && !overlay.blocks_input() {
+        // Looking around still works while typing in chat.
+        if captured && !overlay.menu_open() {
             rig.yaw -= motion.delta.x * sensitivity;
             rig.pitch -= motion.delta.y * sensitivity * view.y_sign();
         }
@@ -711,7 +715,8 @@ fn keep_cursor_in_sync(
         return;
     };
     let captured = cursor.grab_mode != CursorGrabMode::None;
-    if overlay.blocks_input() {
+    // Chat keeps the mouse captured: only menus free it.
+    if overlay.menu_open() {
         if captured {
             set_cursor_grab(&mut cursor_q, false);
         }

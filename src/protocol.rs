@@ -438,6 +438,9 @@ pub enum ClientMessage {
     /// The name to show for this player (their Portside name). Sent once
     /// connected, and over UDP again every couple of seconds in case it's lost.
     SetName(String),
+    /// A chat line. `seq` counts this player's lines so a resent datagram
+    /// is only shown once.
+    Chat { seq: u32, text: String },
 }
 
 /// Messages sent from the host to connected clients.
@@ -469,6 +472,28 @@ pub enum ServerMessage {
     /// Players without one show as "Player N". Sent whenever a name changes
     /// and every couple of seconds, in pieces that fit a datagram.
     Names(Vec<(PlayerId, String)>),
+    /// A chat line from `from`, for everyone. `id` is the host's count of
+    /// lines, so a resent datagram is only shown once.
+    Chat {
+        id: u32,
+        from: PlayerId,
+        text: String,
+    },
+}
+
+/// Longest chat line, in characters.
+pub const MAX_CHAT_CHARS: usize = 120;
+
+/// A chat line as it may be sent and shown: no control characters, trimmed,
+/// at most `MAX_CHAT_CHARS`. `None` when nothing is left.
+pub fn clean_chat(text: &str) -> Option<String> {
+    let cleaned: String = text
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .take(MAX_CHAT_CHARS)
+        .collect();
+    let trimmed = cleaned.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
 /// Longest name shown, in characters.
@@ -715,6 +740,23 @@ mod tests {
             }
         }
         assert_eq!(seen, 40);
+    }
+
+    #[test]
+    fn chat_lines_are_cleaned_and_fit_datagrams() {
+        assert_eq!(clean_chat("  hi\nthere  ").as_deref(), Some("hi there"));
+        assert_eq!(clean_chat(" \t "), None);
+        let long = "\u{1F3A8}".repeat(500);
+        let text = clean_chat(&long).unwrap();
+        assert_eq!(text.chars().count(), MAX_CHAT_CHARS);
+        let msg = ServerMessage::Chat {
+            id: u32::MAX,
+            from: u32::MAX,
+            text,
+        };
+        for d in encode_server_datagrams(&msg) {
+            assert!(d.len() <= MAX_DATAGRAM, "datagram of {} bytes", d.len());
+        }
     }
 
     #[test]
