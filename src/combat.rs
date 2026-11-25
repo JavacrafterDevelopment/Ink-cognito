@@ -699,7 +699,10 @@ fn aim_and_reload(
     combat.damage_flash = (combat.damage_flash - dt).max(0.0);
     combat.head_paint = (combat.head_paint - dt).max(0.0);
     combat.hit_arc = (combat.hit_arc - dt).max(0.0);
-    combat.cooldown = (combat.cooldown - dt).max(0.0);
+    // May dip just below zero: `fire_local` carries the leftover into the next
+    // shot, so the fire rate doesn't round up to whole frames (slower at some
+    // frame rates than others). Capped at one frame so idling saves nothing.
+    combat.cooldown = (combat.cooldown - dt).max(-dt);
     combat.recoil = (combat.recoil - dt * 0.4).max(0.0) * (-12.0 * dt).exp();
 
     if let Some(left) = combat.reloading {
@@ -787,7 +790,7 @@ fn fire_local(
 
     let stats = combat.stats;
     combat.ammo -= 1;
-    combat.cooldown = stats.fire_interval;
+    combat.cooldown = combat.cooldown.min(0.0) + stats.fire_interval;
     combat.recoil = (combat.recoil + 0.35).min(1.0);
     local_state.0.shots = local_state.0.shots.wrapping_add(1);
     let shot = local_state.0.shots;
@@ -1205,7 +1208,8 @@ fn move_projectiles(
     mut balls: Query<(Entity, &mut Transform, &mut Projectile)>,
     mut bodies: Query<(Entity, &mut Ragdoll)>,
 ) {
-    let dt = time.delta_secs().min(0.05);
+    // Capped only for hitches: balls sweep segments, so long steps can't skip walls.
+    let dt = time.delta_secs().min(0.1);
     let now = time.elapsed_secs();
     let listener = camera_q
         .single()
@@ -1223,10 +1227,11 @@ fn move_projectiles(
             commands.entity(entity).despawn();
             continue;
         }
+        // Exact under constant gravity, so the arc is the same at any frame rate.
         let g = ball.gravity;
-        ball.velocity.y -= g * dt;
         let from = tf.translation;
-        let to = from + ball.velocity * dt;
+        let to = from + ball.velocity * dt - Vec3::Y * (0.5 * g * dt * dt);
+        ball.velocity.y -= g * dt;
 
         let world_hit = colliders.segment_hit(from, to);
         let mut best_t = world_hit.map(|h| h.t).unwrap_or(f32::MAX);
@@ -1843,13 +1848,15 @@ fn footsteps(
     combat.step_timer -= time.delta_secs();
     if combat.step_timer <= 0.0 {
         let crouched = player.crouch > 0.5;
-        combat.step_timer = if crouched {
+        // Added to the leftover so the step cadence doesn't depend on frame rate.
+        combat.step_timer += if crouched {
             0.55
         } else if player.speed > 8.0 {
             0.3
         } else {
             0.42
         };
+        combat.step_timer = combat.step_timer.max(0.1);
         local_state.0.steps = local_state.0.steps.wrapping_add(1);
         let s = fx.step_sound();
         play_sfx(&mut commands, &s, step_volume(crouched), &settings);
@@ -2043,8 +2050,8 @@ fn update_particles(
             continue;
         }
         let g = p.gravity;
+        tf.translation += p.vel * dt - Vec3::Y * (0.5 * g * dt * dt);
         p.vel.y -= g * dt;
-        tf.translation += p.vel * dt;
         let k = p.life / p.max;
         tf.scale = Vec3::splat((p.s0 + (p.s1 - p.s0) * k).max(0.001));
         if let Some(c) = cam {

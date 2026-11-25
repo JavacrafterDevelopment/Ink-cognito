@@ -544,7 +544,8 @@ fn move_grenades(
     let Some(assets) = assets else {
         return;
     };
-    let dt = time.delta_secs().min(0.05);
+    // Capped only for hitches: the swept segment test keeps long steps out of walls.
+    let dt = time.delta_secs().min(0.1);
     let local = local_q.single().ok();
     let local_id = net.local_player_id.or(local.map(|(_, p)| p.id));
 
@@ -554,9 +555,10 @@ fn move_grenades(
             if g.resting {
                 continue;
             }
-            g.velocity.y -= GRAVITY * dt;
+            // Exact under constant gravity: the same arc at any frame rate.
             let from = tf.translation;
-            let to = from + g.velocity * dt;
+            let to = from + g.velocity * dt - Vec3::Y * (0.5 * GRAVITY * dt * dt);
+            g.velocity.y -= GRAVITY * dt;
             if let Some(hit) = colliders.segment_hit(from, to) {
                 let n = hit.normal.normalize_or(Vec3::Y);
                 let v = g.velocity;
