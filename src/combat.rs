@@ -290,6 +290,8 @@ pub struct Fx {
     mats: HashMap<(Paint, u8), Handle<StandardMaterial>>,
     pub sounds: Sounds,
     rng: u32,
+    /// The footstep sound played last, so the next step picks another one.
+    last_step: usize,
 }
 
 pub struct Sounds {
@@ -336,6 +338,17 @@ impl Fx {
     }
     fn pick(&mut self, len: usize) -> usize {
         ((self.rand() * len as f32) as usize).min(len.saturating_sub(1))
+    }
+    /// A random footstep sound, never the same one twice in a row.
+    fn step_sound(&mut self) -> Handle<AudioSource> {
+        let n = self.sounds.steps.len();
+        let mut i = self.pick(n);
+        if n > 1 && i == self.last_step {
+            // Shift by 1..n-1 so every other sound stays equally likely.
+            i = (i + 1 + self.pick(n - 1)) % n;
+        }
+        self.last_step = i;
+        self.sounds.steps[i].clone()
     }
     fn material(
         &mut self,
@@ -433,11 +446,12 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
             confirm: ogg("game/flag_captured"),
             round_start: ogg("game/round_start_horn"),
             steps: (1..=4)
-                .map(|i| ogg(&format!("footsteps/step_grass_{i:02}")))
+                .map(|i| assets.load(format!("audio/footsteps/footstep_{i:02}.flac")))
                 .collect(),
             bunker_hit: ogg("impacts/hit_bunker_inflatable"),
         },
         rng: 0x9E37_79B9,
+        last_step: usize::MAX,
     });
 }
 
@@ -1837,9 +1851,7 @@ fn footsteps(
             0.42
         };
         local_state.0.steps = local_state.0.steps.wrapping_add(1);
-        let n = fx.sounds.steps.len();
-        let i = fx.pick(n);
-        let s = fx.sounds.steps[i].clone();
+        let s = fx.step_sound();
         play_sfx(&mut commands, &s, step_volume(crouched), &settings);
     }
 }
@@ -1862,9 +1874,7 @@ fn remote_footsteps(
         }
         let crouched = remote.state.flags & FLAG_CROUCH != 0;
         let feet = transform.translation - Vec3::Y * PLAYER_GROUND_Y;
-        let n = fx.sounds.steps.len();
-        let i = fx.pick(n);
-        let s = fx.sounds.steps[i].clone();
+        let s = fx.step_sound();
         // Several steps can arrive in one snapshot; one sound is enough.
         play_sfx_at(&mut commands, &s, step_volume(crouched), feet, &settings);
     }

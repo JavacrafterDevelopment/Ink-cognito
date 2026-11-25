@@ -26,7 +26,7 @@ pub const PLAYER_GROUND_Y: f32 = 0.9;
 /// Eye height above the body's center.
 pub const EYE_OFFSET: f32 = 0.72;
 /// How far the eyes (and the body's hit center) drop when crouching.
-pub const CROUCH_DROP: f32 = 0.55;
+pub const CROUCH_DROP: f32 = 0.75;
 const CROUCH_SPEED: f32 = 0.5;
 
 /// Run speeds and jump physics for each host-picked `MovementSpeed`.
