@@ -17,7 +17,6 @@ use bevy::{
     prelude::*,
     window::{CursorGrabMode, CursorOptions, PrimaryWindow},
 };
-use ink_map::Shape;
 
 pub struct ViewPlugin;
 
@@ -319,17 +318,8 @@ fn pick(editor: &Editor, ray: Ray3d) -> Option<Sel> {
             consider(ray_box(ray, lo, hi), Sel::Object(i));
         }
         for s in solids {
-            let t = match s.shape {
-                Shape::Oriented { center, half, rot } => {
-                    let inv = rot.inverse();
-                    let local = Ray3d::new(inv * (ray.origin - center), Dir3::new_unchecked(inv * ray.direction.as_vec3()));
-                    ray_box(local, -half, half)
-                }
-                other => {
-                    let (lo, hi) = other.bounds();
-                    ray_box(ray, lo, hi)
-                }
-            };
+            let far = ray.origin + ray.direction.as_vec3() * 2000.0;
+            let t = s.shape.segment(ray.origin, far).map(|(t, _)| t * 2000.0);
             consider(t, Sel::Object(i));
         }
     }
@@ -549,17 +539,8 @@ fn draw_overlay(
             wire_box(&mut gizmos, lo, hi, Color::srgba(1.0, 0.9, 0.1, 0.5));
         }
         for s in solids {
-            match s.shape {
-                Shape::Oriented { center, half, rot } => {
-                    let c = ink_map::box_corners(half).map(|p| center + rot * p);
-                    for (a, b) in [(0, 1), (2, 3), (4, 5), (6, 7), (0, 2), (1, 3), (4, 6), (5, 7), (0, 4), (1, 5), (2, 6), (3, 7)] {
-                        gizmos.line(c[a], c[b], yellow);
-                    }
-                }
-                other => {
-                    let (a, b) = other.bounds();
-                    wire_box(&mut gizmos, a, b, yellow);
-                }
+            for (a, b) in s.shape.edges() {
+                gizmos.line(a, b, yellow);
             }
         }
         // Which way is its front (-Z).

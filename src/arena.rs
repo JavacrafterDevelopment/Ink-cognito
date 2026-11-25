@@ -5,23 +5,9 @@ use bevy::prelude::*;
 
 /// A solid thing on the field (shared with the map editor).
 pub use ink_map::Shape;
+use ink_map::{Convex, convex::circle_out_of};
 
-/// Height of a ramp's surface over `(x, z)`, if that's on it.
-fn ramp_height(min: Vec3, max: Vec3, rise: Vec2, x: f32, z: f32) -> Option<f32> {
-    if x < min.x || x > max.x || z < min.z || z > max.z {
-        return None;
-    }
-    let t = if rise.x.abs() > rise.y.abs() {
-        let f = (x - min.x) / (max.x - min.x).max(1e-4);
-        if rise.x > 0.0 { f } else { 1.0 - f }
-    } else {
-        let f = (z - min.z) / (max.z - min.z).max(1e-4);
-        if rise.y > 0.0 { f } else { 1.0 - f }
-    };
-    Some(min.y + (max.y - min.y) * t.clamp(0.0, 1.0))
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Collider {
     pub shape: Shape,
     /// Whether paint splats stick to it (false for odd shapes, where a flat
@@ -61,22 +47,7 @@ impl Colliders {
             });
         }
         for c in &self.0 {
-            let hit = match c.shape {
-                Shape::Box { min, max } => segment_box(from, to, min, max),
-                Shape::Cylinder {
-                    base,
-                    radius,
-                    height,
-                } => segment_cylinder(from, to, base, radius, height),
-                // Paint rolls off slopes: only the ground under them counts.
-                Shape::Ramp { .. } => None,
-                Shape::Oriented { center, half, rot } => {
-                    // In the box's own space it's a plain box.
-                    let inv = rot.inverse();
-                    segment_box(inv * (from - center), inv * (to - center), -half, half)
-                        .map(|(t, n)| (t, rot * n))
-                }
-            };
+            let hit = c.shape.segment(from, to);
             if let Some((t, normal)) = hit {
                 consider(RayHit {
                     t,
@@ -95,8 +66,8 @@ impl Colliders {
     pub fn resolve_player(&self, pos: &mut Vec3, radius: f32, feet: f32, top: f32) -> f32 {
         let mut floor = 0.0f32;
         for c in &self.0 {
-            match c.shape {
-                Shape::Box { min, max } => {
+            match &c.shape {
+                &Shape::Box { min, max } => {
                     let (stand, push) = player_vs_box(Vec2::new(pos.x, pos.z), min, max, radius, feet, top);
                     if let Some(y) = stand {
                         floor = floor.max(y);
@@ -104,36 +75,25 @@ impl Colliders {
                     pos.x += push.x;
                     pos.z += push.y;
                 }
-                Shape::Oriented { center, half, rot } => {
-                    if ink_map::is_upright(rot) {
-                        // Work in the box's own (turned) space, then turn the push back.
-                        let local = rot.inverse() * (*pos - center);
-                        let (stand, push) = player_vs_box(
-                            Vec2::new(local.x, local.z),
-                            Vec3::new(-half.x, center.y - half.y, -half.z),
-                            Vec3::new(half.x, center.y + half.y, half.z),
-                            radius,
-                            feet,
-                            top,
-                        );
-                        if let Some(y) = stand {
-                            floor = floor.max(y);
-                        }
-                        let push = rot * Vec3::new(push.x, 0.0, push.y);
-                        pos.x += push.x;
-                        pos.z += push.z;
-                    } else {
-                        // Tilted: players bump the box around it.
-                        let (min, max) = c.shape.bounds();
-                        let (stand, push) = player_vs_box(Vec2::new(pos.x, pos.z), min, max, radius, feet, top);
-                        if let Some(y) = stand {
-                            floor = floor.max(y);
-                        }
-                        pos.x += push.x;
-                        pos.z += push.y;
+                &Shape::Oriented { center, half, rot } => {
+                    // Work in the box's own (turned) space, then turn the push back.
+                    let local = rot.inverse() * (*pos - center);
+                    let (stand, push) = player_vs_box(
+                        Vec2::new(local.x, local.z),
+                        Vec3::new(-half.x, center.y - half.y, -half.z),
+                        Vec3::new(half.x, center.y + half.y, half.z),
+                        radius,
+                        feet,
+                        top,
+                    );
+                    if let Some(y) = stand {
+                        floor = floor.max(y);
                     }
+                    let push = rot * Vec3::new(push.x, 0.0, push.y);
+                    pos.x += push.x;
+                    pos.z += push.z;
                 }
-                Shape::Cylinder {
+                &Shape::Cylinder {
                     base,
                     radius: r,
                     height,
@@ -157,12 +117,13 @@ impl Colliders {
                         pos.z += push.y;
                     }
                 }
-                Shape::Ramp { min, max, rise } => {
-                    if let Some(h) = ramp_height(min, max, rise, pos.x, pos.z)
-                        && feet >= h - 0.45
-                    {
-                        floor = floor.max(h);
+                Shape::Hull(h) => {
+                    let (stand, push) = player_vs_hull(h, Vec2::new(pos.x, pos.z), radius, feet, top);
+                    if let Some(y) = stand {
+                        floor = floor.max(y);
                     }
+                    pos.x += push.x;
+                    pos.z += push.y;
                 }
             }
         }
@@ -173,8 +134,8 @@ impl Colliders {
     pub fn push_out_point(&self, p: &mut Vec3, radius: f32) -> bool {
         let mut touched = false;
         for c in &self.0 {
-            match c.shape {
-                Shape::Box { min, max } => {
+            match &c.shape {
+                &Shape::Box { min, max } => {
                     let lo = min - Vec3::splat(radius);
                     let hi = max + Vec3::splat(radius);
                     if p.x > lo.x
@@ -197,7 +158,7 @@ impl Colliders {
                         }
                     }
                 }
-                Shape::Cylinder {
+                &Shape::Cylinder {
                     base,
                     radius: r,
                     height,
@@ -221,16 +182,7 @@ impl Colliders {
                     }
                     touched = true;
                 }
-                Shape::Ramp { min, max, rise } => {
-                    if let Some(h) = ramp_height(min, max, rise, p.x, p.z)
-                        && p.y < h + radius
-                        && p.y > h - 0.6
-                    {
-                        p.y = h + radius;
-                        touched = true;
-                    }
-                }
-                Shape::Oriented { center, half, rot } => {
+                &Shape::Oriented { center, half, rot } => {
                     let local = rot.inverse() * (*p - center);
                     let h = half + Vec3::splat(radius);
                     if local.abs().cmplt(h).all() {
@@ -247,6 +199,13 @@ impl Colliders {
                             }
                         }
                         *p = center + rot * best.1;
+                        touched = true;
+                    }
+                }
+                Shape::Hull(h) => {
+                    let (out, n) = h.depth(*p);
+                    if out < radius {
+                        *p += n * (radius - out);
                         touched = true;
                     }
                 }
@@ -293,81 +252,56 @@ fn player_vs_box(p: Vec2, min: Vec3, max: Vec3, radius: f32, feet: f32, top: f32
     (None, push)
 }
 
-/// Slab test. Returns (t, outward normal) of where the segment enters the box.
-fn segment_box(from: Vec3, to: Vec3, min: Vec3, max: Vec3) -> Option<(f32, Vec3)> {
-    let d = to - from;
-    let mut t_enter = 0.0f32;
-    let mut t_exit = 1.0f32;
-    let mut normal = Vec3::ZERO;
-    for axis in 0..3 {
-        let (o, dir, lo, hi) = (from[axis], d[axis], min[axis], max[axis]);
-        if dir.abs() < 1e-8 {
-            if o < lo || o > hi {
-                return None;
-            }
-            continue;
-        }
-        let mut t0 = (lo - o) / dir;
-        let mut t1 = (hi - o) / dir;
-        let mut n = Vec3::ZERO;
-        n[axis] = -1.0;
-        if t0 > t1 {
-            std::mem::swap(&mut t0, &mut t1);
-            n[axis] = 1.0;
-        }
-        if t0 > t_enter {
-            t_enter = t0;
-            normal = n;
-        }
-        t_exit = t_exit.min(t1);
-        if t_enter > t_exit {
-            return None;
-        }
+/// A standing player against a convex shape: stands on it if its surface
+/// under them is within a step of their feet, else is pushed out sideways
+/// by its outline at the heights their body spans.
+fn player_vs_hull(h: &Convex, p: Vec2, radius: f32, feet: f32, top: f32) -> (Option<f32>, Vec2) {
+    if p.x + radius < h.lo.x || p.x - radius > h.hi.x || p.y + radius < h.lo.z || p.y - radius > h.hi.z {
+        return (None, Vec2::ZERO);
     }
-    // Starting inside counts as no hit (the ball just left a surface).
-    (normal != Vec3::ZERO).then_some((t_enter, normal))
-}
-
-fn segment_cylinder(
-    from: Vec3,
-    to: Vec3,
-    base: Vec3,
-    radius: f32,
-    height: f32,
-) -> Option<(f32, Vec3)> {
-    let top = base.y + height;
-    let d = to - from;
-    // Side wall.
-    let o = Vec2::new(from.x - base.x, from.z - base.z);
-    let v = Vec2::new(d.x, d.z);
-    let a = v.length_squared();
-    let mut best: Option<(f32, Vec3)> = None;
-    if a > 1e-10 {
-        let b = 2.0 * o.dot(v);
-        let c = o.length_squared() - radius * radius;
-        let disc = b * b - 4.0 * a * c;
-        if disc >= 0.0 && c > 0.0 {
-            let t = (-b - disc.sqrt()) / (2.0 * a);
-            if (0.0..=1.0).contains(&t) {
-                let p = from + d * t;
-                if p.y >= base.y && p.y <= top {
-                    let n = Vec3::new(p.x - base.x, 0.0, p.z - base.z).normalize_or(Vec3::X);
-                    best = Some((t, n));
-                }
+    if top <= h.lo.y {
+        return (None, Vec2::ZERO);
+    }
+    // The surface under the middle of the feet, else under their rim.
+    let mut surface = h.column(p.x, p.y).map(|(_, y, up)| (y, up));
+    if surface.is_none() {
+        for i in 0..8 {
+            let a = i as f32 / 8.0 * std::f32::consts::TAU;
+            let q = p + Vec2::new(a.cos(), a.sin()) * radius * 0.9;
+            if let Some((_, y, up)) = h.column(q.x, q.y)
+                && surface.is_none_or(|s| y > s.0)
+            {
+                surface = Some((y, up));
             }
         }
     }
-    // Top cap.
-    if from.y > top && to.y <= top {
-        let t = (from.y - top) / (from.y - to.y);
-        let p = from + d * t;
-        if Vec2::new(p.x - base.x, p.z - base.z).length_squared() <= radius * radius
-            && best.is_none_or(|b| t < b.0)
+    if let Some((y, up)) = surface {
+        // Flat tops take a small step like boxes; walkable slopes a ramp's.
+        let step = if up > 0.95 {
+            0.25
+        } else if up > 0.6 {
+            0.45
+        } else {
+            0.05
+        };
+        if feet >= y - step {
+            return (Some(y), Vec2::ZERO);
+        }
+    }
+    let (y0, y1) = ((feet + 0.05).max(h.lo.y + 0.01), top.min(h.hi.y - 0.01));
+    if y1 < y0 {
+        return (None, Vec2::ZERO);
+    }
+    let mut best = Vec2::ZERO;
+    for i in 0..4 {
+        let y = y0 + (y1 - y0) * i as f32 / 3.0;
+        if let Some(push) = circle_out_of(&h.section(y), p, radius)
+            && push.length_squared() > best.length_squared()
         {
-            best = Some((t, Vec3::Y));
+            best = push;
         }
     }
-    best
+    (None, best)
 }
 
 #[cfg(test)]
@@ -454,25 +388,86 @@ mod tests {
         assert!((c.resolve_player(&mut p, 0.3, 2.05, 3.8) - 2.0).abs() < 1e-4);
     }
 
+    fn here() -> ink_map::Place {
+        ink_map::Place {
+            at: Vec3::ZERO,
+            rot: Quat::IDENTITY,
+            scale: Vec3::ONE,
+        }
+    }
+
+    fn hull(c: Convex) -> Collider {
+        Collider {
+            shape: Shape::Hull(std::sync::Arc::new(c)),
+            decals: false,
+        }
+    }
+
     #[test]
     fn ramps_lift_players_toward_their_high_end() {
-        let c = Colliders(vec![Collider {
-            shape: Shape::Ramp {
-                min: Vec3::new(-1.0, 0.0, -1.0),
-                max: Vec3::new(1.0, 1.0, 1.0),
-                rise: Vec2::new(0.0, -1.0),
-            },
-            decals: false,
-        }]);
+        let c = Colliders(vec![hull(Convex::wedge(
+            Vec3::new(-1.0, 0.0, -1.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            here(),
+        ))]);
         let mut p = Vec3::new(0.0, 0.9, 1.0);
         assert!(c.resolve_player(&mut p, 0.4, 0.0, 1.8).abs() < 1e-4);
         let mut p = Vec3::new(0.0, 1.4, 0.0);
         let floor = c.resolve_player(&mut p, 0.4, 0.45, 2.3);
         assert!((floor - 0.5).abs() < 1e-4);
-        let mut p = Vec3::new(0.0, 1.9, -1.0);
-        assert!((c.resolve_player(&mut p, 0.4, 0.95, 2.8) - 1.0).abs() < 1e-4);
+        let mut p = Vec3::new(0.0, 1.9, -0.9);
+        assert!((c.resolve_player(&mut p, 0.4, 0.95, 2.8) - 0.95).abs() < 1e-4);
         // Off the side: nothing.
         let mut p = Vec3::new(3.0, 0.9, 0.0);
         assert_eq!(c.resolve_player(&mut p, 0.4, 0.0, 1.8), 0.0);
+        // Walking into its tall side from the ground pushes you away.
+        let mut p = Vec3::new(1.2, 0.9, -0.6);
+        assert_eq!(c.resolve_player(&mut p, 0.4, 0.0, 1.8), 0.0);
+        assert!(p.x >= 1.4 - 1e-3, "{p}");
+        // Paint hits its slope instead of passing through.
+        let hit = c.segment_hit(Vec3::new(0.0, 3.0, 0.0), Vec3::new(0.0, -1.0, 0.0)).unwrap();
+        assert!((hit.point.y - 0.5).abs() < 1e-3, "{}", hit.point);
+    }
+
+    #[test]
+    fn ramps_turned_any_way_slope_the_way_they_face() {
+        // Turned 30 degrees: the high end is 30 degrees around from -Z.
+        let rot = Quat::from_rotation_y(30f32.to_radians());
+        let place = ink_map::Place { rot, ..here() };
+        let c = Colliders(vec![hull(Convex::wedge(Vec3::new(-1.0, 0.0, -1.0), Vec3::new(1.0, 1.0, 1.0), place))]);
+        let up = rot * Vec3::NEG_Z;
+        let mut p = up * 0.6 + Vec3::Y * 1.5;
+        let floor = c.resolve_player(&mut p, 0.4, 0.75, 2.6);
+        assert!((floor - 0.8).abs() < 1e-3, "{floor}");
+        let mut p = -up * 0.6 + Vec3::Y * 1.0;
+        let floor = c.resolve_player(&mut p, 0.4, 0.15, 2.0);
+        assert!((floor - 0.2).abs() < 1e-3, "{floor}");
+    }
+
+    #[test]
+    fn tilted_boxes_collide_as_they_look() {
+        // A 4 x 2 x 0.4 slab leaning 30 degrees back, like a fallen wall.
+        let rot = Quat::from_rotation_x(-30f32.to_radians());
+        let c = Colliders(vec![hull(Convex::cuboid(
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(2.0, 1.0, 0.2),
+            ink_map::Place { rot, ..here() },
+        ))]);
+        // Its box around reaches z = -0.67 at the top; at the ground the slab
+        // ends near z = +0.17, so a player standing at z = 0.8 is clear.
+        let mut p = Vec3::new(0.0, 0.9, 0.8);
+        assert_eq!(c.resolve_player(&mut p, 0.4, 0.0, 1.8), 0.0);
+        assert_eq!(p, Vec3::new(0.0, 0.9, 0.8));
+        // A shot over its leaning top misses; one into its face hits.
+        assert!(c.segment_hit(Vec3::new(0.0, 1.85, 3.0), Vec3::new(0.0, 1.85, 0.6)).is_none());
+        let hit = c.segment_hit(Vec3::new(0.0, 1.0, 3.0), Vec3::new(0.0, 1.0, -3.0)).unwrap();
+        assert!(hit.normal.z > 0.8, "{}", hit.normal);
+        // Walking into it pushes you back out.
+        let mut p = Vec3::new(0.0, 0.9, 0.3);
+        c.resolve_player(&mut p, 0.4, 0.0, 1.8);
+        assert!(p.z > 0.4, "{p}");
+        // Ragdoll joints are kept out.
+        let mut q = Vec3::new(0.0, 1.0, -0.4);
+        assert!(c.push_out_point(&mut q, 0.1));
     }
 }

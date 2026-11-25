@@ -45,8 +45,9 @@ match needs the host's map file; a player without it plays Splat Park's layout i
 
 The map editor is a separate program, `ink-map-editor.exe`, in the same folder as the game
 (from source: `cargo run --release -p ink-map-editor`). It edits map files (JSON): place
-bunkers, walls, structures, props and nature from the palette, set each team's spawns, and
-change the field's size, edge, sky and ground.
+pieces from the palette (bunkers, walls, structures, building parts, furniture, industrial and
+street props, nature and terrain: about 270 in all, on pages you scroll with the mouse wheel),
+set each team's spawns, and change the field's size, edge, sky and ground.
 
 | Action | Keys |
 | --- | --- |
@@ -69,9 +70,25 @@ change the field's size, edge, sky and ground.
 Linux), where the game reads custom maps when it starts. Open lists those and the built-in
 maps; **Save** on a built-in map writes its file in `assets/maps`, which is how the built-in
 maps are changed in the source (the game compiles them in, so rebuild it to play the change).
-Pieces marked scenery have nothing to collide with; turn any placed piece into scenery with
-the **Solid** button. Pieces turned to any angle collide as turned boxes; **Level** in the
-Selected panel takes the tilt off a piece.
+Every solid piece collides the way it looks: its collision is a set of boxes, cylinders and
+convex shapes fitted to the model's own parts (a bridge's deck and railings, a doorway's
+opening, a tree's trunk and crown), and it keeps colliding that way turned or tilted to any
+angle, ramps included. Select a piece to see its shapes drawn in yellow. Pieces marked scenery
+(grass, bushes, flat ground decor) have nothing to collide with; turn any placed piece into
+scenery with the **Solid** button. **Level** in the Selected panel takes the tilt off a piece.
+
+### Adding a piece
+
+Put the model in `assets/models`, list it in `tools/colliders/pieces.py` (models in the new
+folders there are picked up on their own), then fit its collision shapes:
+
+```
+pip install numpy scipy trimesh coacd pillow
+python tools/colliders/gen.py            # rewrites crates/ink-map/src/pieces.rs
+python tools/colliders/gen.py --sheets   # also draws each model with its shapes in tools/colliders/sheets
+```
+
+Ids in `pieces.py` are what map files store, so never change one once a map uses it.
 
 ## How to play
 
@@ -151,7 +168,7 @@ everything, or `-p ink-map-editor` for the editor.
 | `src/loadout.rs` | Guns, attachments, water guns and their stats |
 | `src/loadout_ui.rs` | The loadout screen with a 3D preview |
 | `src/maps.rs` | Loads the map files (built-in ones from `assets/maps`, compiled in; custom ones from the maps folder) and builds the picked one |
-| `src/arena.rs` | Collision shapes (boxes, cylinders, ramps) and how players and paint hit them |
+| `src/arena.rs` | How players, paint and ragdolls hit the collision shapes (boxes, cylinders, turned boxes, convex shapes) |
 | `src/game_mode.rs` | Match rules: phases, clock, scores, rounds, respawns (run by the host) |
 | `src/ranked.rs` | Rank points, tiers and the ranked save file |
 | `src/progression.rs` | Per-body splat records, camo and attachment unlocks, unlock pop-ups |
