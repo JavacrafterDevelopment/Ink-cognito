@@ -169,7 +169,9 @@ impl MapLibrary {
     pub fn load() -> Self {
         let mut library = Self::built_in();
         let dirs = [
-            Some(FileAssetReader::get_base_path().join("assets").join("maps")),
+            Some(FileAssetReader::get_base_path()
+                    .join(crate::asset_folder())
+                    .join("maps")),
             custom_maps_dir(),
         ];
         for dir in dirs.into_iter().flatten() {

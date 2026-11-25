@@ -3,7 +3,11 @@
 # Run by the release workflow. Adapted from KittyConnect's, so the Javacrafter
 # Launcher installs and updates it the same way.
 #
-#   tools/package-macos.sh <path/to/ink-cognito> <OutDir>
+#   tools/package-macos.sh <path/to/ink-cognito> <OutDir> [path/to/ink-map-editor]
+#
+# The assets go in Contents/Resources/assets (the game and the editor look
+# there when they run from a bundle): codesign only wants code in
+# Contents/MacOS.
 #
 # Writes:
 #   <Out>/Ink-cognito/Ink-cognito.app         the application bundle
@@ -15,12 +19,13 @@
 set -euo pipefail
 
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <path/to/ink-cognito> <OutDir>" >&2
+  echo "Usage: $0 <path/to/ink-cognito> <OutDir> [path/to/ink-map-editor]" >&2
   exit 1
 fi
 
 EXE="$1"
 OUT="$2"
+EDITOR="${3:-}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/Cargo.toml" | head -n 1)"
@@ -39,12 +44,13 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$EXE" "$APP/Contents/MacOS/ink-cognito"
 chmod 755 "$APP/Contents/MacOS/ink-cognito"
-
-# Bevy loads anything under assets/ next to the executable; ship it if the
-# game ever gets one.
-if [ -d "$ROOT/assets" ]; then
-  cp -R "$ROOT/assets" "$APP/Contents/MacOS/assets"
+if [ -n "$EDITOR" ]; then
+  cp "$EDITOR" "$APP/Contents/MacOS/ink-map-editor"
+  chmod 755 "$APP/Contents/MacOS/ink-map-editor"
 fi
+
+cp -R "$ROOT/assets" "$APP/Contents/Resources/assets"
+find "$APP/Contents/Resources/assets" -name '.DS_Store' -delete
 
 # The local network text is what macOS shows when it asks; players on the
 # same network connect to each other directly.
@@ -83,10 +89,17 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Ad-hoc sign the bundle BEFORE hashing, so _CodeSignature and the signed
-# binary match the hashes in launcher-manifest.json.
+# Ad-hoc sign BEFORE hashing, so _CodeSignature and the signed binaries match
+# the hashes in launcher-manifest.json. The helper binary first, then the app
+# (which seals everything in it). Apple Silicon won't run unsigned code at all;
+# ad-hoc is enough for that, but it isn't notarized, so a copy downloaded with
+# a browser gets Gatekeeper's warning (right-click > Open the first time).
 if command -v codesign >/dev/null 2>&1; then
-  codesign --force --deep --sign - "$APP"
+  if [ -n "$EDITOR" ]; then
+    codesign --force --sign - "$APP/Contents/MacOS/ink-map-editor"
+  fi
+  codesign --force --sign - "$APP"
+  codesign --verify --strict --verbose=2 "$APP"
 fi
 
 python3 - "$FOLDER" "$VERSION" "$EXE_REL" "$MANIFEST" "$ZIP_PATH" "$OUT/release-entry-macos.json" <<'PY'
@@ -125,7 +138,7 @@ with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zi.compress_type = zipfile.ZIP_DEFLATED
         zi.create_system = 3  # Unix, so the modes below count
         mode = stat.S_IMODE(st.st_mode)
-        if rel == exe_rel or ".app/Contents/MacOS/" in rel and "/assets/" not in rel:
+        if rel == exe_rel or ".app/Contents/MacOS/" in rel:
             mode |= 0o755
         zi.external_attr = (stat.S_IFREG | mode) << 16
         with open(src, "rb") as f:
