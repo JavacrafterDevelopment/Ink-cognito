@@ -1238,6 +1238,8 @@ mod tests {
             water: 0,
             crosshair: 0,
             skin: 3,
+            grenade: 0,
+            flash: 0,
         };
         assert_eq!(Loadout::unpack(l.pack()).model_paths(), l.model_paths());
         assert_eq!(Loadout::unpack(l.pack()).skin, 3);
