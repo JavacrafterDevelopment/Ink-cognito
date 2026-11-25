@@ -49,7 +49,9 @@ The map editor is a separate program, `ink-map-editor.exe`, in the same folder a
 (from source: `cargo run --release -p ink-map-editor`). It edits map files (JSON): place
 pieces from the palette (bunkers, walls, structures, building parts, furniture, industrial and
 street props, nature and terrain: about 270 in all, on pages you scroll with the mouse wheel),
-set each team's spawns, and change the field's size, edge, sky and ground.
+set each team's spawns, and change the field's size, edge, time of day and ground. The time of
+day (Day, Clear, Pale, Haze, Sunset, Dusk, Night) sets the sky and how the map is lit: sun angle
+and strength, ambient light and fog, the same in the editor and in game.
 
 | Action | Keys |
 | --- | --- |

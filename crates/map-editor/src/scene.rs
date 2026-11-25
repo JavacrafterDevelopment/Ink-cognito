@@ -6,7 +6,7 @@ use bevy::{
     math::Affine2,
     prelude::*,
 };
-use ink_map::GroundTex;
+use ink_map::{Daylight, GroundTex};
 
 pub struct ScenePlugin;
 
@@ -37,6 +37,10 @@ pub struct ObjectModel(pub usize);
 #[derive(Component)]
 struct Ghost(&'static str);
 
+/// The sun (or moon) light.
+#[derive(Component)]
+struct Sun;
+
 /// Where the cursor meets the ground, if it's over the field view.
 #[derive(Resource, Default)]
 pub struct CursorGround(pub Option<Vec2>);
@@ -57,6 +61,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             ..default()
         },
         Transform::from_xyz(24.0, 38.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Sun,
     ));
     let repeat = |s: &mut ImageLoaderSettings| {
         s.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
@@ -213,10 +218,52 @@ fn update_ghost(
     }
 }
 
-fn update_sky(editor: Res<Editor>, mut clear: ResMut<ClearColor>) {
-    let [r, g, b] = editor.map.sky;
-    let c = Color::srgb(r, g, b);
-    if clear.0 != c {
-        clear.0 = c;
+/// Lights the field for the map's time of day: sky, sun, ambient light and
+/// fog, the same as the game does (see `ink_map::Daylight`).
+fn update_sky(
+    mut commands: Commands,
+    editor: Res<Editor>,
+    mut clear: ResMut<ClearColor>,
+    mut ambient: ResMut<GlobalAmbientLight>,
+    mut sun_q: Query<(&mut DirectionalLight, &mut Transform), With<Sun>>,
+    cameras: Query<Entity, With<Camera3d>>,
+    mut lit: Local<Option<[f32; 3]>>,
+) {
+    let sky = editor.map.sky;
+    if *lit == Some(sky) {
+        return;
+    }
+    let Ok((mut sun, mut sun_t)) = sun_q.single_mut() else {
+        return;
+    };
+    let cams: Vec<Entity> = cameras.iter().collect();
+    if cams.is_empty() {
+        return;
+    }
+    *lit = Some(sky);
+    let d = Daylight::for_sky(sky);
+    let rgb = |[r, g, b]: [f32; 3]| Color::srgb(r, g, b);
+    clear.0 = rgb(d.sky);
+    ambient.color = rgb(d.ambient_color);
+    ambient.brightness = d.ambient_brightness;
+    sun.color = rgb(d.sun_color);
+    sun.illuminance = d.sun_lux;
+    *sun_t = Transform::from_translation(d.sun_position()).looking_at(Vec3::ZERO, Vec3::Y);
+    for cam in cams {
+        match d.fog {
+            Some(f) => {
+                commands.entity(cam).insert(DistanceFog {
+                    color: rgb(f.color),
+                    falloff: FogFalloff::Linear {
+                        start: f.start,
+                        end: f.end,
+                    },
+                    ..default()
+                });
+            }
+            None => {
+                commands.entity(cam).remove::<DistanceFog>();
+            }
+        }
     }
 }
