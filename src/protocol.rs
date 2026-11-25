@@ -42,6 +42,9 @@ pub struct PlayerState {
     pub loadout: u32,
     /// Counts every shot fired: others fire one ball per step it goes up.
     pub shots: u32,
+    /// Counts footsteps taken: others hear one step, where this player
+    /// stands, each time it goes up.
+    pub steps: u32,
     /// Counts eliminations of this player: others show a ragdoll per step.
     pub deaths: u32,
     /// Who made the last elimination.
@@ -68,6 +71,7 @@ impl Default for PlayerState {
             health: MAX_HEALTH,
             loadout: 0,
             shots: 0,
+            steps: 0,
             deaths: 0,
             killer: 0,
             flags: 0,
@@ -572,6 +576,7 @@ mod tests {
                     health: 87.654_32,
                     loadout: u32::MAX,
                     shots: 123_456,
+                    steps: 654_321,
                     deaths: 1234,
                     killer: 39,
                     flags: 15,

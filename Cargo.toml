@@ -1,12 +1,12 @@
 [package]
 name = "ink-cognito"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2024"
 
 [dependencies]
 arboard = "3"
 ink-map = { path = "crates/ink-map" }
-bevy = "0.20"
+bevy = { version = "0.20", features = ["flac"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tailcat = "0.1"
