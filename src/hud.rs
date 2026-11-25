@@ -11,7 +11,7 @@
 
 use crate::{
     AppState, Overlay,
-    combat::{Combat, Killfeed, LocalState},
+    combat::{Combat, HEAD_PAINT_SECS, Killfeed, LocalState},
     loadout::{CROSSHAIRS, GunKind, Loadout},
     maps::MapInfo,
     net::NetworkState,
@@ -36,6 +36,7 @@ impl Plugin for HudPlugin {
                     update_health,
                     update_ammo,
                     update_center,
+                    update_head_paint,
                     update_score_header,
                     update_banner,
                     update_killfeed,
@@ -103,6 +104,12 @@ struct HitMarker;
 struct HitArc;
 #[derive(Component)]
 struct DamageTint;
+/// One paint splat covering part of the screen after a headshot.
+#[derive(Component)]
+struct HeadPaintSplat(usize);
+
+/// How many splats a headshot throws on the screen.
+const HEAD_PAINT_SPLATS: usize = 5;
 #[derive(Component)]
 struct KillfeedList;
 
@@ -182,6 +189,25 @@ fn spawn_hud(
         DespawnOnExit(AppState::InGame),
         HudPart,
     ));
+
+    // Paint on the screen after a headshot (placed by `update_head_paint`).
+    for i in 0..HEAD_PAINT_SPLATS {
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Vh(40.0),
+                height: Val::Vh(40.0),
+                ..default()
+            },
+            ImageNode::new(assets.load("textures/splats/splat_01.png")).with_color(Color::NONE),
+            UiTransform::IDENTITY,
+            Pickable::IGNORE,
+            GlobalZIndex(-1),
+            HeadPaintSplat(i),
+            DespawnOnExit(AppState::InGame),
+            HudPart,
+        ));
+    }
 
     // --- Score header, top center -----------------------------------------
     commands
@@ -936,7 +962,11 @@ fn update_center(
         img.color = Color::WHITE.with_alpha(a);
     }
     if let Ok(mut img) = hit_q.single_mut() {
-        img.color = Color::srgb(1.0, 0.9, 0.35).with_alpha((combat.hitmarker / 0.25).min(1.0));
+        // White on a hit, gold on a headshot, red on an elimination.
+        img.color = combat
+            .hitmarker_kind
+            .color()
+            .with_alpha((combat.hitmarker / 0.25).min(1.0));
     }
     // The arc points toward where the last hit came from.
     if let Ok((mut tf, children)) = arc_q.single_mut() {
@@ -1546,4 +1576,55 @@ fn update_scoreboard(
             });
         }
     });
+}
+
+/// Headshot paint: a few splats clumped on one part of the screen, in the
+/// shooter's colour, that hold for a moment and fade out over
+/// `HEAD_PAINT_SECS`.
+fn update_head_paint(
+    assets: Res<AssetServer>,
+    combat: Res<Combat>,
+    mut splats: Query<(&HeadPaintSplat, &mut Node, &mut ImageNode, &mut UiTransform)>,
+    mut seen: Local<u32>,
+) {
+    let fresh = combat.head_paint_seed != *seen;
+    *seen = combat.head_paint_seed;
+    let alpha = if combat.head_paint > 0.0 {
+        (combat.head_paint / (HEAD_PAINT_SECS * 0.75)).min(1.0) * 0.94
+    } else {
+        0.0
+    };
+
+    // Same seed, same layout: cheap repeatable randomness.
+    let mut rng = combat.head_paint_seed.wrapping_mul(0x9E37_79B9) | 1;
+    let mut rand = move || {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        rng as f32 / u32::MAX as f32
+    };
+    // Where the paint lands: a spot somewhere off the middle of the screen.
+    let (cx, cy) = (15.0 + rand() * 70.0, 15.0 + rand() * 70.0);
+    for (splat, mut node, mut img, mut tf) in &mut splats {
+        if fresh {
+            // The first splat is the big one; the rest spray around it.
+            let size = if splat.0 == 0 {
+                55.0 + rand() * 15.0
+            } else {
+                18.0 + rand() * 22.0
+            };
+            let spread = if splat.0 == 0 { 6.0 } else { 26.0 };
+            let x = cx + (rand() - 0.5) * spread * 2.0;
+            let y = cy + (rand() - 0.5) * spread * 2.0;
+            node.width = Val::Vh(size);
+            node.height = Val::Vh(size);
+            node.left = Val::Vw(x - size * 0.5 * 9.0 / 16.0);
+            node.top = Val::Vh(y - size * 0.5);
+            tf.rotation = Rot2::radians(rand() * std::f32::consts::TAU);
+            let n = 1 + (rand() * 7.99) as usize;
+            img.image = assets.load(format!("textures/splats/splat_{n:02}.png"));
+        }
+        let a = if splat.0 == 0 { alpha } else { alpha * 0.9 };
+        img.color = combat.head_paint_tint.with_alpha(a);
+    }
 }

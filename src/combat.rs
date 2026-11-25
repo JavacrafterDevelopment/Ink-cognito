@@ -78,6 +78,15 @@ pub const REGEN_RATE: f32 = 14.0;
 /// Seconds from elimination to respawn.
 pub const RESPAWN_TIME: f32 = 5.0;
 const PLAYER_HIT_RADIUS: f32 = 0.44;
+/// The top of the body capsule that counts as the head.
+const HEAD_ZONE: f32 = 0.35;
+/// Damage multiplier for a ball that lands in the head zone.
+pub const HEADSHOT_MULTIPLIER: f32 = 1.5;
+/// How long paint from a headshot stays on the victim's screen.
+pub const HEAD_PAINT_SECS: f32 = 4.0;
+/// Hit marker lengths (seconds): a normal or head hit, and an elimination.
+const HITMARKER_SECS: f32 = 0.25;
+const KILLMARKER_SECS: f32 = 0.5;
 const MAX_DECALS: usize = 350;
 
 /// Tracks outbound hit IDs and deduplicates inbound UDP hit retries on the client.
@@ -135,8 +144,17 @@ pub struct Combat {
     pub aim_blend: f32,
     /// Counts down after we hit someone (hit marker).
     pub hitmarker: f32,
+    /// What the current hit marker is for (white hit, gold headshot, red kill).
+    pub hitmarker_kind: HitmarkerKind,
     /// Counts down after we got hit (red flash).
     pub damage_flash: f32,
+    /// Counts down from `HEAD_PAINT_SECS` after we took a headshot: paint
+    /// over part of the screen that fades away.
+    pub head_paint: f32,
+    /// The colour of that paint (the shooter's team, or water).
+    pub head_paint_tint: Color,
+    /// Bumped on every headshot taken so the HUD re-scatters the splats.
+    pub head_paint_seed: u32,
     /// Which way (on the ground) the last hit came from, and how long to show it.
     pub hit_from: Vec3,
     pub hit_arc: f32,
@@ -161,7 +179,11 @@ impl Default for Combat {
             aiming: false,
             aim_blend: 0.0,
             hitmarker: 0.0,
+            hitmarker_kind: HitmarkerKind::Hit,
             damage_flash: 0.0,
+            head_paint: 0.0,
+            head_paint_tint: Color::WHITE,
+            head_paint_seed: 0,
             hit_from: Vec3::Z,
             hit_arc: 0.0,
             death_cam: None,
@@ -190,6 +212,25 @@ impl Combat {
     pub fn respawn_in(&self) -> Option<f32> {
         self.death_cam
             .map(|_| (RESPAWN_TIME - self.dead_for).max(0.0))
+    }
+}
+
+/// Which hit marker to show.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HitmarkerKind {
+    #[default]
+    Hit,
+    Headshot,
+    Kill,
+}
+
+impl HitmarkerKind {
+    pub fn color(self) -> Color {
+        match self {
+            HitmarkerKind::Hit => Color::srgb(1.0, 1.0, 1.0),
+            HitmarkerKind::Headshot => Color::srgb(1.0, 0.78, 0.15),
+            HitmarkerKind::Kill => Color::srgb(1.0, 0.18, 0.15),
+        }
     }
 }
 
@@ -242,6 +283,8 @@ pub struct Sounds {
     pub splats: Vec<Handle<AudioSource>>,
     pub player_hit: Handle<AudioSource>,
     pub hit_tick: Handle<AudioSource>,
+    /// The "ding" layered on top of the tick for a headshot.
+    pub headshot: Handle<AudioSource>,
     pub dry_fire: Handle<AudioSource>,
     pub pod_reload: Handle<AudioSource>,
     pub water_pump: Handle<AudioSource>,
@@ -346,6 +389,7 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
                 .collect(),
             player_hit: ogg("impacts/splat_player_hit"),
             hit_tick: ogg("ui/hit_marker_tick"),
+            headshot: ogg("impacts/hit_metal"),
             dry_fire: ogg("weapons/dry_fire"),
             pod_reload: ogg("weapons/pod_reload"),
             water_pump: ogg("water/water_pump"),
@@ -500,7 +544,15 @@ fn apply_loadout(
         let death_cam = combat.death_cam;
         let dead_for = combat.dead_for;
         let last_damage = combat.last_damage;
+        let (head_paint, tint, seed) = (
+            combat.head_paint,
+            combat.head_paint_tint,
+            combat.head_paint_seed,
+        );
         combat.reset(&loadout.stats());
+        combat.head_paint = head_paint;
+        combat.head_paint_tint = tint;
+        combat.head_paint_seed = seed;
         combat.death_cam = death_cam;
         combat.dead_for = dead_for;
         combat.last_damage = last_damage;
@@ -537,6 +589,7 @@ fn aim_and_reload(
     combat.aim_blend += (target - combat.aim_blend) * k;
     combat.hitmarker = (combat.hitmarker - dt).max(0.0);
     combat.damage_flash = (combat.damage_flash - dt).max(0.0);
+    combat.head_paint = (combat.head_paint - dt).max(0.0);
     combat.hit_arc = (combat.hit_arc - dt).max(0.0);
     combat.cooldown = (combat.cooldown - dt).max(0.0);
     combat.recoil = (combat.recoil - dt * 0.4).max(0.0) * (-12.0 * dt).exp();
@@ -920,13 +973,20 @@ fn pellet_seed(shot: u32, pellet: u32) -> u32 {
     shot ^ pellet.wrapping_mul(0x9E37_79B9)
 }
 
-fn hits_player(from: Vec3, to: Vec3, center: Vec3, crouched: bool) -> Option<f32> {
+/// Where along `from -> to` (0..=1) it passes through a player's body
+/// capsule, and whether that is in the head zone (the top `HEAD_ZONE` m).
+fn hits_player(from: Vec3, to: Vec3, center: Vec3, crouched: bool) -> Option<(f32, bool)> {
     // Crouching drops the top of the body; the feet stay put.
     let drop = if crouched { CROUCH_DROP } else { 0.0 };
     let axis = PLAYER_GROUND_Y - PLAYER_HIT_RADIUS - drop * 0.5;
     let center = center - Vec3::Y * drop * 0.5;
     let (dist, s) = segment_segment(from, to, center - Vec3::Y * axis, center + Vec3::Y * axis);
-    (dist <= PLAYER_HIT_RADIUS).then_some(s)
+    if dist > PLAYER_HIT_RADIUS {
+        return None;
+    }
+    let top = center.y + axis + PLAYER_HIT_RADIUS;
+    let at = from.lerp(to, s).y;
+    Some((s, at >= top - HEAD_ZONE))
 }
 
 enum Target {
@@ -974,13 +1034,14 @@ fn move_projectiles(
         let world_hit = colliders.segment_hit(from, to);
         let mut best_t = world_hit.map(|h| h.t).unwrap_or(f32::MAX);
         let mut target = None;
+        let mut headshot = false;
 
         // Players: enemies only (paint passes through teammates).
         if let Some((lt, lp)) = local
             && ball.owner != lp.id
             && enemies(ball.owner, lp.id)
             && local_state.0.health > 0.0
-            && let Some(t) = hits_player(from, to, lt.translation, lp.crouch > 0.5)
+            && let Some((t, _)) = hits_player(from, to, lt.translation, lp.crouch > 0.5)
             && t < best_t
         {
             best_t = t;
@@ -991,10 +1052,11 @@ fn move_projectiles(
                 continue;
             }
             let crouched = remote.state.flags & FLAG_CROUCH != 0;
-            if let Some(t) = hits_player(from, to, rt.translation, crouched)
+            if let Some((t, head)) = hits_player(from, to, rt.translation, crouched)
                 && t < best_t
             {
                 best_t = t;
+                headshot = head;
                 target = Some(Target::Remote(remote.id));
             }
         }
@@ -1015,18 +1077,35 @@ fn move_projectiles(
                 let normal = -ball.velocity.normalize_or(Vec3::Z);
                 player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
                 if Some(ball.owner) == local_id {
-                    combat.hitmarker = 0.25;
+                    // A kill marker that is still showing wins over a new hit.
+                    if combat.hitmarker_kind != HitmarkerKind::Kill || combat.hitmarker <= 0.0 {
+                        combat.hitmarker_kind = if headshot {
+                            HitmarkerKind::Headshot
+                        } else {
+                            HitmarkerKind::Hit
+                        };
+                        combat.hitmarker = HITMARKER_SECS;
+                    }
                     let s = fx.sounds.hit_tick.clone();
                     play_sfx(&mut commands, &s, 0.8, &settings);
+                    if headshot {
+                        let s = fx.sounds.headshot.clone();
+                        play_sfx(&mut commands, &s, 0.75, &settings);
+                    }
                     let hit_id = hits.alloc_id();
                     net.send_hit(HitEvent {
                         hit_id,
                         attacker: ball.owner,
                         victim: victim_id,
-                        damage: ball.damage,
+                        damage: if headshot {
+                            ball.damage * HEADSHOT_MULTIPLIER
+                        } else {
+                            ball.damage
+                        },
                         velocity: ball.velocity.to_array(),
                         point: point.to_array(),
                         water: ball.water,
+                        headshot,
                     });
                 }
                 let s = fx.sounds.player_hit.clone();
@@ -1109,6 +1188,13 @@ fn process_incoming_hits(
         player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
         let s = fx.sounds.player_hit.clone();
         play_sfx(&mut commands, &s, 0.9, &settings);
+        if hit.headshot {
+            let s = fx.sounds.headshot.clone();
+            play_sfx(&mut commands, &s, 0.6, &settings);
+            combat.head_paint = HEAD_PAINT_SECS;
+            combat.head_paint_tint = paint.color().with_alpha(1.0);
+            combat.head_paint_seed = combat.head_paint_seed.wrapping_add(1);
+        }
         take_damage(
             &mut commands,
             &mut fx,
@@ -1190,7 +1276,7 @@ fn remote_eliminations(
     local_q: Query<(&Transform, &LocalPlayer), Without<RemotePlayer>>,
     mut models: Query<(&GlobalTransform, Option<&Rig>, &mut Visibility)>,
     bones: Query<&GlobalTransform>,
-    combat: Res<Combat>,
+    mut combat: ResMut<Combat>,
     mut splats: MessageWriter<crate::progression::LocalSplat>,
 ) {
     let local_id = net.local_player_id;
@@ -1211,6 +1297,11 @@ fn remote_eliminations(
                 feed.entries.push((killer, remote.id, time.elapsed_secs()));
                 if Some(killer) == local_id {
                     play_sfx(&mut commands, &fx.sounds.confirm, 0.6, &settings);
+                    if enemies(killer, remote.id) {
+                        // Kill confirm: a red hit marker.
+                        combat.hitmarker_kind = HitmarkerKind::Kill;
+                        combat.hitmarker = KILLMARKER_SECS;
+                    }
                     if enemies(killer, remote.id)
                         && let Ok((me, player)) = local_q.single()
                     {
@@ -1672,7 +1763,7 @@ mod tests {
                 center,
                 false
             )
-            .is_some()
+            .is_some_and(|(_, head)| !head)
         );
         assert!(
             hits_player(
@@ -1692,5 +1783,28 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn top_of_the_body_is_the_head() {
+        let center = Vec3::new(0.0, PLAYER_GROUND_Y, 0.0);
+        let top = PLAYER_GROUND_Y * 2.0;
+        let across = |y: f32, crouched: bool| {
+            hits_player(
+                Vec3::new(-2.0, y, 0.0),
+                Vec3::new(2.0, y, 0.0),
+                center,
+                crouched,
+            )
+        };
+        assert!(matches!(across(top - 0.1, false), Some((_, true))));
+        assert!(matches!(
+            across(top - HEAD_ZONE - 0.1, false),
+            Some((_, false))
+        ));
+        // Crouched, the head drops with the top of the body.
+        let crouched_top = top - CROUCH_DROP;
+        assert!(matches!(across(crouched_top - 0.1, true), Some((_, true))));
+        assert!(across(top - 0.1, true).is_none());
     }
 }
