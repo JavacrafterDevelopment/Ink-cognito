@@ -7,8 +7,8 @@ use crate::{
     net::{NetEvent, NetworkState},
     player_model::{PlayerPose, spawn_player_model},
     protocol::{
-        FLAG_AIMING, FLAG_AIRBORNE, FLAG_CROUCH, FLAG_RELOADING, MatchState, PlayerId,
-        PlayerSnapshot, PlayerState, Team,
+        FLAG_AIMING, FLAG_AIRBORNE, FLAG_CROUCH, FLAG_RELOADING, MatchState, MovementSpeed,
+        PlayerId, PlayerSnapshot, PlayerState, Team,
     },
 };
 use bevy::{
@@ -29,13 +29,43 @@ pub const EYE_OFFSET: f32 = 0.72;
 pub const CROUCH_DROP: f32 = 0.55;
 const CROUCH_SPEED: f32 = 0.5;
 
-const WALK_SPEED: f32 = 6.5;
-const SPRINT_SPEED: f32 = 10.0;
-const JUMP_SPEED: f32 = 7.2;
-const GRAVITY: f32 = 22.0;
-const MOUSE_SENSITIVITY: f32 = 0.0022;
+/// Run speeds and jump physics for each host-picked `MovementSpeed`.
+struct MovementTuning {
+    walk: f32,
+    sprint: f32,
+    jump: f32,
+    gravity: f32,
+    /// Whether WASD can steer while airborne.
+    air_control: bool,
+}
+
+impl MovementTuning {
+    fn of(movement: MovementSpeed) -> Self {
+        match movement {
+            // The default: slower, and a jump keeps the direction you took off in.
+            MovementSpeed::Normal => MovementTuning {
+                walk: 4.6,
+                sprint: 7.0,
+                jump: 6.8,
+                gravity: 20.0,
+                air_control: false,
+            },
+            // The original movement.
+            MovementSpeed::SuperDuper => MovementTuning {
+                walk: 6.5,
+                sprint: 10.0,
+                jump: 7.2,
+                gravity: 22.0,
+                air_control: true,
+            },
+        }
+    }
+}
+/// Radians of look per mouse count at a 1.0x sensitivity setting.
+const BASE_MOUSE_SENSITIVITY: f32 = 0.0022;
 const MAX_PITCH: f32 = 1.5;
-/// Vertical field of view, radians.
+/// Default vertical field of view, radians (the player's FOV setting
+/// overrides this in game; see `settings::ViewSettings`).
 pub const BASE_FOV: f32 = 1.13;
 
 pub struct WorldPlugin;
@@ -105,6 +135,9 @@ pub struct LocalPlayer {
     pub id: PlayerId,
     pub velocity_y: f32,
     pub grounded: bool,
+    /// Horizontal velocity while on the ground; kept as-is through a jump or
+    /// fall when the match has no air control.
+    pub ground_velocity: Vec3,
     pub yaw: f32,
     /// Horizontal speed this frame (for footsteps).
     pub speed: f32,
@@ -260,6 +293,7 @@ fn spawn_in_game_players(
             id: local_id,
             velocity_y: 0.0,
             grounded: true,
+            ground_velocity: Vec3::ZERO,
             yaw,
             speed: 0.0,
             crouch: 0.0,
@@ -312,6 +346,7 @@ pub fn poll_network_events(
                 net.status_text = "Hosting".to_string();
                 net.players.clear();
                 net.pending_hits.clear();
+                net.pending_ragdolls.clear();
                 net.players.insert(local_player.id, local_player);
                 net.match_state = MatchState {
                     settings: setup.0,
@@ -339,6 +374,7 @@ pub fn poll_network_events(
                 net.status_text = "Connected".to_string();
                 net.players.clear();
                 net.pending_hits.clear();
+                net.pending_ragdolls.clear();
                 for player in players {
                     net.players.insert(player.id, player);
                 }
@@ -384,6 +420,9 @@ pub fn poll_network_events(
             }
             NetEvent::HitReceived(hit) => {
                 net.pending_hits.push(hit);
+            }
+            NetEvent::Ragdolls(frame) => {
+                net.pending_ragdolls.push(frame);
             }
             NetEvent::Error(err) => {
                 net.disconnect();
@@ -450,7 +489,9 @@ fn move_local_player(
     }
 
     let before = transform.translation;
+    let tuning = MovementTuning::of(net.match_state.settings.movement);
 
+    let mut wish_velocity = Vec3::ZERO;
     if input_dir.length_squared() > 0.0 {
         let input_dir = input_dir.normalize();
         // Forward direction on the XZ plane aligned with camera yaw.
@@ -461,7 +502,7 @@ fn move_local_player(
         let sprinting = keybinds.pressed(KeyAction::Sprint, &keys, &mouse)
             && !combat.aiming
             && !crouch_held;
-        let mut speed = if sprinting { SPRINT_SPEED } else { WALK_SPEED };
+        let mut speed = if sprinting { tuning.sprint } else { tuning.walk };
         speed *= combat.stats.mobility;
         if combat.aiming {
             speed *= 0.6;
@@ -469,8 +510,15 @@ fn move_local_player(
         if crouch_held {
             speed *= CROUCH_SPEED;
         }
-        transform.translation += move_vec * speed * dt;
+        wish_velocity = move_vec * speed;
     }
+    if player.grounded || tuning.air_control {
+        player.ground_velocity = wish_velocity;
+    } else if !can_move {
+        // Splatted or frozen mid-air: don't keep drifting.
+        player.ground_velocity = Vec3::ZERO;
+    }
+    transform.translation += player.ground_velocity * dt;
 
     // First person: the body faces where we look, so others see where that is.
     player.yaw = rig_yaw;
@@ -478,11 +526,11 @@ fn move_local_player(
 
     // Jump & gravity.
     if can_move && player.grounded && keybinds.just_pressed(KeyAction::Jump, &keys, &mouse) {
-        player.velocity_y = JUMP_SPEED;
+        player.velocity_y = tuning.jump;
         player.grounded = false;
     }
 
-    player.velocity_y -= GRAVITY * dt;
+    player.velocity_y -= tuning.gravity * dt;
     transform.translation.y += player.velocity_y * dt;
 
     // Bunkers push us out; their tops can be stood on.
@@ -557,6 +605,7 @@ fn update_game_camera(
     time: Res<Time>,
     overlay: Res<Overlay>,
     combat: Res<Combat>,
+    view: Res<crate::settings::ViewSettings>,
     mut mouse_motion: MessageReader<MouseMotion>,
     cursor_q: Query<&CursorOptions, With<PrimaryWindow>>,
     player_q: Query<(&Transform, &LocalPlayer), Without<MainCamera>>,
@@ -571,17 +620,18 @@ fn update_game_camera(
         .single()
         .is_ok_and(|c| c.grab_mode != CursorGrabMode::None);
     let zoom = 1.0 + (combat.stats.zoom - 1.0) * combat.aim_blend;
+    let sensitivity = BASE_MOUSE_SENSITIVITY * view.look_multiplier(combat.aim_blend) / zoom;
     for motion in mouse_motion.read() {
         if captured && !overlay.blocks_input() {
-            rig.yaw -= motion.delta.x * MOUSE_SENSITIVITY / zoom;
-            rig.pitch -= motion.delta.y * MOUSE_SENSITIVITY / zoom;
+            rig.yaw -= motion.delta.x * sensitivity;
+            rig.pitch -= motion.delta.y * sensitivity * view.y_sign();
         }
     }
     rig.yaw %= std::f32::consts::TAU;
     rig.pitch = rig.pitch.clamp(-MAX_PITCH, MAX_PITCH);
 
     if let Projection::Perspective(p) = projection.as_mut() {
-        p.fov = BASE_FOV / zoom;
+        p.fov = view.fov_radians() / zoom;
     }
 
     // Eliminated: watch our ragdoll from above while waiting to respawn.

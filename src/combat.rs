@@ -15,7 +15,7 @@ use crate::{
     net::NetworkState,
     player_model::{PlayerModelAssets, Rig},
     protocol::{FLAG_CROUCH, HitEvent, MAX_HEALTH, PlayerId, PlayerState, Team, enemies},
-    ragdoll::{RagdollStart, spawn_ragdoll},
+    ragdoll::{BodyHit, Ragdoll, RagdollStart, spawn_ragdoll},
     settings::{AudioSettings, SfxAudio},
     world::{
         CROUCH_DROP, CameraRig, EYE_OFFSET, LocalPlayer, MainCamera, PLAYER_GROUND_Y, RemotePlayer,
@@ -78,6 +78,15 @@ pub const REGEN_RATE: f32 = 14.0;
 /// Seconds from elimination to respawn.
 pub const RESPAWN_TIME: f32 = 5.0;
 const PLAYER_HIT_RADIUS: f32 = 0.44;
+/// The top of the body capsule that counts as the head.
+const HEAD_ZONE: f32 = 0.35;
+/// Damage multiplier for a ball that lands in the head zone.
+pub const HEADSHOT_MULTIPLIER: f32 = 1.5;
+/// How long paint from a headshot stays on the victim's screen.
+pub const HEAD_PAINT_SECS: f32 = 4.0;
+/// Hit marker lengths (seconds): a normal or head hit, and an elimination.
+const HITMARKER_SECS: f32 = 0.25;
+const KILLMARKER_SECS: f32 = 0.5;
 const MAX_DECALS: usize = 350;
 
 /// Tracks outbound hit IDs and deduplicates inbound UDP hit retries on the client.
@@ -135,8 +144,17 @@ pub struct Combat {
     pub aim_blend: f32,
     /// Counts down after we hit someone (hit marker).
     pub hitmarker: f32,
+    /// What the current hit marker is for (white hit, gold headshot, red kill).
+    pub hitmarker_kind: HitmarkerKind,
     /// Counts down after we got hit (red flash).
     pub damage_flash: f32,
+    /// Counts down from `HEAD_PAINT_SECS` after we took a headshot: paint
+    /// over part of the screen that fades away.
+    pub head_paint: f32,
+    /// The colour of that paint (the shooter's team, or water).
+    pub head_paint_tint: Color,
+    /// Bumped on every headshot taken so the HUD re-scatters the splats.
+    pub head_paint_seed: u32,
     /// Which way (on the ground) the last hit came from, and how long to show it.
     pub hit_from: Vec3,
     pub hit_arc: f32,
@@ -161,7 +179,11 @@ impl Default for Combat {
             aiming: false,
             aim_blend: 0.0,
             hitmarker: 0.0,
+            hitmarker_kind: HitmarkerKind::Hit,
             damage_flash: 0.0,
+            head_paint: 0.0,
+            head_paint_tint: Color::WHITE,
+            head_paint_seed: 0,
             hit_from: Vec3::Z,
             hit_arc: 0.0,
             death_cam: None,
@@ -190,6 +212,25 @@ impl Combat {
     pub fn respawn_in(&self) -> Option<f32> {
         self.death_cam
             .map(|_| (RESPAWN_TIME - self.dead_for).max(0.0))
+    }
+}
+
+/// Which hit marker to show.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HitmarkerKind {
+    #[default]
+    Hit,
+    Headshot,
+    Kill,
+}
+
+impl HitmarkerKind {
+    pub fn color(self) -> Color {
+        match self {
+            HitmarkerKind::Hit => Color::srgb(1.0, 1.0, 1.0),
+            HitmarkerKind::Headshot => Color::srgb(1.0, 0.78, 0.15),
+            HitmarkerKind::Kill => Color::srgb(1.0, 0.18, 0.15),
+        }
     }
 }
 
@@ -242,6 +283,8 @@ pub struct Sounds {
     pub splats: Vec<Handle<AudioSource>>,
     pub player_hit: Handle<AudioSource>,
     pub hit_tick: Handle<AudioSource>,
+    /// The "ding" layered on top of the tick for a headshot.
+    pub headshot: Handle<AudioSource>,
     pub dry_fire: Handle<AudioSource>,
     pub pod_reload: Handle<AudioSource>,
     pub water_pump: Handle<AudioSource>,
@@ -346,6 +389,7 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
                 .collect(),
             player_hit: ogg("impacts/splat_player_hit"),
             hit_tick: ogg("ui/hit_marker_tick"),
+            headshot: ogg("impacts/hit_metal"),
             dry_fire: ogg("weapons/dry_fire"),
             pod_reload: ogg("weapons/pod_reload"),
             water_pump: ogg("water/water_pump"),
@@ -500,7 +544,15 @@ fn apply_loadout(
         let death_cam = combat.death_cam;
         let dead_for = combat.dead_for;
         let last_damage = combat.last_damage;
+        let (head_paint, tint, seed) = (
+            combat.head_paint,
+            combat.head_paint_tint,
+            combat.head_paint_seed,
+        );
         combat.reset(&loadout.stats());
+        combat.head_paint = head_paint;
+        combat.head_paint_tint = tint;
+        combat.head_paint_seed = seed;
         combat.death_cam = death_cam;
         combat.dead_for = dead_for;
         combat.last_damage = last_damage;
@@ -537,6 +589,7 @@ fn aim_and_reload(
     combat.aim_blend += (target - combat.aim_blend) * k;
     combat.hitmarker = (combat.hitmarker - dt).max(0.0);
     combat.damage_flash = (combat.damage_flash - dt).max(0.0);
+    combat.head_paint = (combat.head_paint - dt).max(0.0);
     combat.hit_arc = (combat.hit_arc - dt).max(0.0);
     combat.cooldown = (combat.cooldown - dt).max(0.0);
     combat.recoil = (combat.recoil - dt * 0.4).max(0.0) * (-12.0 * dt).exp();
@@ -738,6 +791,80 @@ fn spawn_projectile(
     }
 }
 
+/// A paintball that isn't from a gun (a paint bomb's burst): it hits and
+/// splats like any other, and the owner's screen reports its hits.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn spawn_paintball(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    owner: PlayerId,
+    team: Team,
+    origin: Vec3,
+    velocity: Vec3,
+    gravity: f32,
+    damage: f32,
+) {
+    commands.spawn((
+        WorldAssetRoot(fx.balls[&team].clone()),
+        Transform::from_translation(origin).with_scale(Vec3::splat(2.2)),
+        Projectile {
+            owner,
+            team,
+            water: false,
+            velocity,
+            gravity,
+            damage,
+            age: 0.0,
+        },
+        DespawnOnExit(AppState::InGame),
+    ));
+}
+
+/// A burst of team paint in the air (grenades going off).
+pub(crate) fn paint_burst_fx(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
+    point: Vec3,
+    team: Team,
+    size: f32,
+) {
+    let paint = Paint::Team(team);
+    player_hit_fx(commands, fx, materials, point, Vec3::Y, paint);
+    player_hit_fx(commands, fx, materials, point, Vec3::NEG_Y, paint);
+    let puff = fx.material(paint, PUFF, materials);
+    spawn_particle(
+        commands,
+        fx,
+        puff,
+        point,
+        Vec3::Y * 0.5,
+        0.3 * size,
+        2.2 * size,
+        0.6,
+        0.0,
+    );
+    let ring = fx.material(paint, RING, materials);
+    spawn_particle(
+        commands,
+        fx,
+        ring,
+        point,
+        Vec3::ZERO,
+        0.2 * size,
+        3.0 * size,
+        0.35,
+        0.0,
+    );
+}
+
+impl Fx {
+    /// The paint splat textures (for paint over the screen).
+    pub(crate) fn splat_images(&self) -> &[Handle<Image>] {
+        &self.splats
+    }
+}
+
 fn muzzle_fx(
     commands: &mut Commands,
     fx: &mut Fx,
@@ -920,18 +1047,27 @@ fn pellet_seed(shot: u32, pellet: u32) -> u32 {
     shot ^ pellet.wrapping_mul(0x9E37_79B9)
 }
 
-fn hits_player(from: Vec3, to: Vec3, center: Vec3, crouched: bool) -> Option<f32> {
+/// Where along `from -> to` (0..=1) it passes through a player's body
+/// capsule, and whether that is in the head zone (the top `HEAD_ZONE` m).
+fn hits_player(from: Vec3, to: Vec3, center: Vec3, crouched: bool) -> Option<(f32, bool)> {
     // Crouching drops the top of the body; the feet stay put.
     let drop = if crouched { CROUCH_DROP } else { 0.0 };
     let axis = PLAYER_GROUND_Y - PLAYER_HIT_RADIUS - drop * 0.5;
     let center = center - Vec3::Y * drop * 0.5;
     let (dist, s) = segment_segment(from, to, center - Vec3::Y * axis, center + Vec3::Y * axis);
-    (dist <= PLAYER_HIT_RADIUS).then_some(s)
+    if dist > PLAYER_HIT_RADIUS {
+        return None;
+    }
+    let top = center.y + axis + PLAYER_HIT_RADIUS;
+    let at = from.lerp(to, s).y;
+    Some((s, at >= top - HEAD_ZONE))
 }
 
 enum Target {
     Local,
     Remote(PlayerId),
+    /// An eliminated player's body.
+    Body(Entity, BodyHit),
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -950,6 +1086,7 @@ fn move_projectiles(
     local_q: Query<(&Transform, &LocalPlayer), Without<Projectile>>,
     remote_q: Query<(&Transform, &RemotePlayer), Without<Projectile>>,
     mut balls: Query<(Entity, &mut Transform, &mut Projectile)>,
+    mut bodies: Query<(Entity, &mut Ragdoll)>,
 ) {
     let dt = time.delta_secs().min(0.05);
     let now = time.elapsed_secs();
@@ -974,13 +1111,14 @@ fn move_projectiles(
         let world_hit = colliders.segment_hit(from, to);
         let mut best_t = world_hit.map(|h| h.t).unwrap_or(f32::MAX);
         let mut target = None;
+        let mut headshot = false;
 
         // Players: enemies only (paint passes through teammates).
         if let Some((lt, lp)) = local
             && ball.owner != lp.id
             && enemies(ball.owner, lp.id)
             && local_state.0.health > 0.0
-            && let Some(t) = hits_player(from, to, lt.translation, lp.crouch > 0.5)
+            && let Some((t, _)) = hits_player(from, to, lt.translation, lp.crouch > 0.5)
             && t < best_t
         {
             best_t = t;
@@ -991,11 +1129,21 @@ fn move_projectiles(
                 continue;
             }
             let crouched = remote.state.flags & FLAG_CROUCH != 0;
-            if let Some(t) = hits_player(from, to, rt.translation, crouched)
+            if let Some((t, head)) = hits_player(from, to, rt.translation, crouched)
                 && t < best_t
             {
                 best_t = t;
+                headshot = head;
                 target = Some(Target::Remote(remote.id));
+            }
+        }
+        // Bodies: any paint knocks them around.
+        for (body, rd) in &bodies {
+            if let Some(hit) = rd.ball_hit(from, to)
+                && hit.t < best_t
+            {
+                best_t = hit.t;
+                target = Some(Target::Body(body, hit));
             }
         }
 
@@ -1015,22 +1163,58 @@ fn move_projectiles(
                 let normal = -ball.velocity.normalize_or(Vec3::Z);
                 player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
                 if Some(ball.owner) == local_id {
-                    combat.hitmarker = 0.25;
+                    // A kill marker that is still showing wins over a new hit.
+                    if combat.hitmarker_kind != HitmarkerKind::Kill || combat.hitmarker <= 0.0 {
+                        combat.hitmarker_kind = if headshot {
+                            HitmarkerKind::Headshot
+                        } else {
+                            HitmarkerKind::Hit
+                        };
+                        combat.hitmarker = HITMARKER_SECS;
+                    }
                     let s = fx.sounds.hit_tick.clone();
                     play_sfx(&mut commands, &s, 0.8, &settings);
+                    if headshot {
+                        let s = fx.sounds.headshot.clone();
+                        play_sfx(&mut commands, &s, 0.75, &settings);
+                    }
                     let hit_id = hits.alloc_id();
                     net.send_hit(HitEvent {
                         hit_id,
                         attacker: ball.owner,
                         victim: victim_id,
-                        damage: ball.damage,
+                        damage: if headshot {
+                            ball.damage * HEADSHOT_MULTIPLIER
+                        } else {
+                            ball.damage
+                        },
                         velocity: ball.velocity.to_array(),
                         point: point.to_array(),
                         water: ball.water,
+                        headshot,
+                        flash: false,
                     });
                 }
                 let s = fx.sounds.player_hit.clone();
                 play_sfx(&mut commands, &s, 0.6 * falloff(listener, point), &settings);
+                commands.entity(entity).despawn();
+            }
+            Some(Target::Body(body, hit)) => {
+                let point = from.lerp(to, best_t);
+                let normal = -ball.velocity.normalize_or(Vec3::Z);
+                player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+                // The host moves the body for everyone (and a body the host
+                // hasn't sent us yet moves here).
+                if let Ok((_, mut rd)) = bodies.get_mut(body) {
+                    rd.shove(&hit, ball.velocity, ball.damage);
+                }
+                let s = fx.sounds.player_hit.clone();
+                play_sfx(
+                    &mut commands,
+                    &s,
+                    0.45 * falloff(listener, point),
+                    &settings,
+                );
                 commands.entity(entity).despawn();
             }
             None => {
@@ -1075,7 +1259,14 @@ fn process_incoming_hits(
     if net.pending_hits.is_empty() {
         return;
     }
-    let incoming = std::mem::take(&mut net.pending_hits);
+    // Flashbang hits stay queued for the grenades module.
+    let (flashes, incoming): (Vec<_>, Vec<_>) = std::mem::take(&mut net.pending_hits)
+        .into_iter()
+        .partition(|h| h.flash);
+    net.pending_hits = flashes;
+    if incoming.is_empty() {
+        return;
+    }
     let Ok((lt, lp)) = local_q.single() else {
         return;
     };
@@ -1109,6 +1300,13 @@ fn process_incoming_hits(
         player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
         let s = fx.sounds.player_hit.clone();
         play_sfx(&mut commands, &s, 0.9, &settings);
+        if hit.headshot {
+            let s = fx.sounds.headshot.clone();
+            play_sfx(&mut commands, &s, 0.6, &settings);
+            combat.head_paint = HEAD_PAINT_SECS;
+            combat.head_paint_tint = paint.color().with_alpha(1.0);
+            combat.head_paint_seed = combat.head_paint_seed.wrapping_add(1);
+        }
         take_damage(
             &mut commands,
             &mut fx,
@@ -1168,10 +1366,10 @@ fn take_damage(
     spawn_ragdoll(
         commands,
         player_assets,
-        Team::of(player.id),
+        player.id,
+        state.deaths,
         RagdollStart::from_rest(&model),
         velocity,
-        player.id ^ state.deaths,
     );
 }
 
@@ -1190,7 +1388,7 @@ fn remote_eliminations(
     local_q: Query<(&Transform, &LocalPlayer), Without<RemotePlayer>>,
     mut models: Query<(&GlobalTransform, Option<&Rig>, &mut Visibility)>,
     bones: Query<&GlobalTransform>,
-    combat: Res<Combat>,
+    mut combat: ResMut<Combat>,
     mut splats: MessageWriter<crate::progression::LocalSplat>,
 ) {
     let local_id = net.local_player_id;
@@ -1211,6 +1409,11 @@ fn remote_eliminations(
                 feed.entries.push((killer, remote.id, time.elapsed_secs()));
                 if Some(killer) == local_id {
                     play_sfx(&mut commands, &fx.sounds.confirm, 0.6, &settings);
+                    if enemies(killer, remote.id) {
+                        // Kill confirm: a red hit marker.
+                        combat.hitmarker_kind = HitmarkerKind::Kill;
+                        combat.hitmarker = KILLMARKER_SECS;
+                    }
                     if enemies(killer, remote.id)
                         && let Ok((me, player)) = local_q.single()
                     {
@@ -1238,10 +1441,10 @@ fn remote_eliminations(
                 spawn_ragdoll(
                     &mut commands,
                     &player_assets,
-                    Team::of(remote.id),
+                    remote.id,
+                    deaths,
                     start,
                     push,
-                    remote.id ^ deaths,
                 );
             }
         }
@@ -1313,12 +1516,19 @@ fn update_viewmodel(
     overlay: Res<Overlay>,
     loadout: Res<Loadout>,
     time: Res<Time>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keybinds: Res<crate::settings::KeybindSettings>,
     player_q: Query<&LocalPlayer>,
     mut vm_q: Query<(&mut Transform, &mut Visibility), With<ViewModel>>,
+    mut sprint_blend: Local<f32>,
+    mut bob_phase: Local<f32>,
+    mut bob_amount: Local<f32>,
 ) {
     let Ok((mut tf, mut vis)) = vm_q.single_mut() else {
         return;
     };
+    let dt = time.delta_secs().min(0.05);
     let alive = local_state.0.health > 0.0;
     let podium = net.match_state.phase == crate::protocol::Phase::MatchOver;
     *vis = if alive && !podium && !overlay.loadout && !overlay.settings {
@@ -1326,15 +1536,53 @@ fn update_viewmodel(
     } else {
         Visibility::Hidden
     };
-    let speed = player_q.single().map(|p| p.speed).unwrap_or(0.0);
-    let t = time.elapsed_secs();
-    let bob = (1.0 - combat.aim_blend) * (speed / 10.0).min(1.0);
+    let (speed, grounded, crouch) = player_q
+        .single()
+        .map(|p| (p.speed, p.grounded, p.crouch))
+        .unwrap_or((0.0, true, 0.0));
+
+    // Sprinting: holding sprint, actually moving fast, on the ground, not
+    // aiming, crouching or reloading. Eased so the gun swings in and out.
+    let sprinting = alive
+        && !overlay.blocks_input()
+        && keybinds.pressed(crate::settings::KeyAction::Sprint, &keys, &mouse)
+        && speed > 4.0
+        && grounded
+        && crouch < 0.5
+        && !combat.aiming
+        && combat.reloading.is_none();
+    let sprint_target = if sprinting { 1.0 } else { 0.0 };
+    let sprint_rate = if sprinting { 9.0 } else { 12.0 };
+    *sprint_blend += (sprint_target - *sprint_blend) * (1.0 - (-sprint_rate * dt).exp());
+    let sb = *sprint_blend;
+
+    // Weapon bob (Battlefield / CoD style): the phase advances with how fast
+    // we move, so steps and gun bounce stay in sync; it fades out in the air
+    // and while aiming down sights.
+    let moving = (speed / 10.0).min(1.0);
+    let bob_target = if grounded { moving * (1.0 - combat.aim_blend * 0.85) } else { 0.0 };
+    *bob_amount += (bob_target - *bob_amount) * (1.0 - (-10.0 * dt).exp());
+    let freq = 1.55 + sb * 0.55; // steps per metre-ish, quicker cadence when sprinting
+    *bob_phase = (*bob_phase + speed * freq * dt) % TAU;
+    let ph = *bob_phase;
+    let amt = *bob_amount;
+    // Figure-eight: side to side once per stride, down on every footfall.
+    let side = ph.sin();
+    let vert = -(ph * 2.0).cos() * 0.5 - 0.5; // 0 at mid-stride, -1 at footfall
+    let walk_amp = 1.0 - sb;
     let sway = Vec3::new(
-        (t * 6.0).sin() * 0.012,
-        (t * 12.0).sin().abs() * -0.012,
-        0.0,
-    ) * bob;
+        side * (0.012 * walk_amp + 0.032 * sb),
+        vert * (0.010 * walk_amp + 0.026 * sb),
+        vert * -0.012 * sb,
+    ) * amt;
+    let bob_yaw = side * (0.015 * walk_amp + 0.07 * sb) * amt;
+    let bob_roll = side * (0.02 * walk_amp + 0.09 * sb) * amt;
+    let bob_pitch = vert * (0.01 * walk_amp + 0.05 * sb) * amt;
+
     let mut pos = HIP_POS.lerp(aim_pos(combat.kind, loadout.sight), combat.aim_blend) + sway;
+    // Sprint pose: pull the gun in toward the chest and lower it, barrel
+    // swung across to the left.
+    pos += Vec3::new(-0.07, -0.06, 0.08) * sb;
     pos.z += combat.recoil * 0.035;
     // Reloading: dip the gun.
     let reload_dip = if let Some(left) = combat.reloading {
@@ -1346,7 +1594,13 @@ fn update_viewmodel(
     };
     pos.y -= reload_dip * 0.12;
     tf.translation = pos;
-    tf.rotation = Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
+    // Camera-space sprint tilt: yaw left (barrel points left), roll the top
+    // of the gun inward, and dip the muzzle a little.
+    let sprint_rot = Quat::from_rotation_y(0.95 * sb + bob_yaw)
+        * Quat::from_rotation_x(-0.22 * sb + bob_pitch)
+        * Quat::from_rotation_z(0.35 * sb + bob_roll);
+    tf.rotation = sprint_rot
+        * Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
         * Quat::from_rotation_z(combat.recoil * 0.06 - reload_dip * 0.5);
 }
 
@@ -1621,7 +1875,7 @@ mod tests {
                 center,
                 false
             )
-            .is_some()
+            .is_some_and(|(_, head)| !head)
         );
         assert!(
             hits_player(
@@ -1641,5 +1895,28 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn top_of_the_body_is_the_head() {
+        let center = Vec3::new(0.0, PLAYER_GROUND_Y, 0.0);
+        let top = PLAYER_GROUND_Y * 2.0;
+        let across = |y: f32, crouched: bool| {
+            hits_player(
+                Vec3::new(-2.0, y, 0.0),
+                Vec3::new(2.0, y, 0.0),
+                center,
+                crouched,
+            )
+        };
+        assert!(matches!(across(top - 0.1, false), Some((_, true))));
+        assert!(matches!(
+            across(top - HEAD_ZONE - 0.1, false),
+            Some((_, false))
+        ));
+        // Crouched, the head drops with the top of the body.
+        let crouched_top = top - CROUCH_DROP;
+        assert!(matches!(across(crouched_top - 0.1, true), Some((_, true))));
+        assert!(across(top - 0.1, true).is_none());
     }
 }

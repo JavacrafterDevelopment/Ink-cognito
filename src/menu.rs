@@ -5,7 +5,7 @@ use crate::{
     maps::{CurrentMap, MapLibrary},
     net::{NetRole, NetworkState, Transport},
     portside::{Portside, Session, Status},
-    protocol::{GameMode, MapId, MatchSettings},
+    protocol::{GameMode, MapId, MatchSettings, MovementSpeed},
     ranked::{self, Rank, Tier},
     settings::AudioSettings,
     ui_kit::{KIT_YELLOW, KitButton, UiKit, kit, sliced, sliced_rect},
@@ -68,6 +68,7 @@ impl Plugin for MenuPlugin {
                     update_menu_ui,
                     update_hub_menu,
                     update_play_screen,
+                    update_movement_tiles,
                     update_rank_card,
                     style_tiles_and_tabs,
                     fit_cover_images,
@@ -110,6 +111,7 @@ enum MenuAction {
     PlayRanked,
     PickMode(usize),
     PickMap(MapId),
+    PickMovement(MovementSpeed),
     Quit,
     CreateGame,
     OpenJoin,
@@ -329,6 +331,7 @@ fn on_menu_click(
                 net.error_text = None;
                 setup.0.mode = GameMode::Elimination;
                 setup.0.ranked = true;
+                setup.0.movement = MovementSpeed::Normal;
                 menu.screen = MenuScreen::Play;
                 current_map.0 = setup.0.map;
             }
@@ -337,6 +340,10 @@ fn on_menu_click(
             let choice = &MODE_CHOICES[i.min(MODE_CHOICES.len() - 1)];
             setup.0.mode = choice.mode;
             setup.0.ranked = choice.ranked;
+            if choice.ranked {
+                // Ranked always plays at the default pace.
+                setup.0.movement = MovementSpeed::Normal;
+            }
             if let Some(sounds) = &sounds {
                 ui_sound(&mut commands, &sounds.click, 0.6, settings.as_deref());
             }
@@ -346,6 +353,14 @@ fn on_menu_click(
             current_map.0 = id;
             if let Some(sounds) = &sounds {
                 ui_sound(&mut commands, &sounds.click, 0.6, settings.as_deref());
+            }
+        }
+        MenuAction::PickMovement(movement) => {
+            if !setup.0.ranked {
+                setup.0.movement = movement;
+                if let Some(sounds) = &sounds {
+                    ui_sound(&mut commands, &sounds.click, 0.6, settings.as_deref());
+                }
             }
         }
         MenuAction::Quit => {
@@ -563,6 +578,12 @@ struct MapTile(MapId);
 
 #[derive(Component)]
 struct MapTileText(MapId);
+
+#[derive(Component)]
+struct MovementTile(MovementSpeed);
+
+#[derive(Component)]
+struct MovementTileText(MovementSpeed);
 
 #[derive(Component)]
 enum MapInfoText {
@@ -1671,6 +1692,52 @@ fn spawn_play_screen(
                     }
                 });
 
+            panel.spawn((
+                Text::new("MOVEMENT"),
+                TextFont::from_font_size(13.0),
+                TextColor(TEXT_MUTED),
+            ));
+            panel
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(10.0),
+                    ..default()
+                })
+                .with_children(|row| {
+                    for movement in MovementSpeed::ALL {
+                        row.spawn((
+                            Node {
+                                flex_grow: 1.0,
+                                flex_basis: Val::Px(0.0),
+                                min_width: Val::Px(150.0),
+                                height: Val::Px(52.0),
+                                padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
+                                flex_direction: FlexDirection::Column,
+                                justify_content: JustifyContent::Center,
+                                ..default()
+                            },
+                            sliced(k("rows/list_row.png"), 14.0),
+                            MenuAction::PickMovement(movement),
+                            MovementTile(movement),
+                        ))
+                        .with_children(|t| {
+                            t.spawn((
+                                Text::new(movement.name().to_uppercase()),
+                                TextFont::from_font_size(15.0),
+                                TextColor(TEXT_PRIMARY),
+                                Pickable::IGNORE,
+                                MovementTileText(movement),
+                            ));
+                            t.spawn((
+                                Text::new(movement.blurb()),
+                                TextFont::from_font_size(11.0),
+                                TextColor(TEXT_MUTED),
+                                Pickable::IGNORE,
+                            ));
+                        });
+                    }
+                });
+
             panel
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
@@ -1727,6 +1794,41 @@ fn show_menu_screens(menu: Res<MenuState>, mut q: Query<(&ShowOn, &mut Node)>) {
         if node.display != want {
             node.display = want;
         }
+    }
+}
+
+/// Highlights the picked movement speed (ranked is locked to Normal).
+fn update_movement_tiles(
+    assets: Res<AssetServer>,
+    setup: Res<MatchSetup>,
+    mut tiles: Query<(&MovementTile, &mut ImageNode)>,
+    mut texts: Query<(&MovementTileText, &mut TextColor)>,
+) {
+    if !setup.is_changed() {
+        return;
+    }
+    for (tile, mut img) in &mut tiles {
+        let sel = tile.0 == setup.0.movement;
+        img.image = kit(
+            &assets,
+            if sel {
+                "rows/list_row_selected.png"
+            } else {
+                "rows/list_row.png"
+            },
+        );
+        img.color = if setup.0.ranked && !sel {
+            Color::srgba(1.0, 1.0, 1.0, 0.4)
+        } else {
+            Color::WHITE
+        };
+    }
+    for (t, mut c) in &mut texts {
+        c.0 = if t.0 == setup.0.movement {
+            KIT_YELLOW
+        } else {
+            TEXT_PRIMARY
+        };
     }
 }
 

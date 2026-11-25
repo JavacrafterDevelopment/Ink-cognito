@@ -53,6 +53,11 @@ pub struct PlayerState {
     pub flags: u8,
     /// Ranked points (shown next to the name in ranked matches).
     pub rank_points: u16,
+    /// Counts paint bombs thrown: others throw one from where this player
+    /// looks each time it goes up (wraps).
+    pub bombs: u8,
+    /// Counts flashbangs thrown, the same way.
+    pub flashes: u8,
 }
 
 /// `PlayerState::flags`: crouching.
@@ -76,6 +81,8 @@ impl Default for PlayerState {
             killer: 0,
             flags: 0,
             rank_points: 0,
+            bombs: 0,
+            flashes: 0,
         }
     }
 }
@@ -255,7 +262,35 @@ impl<'de> Deserialize<'de> for MapId {
     }
 }
 
-/// What the host picked: mode, map, and whether it counts for ranked.
+/// How fast everyone moves, picked by the host when creating a game.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum MovementSpeed {
+    /// Slower movement; the jump direction is locked once you leave the ground.
+    #[default]
+    Normal,
+    /// The original fast movement and jump, with full control in the air.
+    SuperDuper,
+}
+
+impl MovementSpeed {
+    pub const ALL: [MovementSpeed; 2] = [MovementSpeed::Normal, MovementSpeed::SuperDuper];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            MovementSpeed::Normal => "Normal",
+            MovementSpeed::SuperDuper => "Super Duper Speed",
+        }
+    }
+
+    pub fn blurb(self) -> &'static str {
+        match self {
+            MovementSpeed::Normal => "Grounded pace. No steering mid-air",
+            MovementSpeed::SuperDuper => "Fast run, big jumps, air control",
+        }
+    }
+}
+
+/// What the host picked: mode, map, movement, and whether it counts for ranked.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MatchSettings {
@@ -263,6 +298,8 @@ pub struct MatchSettings {
     pub map: MapId,
     /// Ranked (Elimination only).
     pub ranked: bool,
+    /// How fast players move and jump.
+    pub movement: MovementSpeed,
 }
 
 /// Where a match is at.
@@ -370,6 +407,13 @@ pub struct HitEvent {
     /// World-space impact point (for hit splash particles on the victim).
     pub point: [f32; 3],
     pub water: bool,
+    /// Landed in the head zone (damage already includes the bonus).
+    #[serde(default)]
+    pub headshot: bool,
+    /// A flashbang went off next to the victim: no damage, paint over their
+    /// screen instead.
+    #[serde(default)]
+    pub flash: bool,
 }
 
 /// Messages sent from a joining client to the host.
@@ -412,6 +456,47 @@ pub enum ServerMessage {
     HostLeaving,
     /// The match clock, phase and scores.
     Match(MatchState),
+    /// Eliminated players' bodies as the host simulates them.
+    Ragdolls(RagdollFrame),
+}
+
+/// Joints in a ragdoll pose (see `ragdoll.rs`).
+pub const RAGDOLL_JOINTS: usize = 13;
+
+/// One body: whose it is, which of their eliminations made it, and where its
+/// joints are (centimeters, x/y/z per joint).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RagdollPose {
+    pub owner: PlayerId,
+    pub death: u32,
+    pub joints: Vec<i32>,
+}
+
+/// Part of the host's ragdolls. `all`, when there, lists every body that
+/// exists right now (`[owner, death]`): any other is gone. `bodies` are the
+/// poses of the ones that moved (and, now and then, all of them).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RagdollFrame {
+    pub all: Option<Vec<[u32; 2]>>,
+    pub bodies: Vec<RagdollPose>,
+}
+
+/// Splits the host's bodies into frames that each fit a datagram: the first
+/// lists every body (and carries one pose), the rest carry two poses each.
+pub fn pack_ragdoll_frames(all: Vec<[u32; 2]>, bodies: Vec<RagdollPose>) -> Vec<RagdollFrame> {
+    let mut rest = bodies.into_iter();
+    let first = RagdollFrame {
+        all: Some(all),
+        bodies: rest.next().into_iter().collect(),
+    };
+    let rest: Vec<RagdollPose> = rest.collect();
+    std::iter::once(first)
+        .chain(rest.chunks(2).map(|chunk| RagdollFrame {
+            all: None,
+            bodies: chunk.to_vec(),
+        }))
+        .collect()
 }
 
 /// What a joining player sends the host over UDP (one JSON datagram each).
@@ -564,6 +649,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn ragdoll_frames_fit_datagrams() {
+        let all: Vec<[u32; 2]> = (0..24).map(|i| [1000 + i, 123_456]).collect();
+        let bodies: Vec<RagdollPose> = (0..24)
+            .map(|i| RagdollPose {
+                owner: 1000 + i,
+                death: 123_456,
+                joints: vec![-123_456; RAGDOLL_JOINTS * 3],
+            })
+            .collect();
+        let frames = pack_ragdoll_frames(all, bodies);
+        assert!(frames[0].all.as_ref().is_some_and(|a| a.len() == 24));
+        assert_eq!(frames.iter().map(|f| f.bodies.len()).sum::<usize>(), 24);
+        for frame in frames {
+            for d in encode_server_datagrams(&ServerMessage::Ragdolls(frame)) {
+                assert!(d.len() <= MAX_DATAGRAM, "datagram of {} bytes", d.len());
+            }
+        }
+    }
+
+    #[test]
     fn big_world_state_is_split_into_datagrams_that_fit() {
         let players: Vec<_> = (0..40)
             .map(|id| PlayerSnapshot {
@@ -581,6 +686,8 @@ mod tests {
                     killer: 39,
                     flags: 15,
                     rank_points: 1234,
+                    bombs: 255,
+                    flashes: 255,
                 },
             })
             .collect();

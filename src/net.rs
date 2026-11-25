@@ -1,6 +1,6 @@
 use crate::protocol::{
     ClientDatagram, ClientMessage, GAME_PORT, HitEvent, MatchState, PING_EVERY, PlayerId,
-    PlayerSnapshot, PlayerState, SILENCE_TIMEOUT, ServerDatagram, ServerMessage,
+    PlayerSnapshot, PlayerState, RagdollFrame, SILENCE_TIMEOUT, ServerDatagram, ServerMessage,
     encode_server_datagrams, enemies, player_color, read_frame, spawn_position, write_frame,
 };
 use bevy::prelude::*;
@@ -60,6 +60,8 @@ enum OutboundCommand {
     ReportHit(HitEvent),
     /// Host only: the match clock and scores, for everyone.
     Match(Box<MatchState>),
+    /// Host only: the bodies' poses, for everyone.
+    Ragdolls(Vec<RagdollFrame>),
 }
 
 /// Events produced by the background Tailcat networking tasks for Bevy to process.
@@ -94,6 +96,8 @@ pub enum NetEvent {
     HitReceived(HitEvent),
     /// The host's match clock and scores.
     Match(MatchState),
+    /// The host's ragdolls.
+    Ragdolls(RagdollFrame),
     Error(String),
     Disconnected(String),
 }
@@ -125,6 +129,8 @@ pub struct NetworkState {
     pub pending_hits: Vec<HitEvent>,
     /// The match: what the host decides (and, hosting, what we decide).
     pub match_state: MatchState,
+    /// The host's ragdoll updates, queued for the ragdolls to follow this frame.
+    pub pending_ragdolls: Vec<RagdollFrame>,
 }
 
 impl Default for NetworkState {
@@ -150,6 +156,7 @@ impl Default for NetworkState {
             players: HashMap::new(),
             pending_hits: Vec::new(),
             match_state: MatchState::default(),
+            pending_ragdolls: Vec::new(),
         }
     }
 }
@@ -281,6 +288,16 @@ impl NetworkState {
         }
     }
 
+    /// Host only: tells everyone where the ragdolls are.
+    pub fn send_ragdolls(&self, frames: Vec<RagdollFrame>) {
+        if frames.is_empty() {
+            return;
+        }
+        if let Some(session) = &self.session {
+            let _ = session.tx_out.send(OutboundCommand::Ragdolls(frames));
+        }
+    }
+
     /// Drains all pending network events produced by background tasks without blocking.
     pub fn poll_events(&self) -> Vec<NetEvent> {
         let Some(session) = &self.session else {
@@ -310,6 +327,7 @@ impl NetworkState {
         self.status_text.clear();
         self.players.clear();
         self.pending_hits.clear();
+        self.pending_ragdolls.clear();
         self.match_state = MatchState::default();
         crate::protocol::set_free_for_all(false);
     }
@@ -393,10 +411,13 @@ async fn relay_hit(
     if !enemies(sender_id, hit.victim) {
         return;
     }
-    if !hit.damage.is_finite() || hit.damage <= 0.0 {
+    if hit.flash {
+        hit.damage = 0.0;
+    } else if !hit.damage.is_finite() || hit.damage <= 0.0 {
         return;
+    } else {
+        hit.damage = hit.damage.min(150.0);
     }
-    hit.damage = hit.damage.min(150.0);
 
     let mut guard = shared.lock().await;
     if !guard.seen_hits.record(hit.attacker, hit.hit_id) {
@@ -498,6 +519,9 @@ async fn run_host_session(
                 Some(OutboundCommand::Match(state)) => {
                     set_match(&shared, *state).await;
                 }
+                Some(OutboundCommand::Ragdolls(frames)) => {
+                    broadcast_ragdolls(&shared, frames).await;
+                }
                 None => {
                     host_goodbye(&shared, &shutdown, udp_task).await;
                     return;
@@ -544,6 +568,9 @@ async fn run_host_session(
                     Some(OutboundCommand::Match(state)) => {
                         set_match(&shared, *state).await;
                     }
+                    Some(OutboundCommand::Ragdolls(frames)) => {
+                        broadcast_ragdolls(&shared, frames).await;
+                    }
                     None => break,
                 }
             }
@@ -587,6 +614,17 @@ async fn set_match(shared: &Arc<AsyncMutex<HostSharedState>>, state: MatchState)
     let mut guard = shared.lock().await;
     guard.broadcast(&ServerMessage::Match(state.clone()));
     guard.match_state = Some(state);
+}
+
+/// Sends the host's ragdolls to every player.
+async fn broadcast_ragdolls(shared: &Arc<AsyncMutex<HostSharedState>>, frames: Vec<RagdollFrame>) {
+    let mut guard = shared.lock().await;
+    if guard.clients.is_empty() {
+        return;
+    }
+    for frame in frames {
+        guard.broadcast(&ServerMessage::Ragdolls(frame));
+    }
 }
 
 async fn set_host_transform(
@@ -999,7 +1037,7 @@ async fn run_client_session(
                             break Some("Lost connection to host.".to_string());
                         }
                     }
-                    Some(OutboundCommand::Match(_)) => {}
+                    Some(OutboundCommand::Match(_) | OutboundCommand::Ragdolls(_)) => {}
                     None => break None,
                 }
             }
@@ -1040,6 +1078,9 @@ async fn run_client_session(
                     }
                     Some(ServerMessage::Match(state)) => {
                         let _ = tx_in.send(NetEvent::Match(state));
+                    }
+                    Some(ServerMessage::Ragdolls(frame)) => {
+                        let _ = tx_in.send(NetEvent::Ragdolls(frame));
                     }
                     Some(ServerMessage::Welcome { your_id, players, match_state }) => {
                         let _ = tx_in.send(NetEvent::Connected { your_id, players, match_state });
@@ -1176,7 +1217,7 @@ async fn run_udp_client_session(
                         }
                     });
                 }
-                Some(OutboundCommand::Match(_)) => {}
+                Some(OutboundCommand::Match(_) | OutboundCommand::Ragdolls(_)) => {}
                 None => break None,
             },
             _ = send_tick.tick() => {
@@ -1203,6 +1244,7 @@ async fn run_udp_client_session(
                     ServerDatagram::Msg(ServerMessage::WorldState { players }) => NetEvent::WorldState { players },
                     ServerDatagram::Msg(ServerMessage::PlayerHit(hit)) => NetEvent::HitReceived(hit),
                     ServerDatagram::Msg(ServerMessage::Match(state)) => NetEvent::Match(state),
+                    ServerDatagram::Msg(ServerMessage::Ragdolls(frame)) => NetEvent::Ragdolls(frame),
                     ServerDatagram::Msg(ServerMessage::Welcome { .. }) => continue,
                     ServerDatagram::Players { players } => NetEvent::PlayerUpdates(players),
                     ServerDatagram::Roster { ids } => NetEvent::Roster(ids),
@@ -1649,6 +1691,8 @@ mod tests {
             velocity: [0.0, 0.0, -30.0],
             point: [0.0, 1.2, 0.0],
             water: false,
+            headshot: false,
+            flash: false,
         };
         client.send_hit(c_hit);
         // Duplicate send should be deduplicated by the host.
@@ -1678,6 +1722,8 @@ mod tests {
             velocity: [0.0, 0.0, 30.0],
             point: [1.0, 1.1, 2.0],
             water: false,
+            headshot: false,
+            flash: false,
         };
         host.send_hit(h_hit);
         assert!(
