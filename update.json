@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.4",
-      "published": "2026-11-25T04:33:35Z",
-      "notes": "## What's Changed\n* Combine six feature branches: movement, sprint pose, view settings, headshots, grenades, ragdolls by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/17\n* Release 0.6.4 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/18\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.3...v0.6.4",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.4",
+      "version": "0.6.5",
+      "published": "2026-11-25T05:10:01Z",
+      "notes": "## What's Changed\n* Release 0.6.5: paint bomb, lasting wall paint, time-of-day lighting, live map editing by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/19\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.4...v0.6.5",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.5",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.4/Ink-cognito-windows-x64.zip",
-        "size": 82348710,
-        "sha256": "5ec79057e2445f99d421b8071349f34b603a333e19858921d67942c2eff6521b"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.5/Ink-cognito-windows-x64.zip",
+        "size": 85580280,
+        "sha256": "814ec578fe80f38ccdb11967cbdd4b8d4e000653998bcc934047deddef3fb0e5"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3045,25 +3045,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101475328,
-          "sha256": "015937f2f54c75cf40e6470b5e581b121fa9807316d3754d91cc81ac0c48f3bf"
+          "size": 101590016,
+          "sha256": "fbbf76d935f6c7e435085d75916e9fbd38addf9d5652bc398cdb96440b4d8d37"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 91125248,
-          "sha256": "2345144ca49871d53cb1d9ff06b3dddb43b446b72f20fb17bb49d639b0845b9c"
+          "size": 98467840,
+          "sha256": "74565bd343a90840d6fbd7ae09ff281ac4de16d5e6c055b42dca93860f46d756"
         }
       ]
     },
     "stable": {
-      "version": "0.6.4",
-      "published": "2026-11-25T04:33:35Z",
-      "notes": "## What's Changed\n* Combine six feature branches: movement, sprint pose, view settings, headshots, grenades, ragdolls by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/17\n* Release 0.6.4 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/18\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.3...v0.6.4",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.4",
+      "version": "0.6.5",
+      "published": "2026-11-25T05:10:01Z",
+      "notes": "## What's Changed\n* Release 0.6.5: paint bomb, lasting wall paint, time-of-day lighting, live map editing by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/19\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.4...v0.6.5",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.5",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.4/Ink-cognito-windows-x64.zip",
-        "size": 82348710,
-        "sha256": "5ec79057e2445f99d421b8071349f34b603a333e19858921d67942c2eff6521b"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.5/Ink-cognito-windows-x64.zip",
+        "size": 85580280,
+        "sha256": "814ec578fe80f38ccdb11967cbdd4b8d4e000653998bcc934047deddef3fb0e5"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -6099,13 +6099,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101475328,
-          "sha256": "015937f2f54c75cf40e6470b5e581b121fa9807316d3754d91cc81ac0c48f3bf"
+          "size": 101590016,
+          "sha256": "fbbf76d935f6c7e435085d75916e9fbd38addf9d5652bc398cdb96440b4d8d37"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 91125248,
-          "sha256": "2345144ca49871d53cb1d9ff06b3dddb43b446b72f20fb17bb49d639b0845b9c"
+          "size": 98467840,
+          "sha256": "74565bd343a90840d6fbd7ae09ff281ac4de16d5e6c055b42dca93860f46d756"
         }
       ]
     }
