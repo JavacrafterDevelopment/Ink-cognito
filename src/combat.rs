@@ -57,6 +57,7 @@ impl Plugin for CombatPlugin {
                     regen_and_respawn,
                     update_viewmodel,
                     footsteps,
+                    remote_footsteps,
                 )
                     .chain()
                     .in_set(CombatSystems)
@@ -339,9 +340,7 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
         .collect(),
         mats: HashMap::new(),
         sounds: Sounds {
-            shots: (1..=3)
-                .map(|i| ogg(&format!("weapons/marker_shot_{i:02}")))
-                .collect(),
+            shots: vec![assets.load("audio/weapons/basicshot.flac")],
             splats: (1..=3)
                 .map(|i| ogg(&format!("impacts/splat_surface_{i:02}")))
                 .collect(),
@@ -352,7 +351,7 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
             water_pump: ogg("water/water_pump"),
             water_squirt: ogg("water/water_squirt"),
             water_splash: ogg("water/water_splash"),
-            eliminated: ogg("game/eliminated_buzzer"),
+            eliminated: assets.load("audio/game/elimination.flac"),
             confirm: ogg("game/flag_captured"),
             round_start: ogg("game/round_start_horn"),
             steps: (1..=4)
@@ -378,6 +377,36 @@ pub fn play_sfx(
         AudioPlayer::new(sound.clone()),
         PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume)),
         SfxAudio(base_volume),
+    ));
+}
+
+/// Spatial sounds use inverse-square falloff on positions scaled by this, so
+/// they are at full volume within `1 / SPATIAL_SCALE` meters (4 m) and fade
+/// out over the next couple dozen.
+const SPATIAL_SCALE: f32 = 0.25;
+
+/// Plays a sound at a point in the world: panned left/right and quieter with
+/// distance, relative to the camera's `SpatialListener`.
+pub fn play_sfx_at(
+    commands: &mut Commands,
+    sound: &Handle<AudioSource>,
+    base_volume: f32,
+    at: Vec3,
+    settings: &AudioSettings,
+) {
+    let volume = base_volume * settings.effective_sfx();
+    if volume <= 0.005 {
+        return;
+    }
+    commands.spawn((
+        AudioPlayer::new(sound.clone()),
+        PlaybackSettings {
+            spatial: true,
+            spatial_scale: Some(bevy::audio::SpatialScale::new(SPATIAL_SCALE)),
+            ..PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume))
+        },
+        Transform::from_translation(at),
+        DespawnOnExit(AppState::InGame),
     ));
 }
 
@@ -1321,28 +1350,69 @@ fn update_viewmodel(
         * Quat::from_rotation_z(combat.recoil * 0.06 - reload_dip * 0.5);
 }
 
+/// How loud a footstep is: crouched steps are softer.
+fn step_volume(crouched: bool) -> f32 {
+    if crouched { 0.18 } else { 0.4 }
+}
+
+/// Our own footsteps, and the step counter others use to hear them.
 fn footsteps(
     mut commands: Commands,
     time: Res<Time>,
     settings: Res<AudioSettings>,
     mut fx: ResMut<Fx>,
     mut combat: ResMut<Combat>,
+    mut local_state: ResMut<LocalState>,
     player_q: Query<&LocalPlayer>,
 ) {
     let Ok(player) = player_q.single() else {
         return;
     };
-    if !player.grounded || player.speed < 1.0 {
+    if local_state.0.health <= 0.0 || !player.grounded || player.speed < 1.0 {
         combat.step_timer = 0.15;
         return;
     }
     combat.step_timer -= time.delta_secs();
     if combat.step_timer <= 0.0 {
-        combat.step_timer = if player.speed > 8.0 { 0.3 } else { 0.42 };
+        let crouched = player.crouch > 0.5;
+        combat.step_timer = if crouched {
+            0.55
+        } else if player.speed > 8.0 {
+            0.3
+        } else {
+            0.42
+        };
+        local_state.0.steps = local_state.0.steps.wrapping_add(1);
         let n = fx.sounds.steps.len();
         let i = fx.pick(n);
         let s = fx.sounds.steps[i].clone();
-        play_sfx(&mut commands, &s, 0.25, &settings);
+        play_sfx(&mut commands, &s, step_volume(crouched), &settings);
+    }
+}
+
+/// Other players' footsteps, heard from where they walk: their step counter
+/// went up, so play one step at their feet (panned and faded by distance).
+fn remote_footsteps(
+    mut commands: Commands,
+    settings: Res<AudioSettings>,
+    mut fx: ResMut<Fx>,
+    mut remote_q: Query<(&Transform, &mut RemotePlayer)>,
+) {
+    for (transform, mut remote) in &mut remote_q {
+        let steps = remote.state.steps;
+        let new = steps.wrapping_sub(remote.seen_steps);
+        remote.seen_steps = steps;
+        // Nothing new, or way out of order (a rejoin / wrapped counter).
+        if new == 0 || new > 20 || !remote.alive() {
+            continue;
+        }
+        let crouched = remote.state.flags & FLAG_CROUCH != 0;
+        let feet = transform.translation - Vec3::Y * PLAYER_GROUND_Y;
+        let n = fx.sounds.steps.len();
+        let i = fx.pick(n);
+        let s = fx.sounds.steps[i].clone();
+        // Several steps can arrive in one snapshot; one sound is enough.
+        play_sfx_at(&mut commands, &s, step_volume(crouched), feet, &settings);
     }
 }
 

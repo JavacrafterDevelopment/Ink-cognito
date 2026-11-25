@@ -121,6 +121,8 @@ pub struct RemotePlayer {
     /// The shots / deaths counters already acted on.
     pub seen_shots: u32,
     pub seen_deaths: u32,
+    /// The footstep counter already heard.
+    pub seen_steps: u32,
     /// Their character model (child entity).
     pub model: Entity,
     /// Smoothed horizontal speed, for the walk animation.
@@ -160,6 +162,8 @@ fn setup_world(mut commands: Commands) {
         Transform::from_xyz(0.0, 14.0, 24.0).looking_at(Vec3::ZERO, Vec3::Y),
         MainCamera,
         CameraRig::default(),
+        // Ears for spatial sounds (other players' footsteps), about a head apart.
+        SpatialListener::new(0.4),
     ));
 }
 
@@ -223,6 +227,7 @@ fn spawn_remote(
         state: snapshot.state,
         seen_shots: snapshot.state.shots,
         seen_deaths: snapshot.state.deaths,
+        seen_steps: snapshot.state.steps,
         model,
         speed: 0.0,
         last_pos: pos,
