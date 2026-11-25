@@ -267,6 +267,8 @@ impl Paint {
 pub struct Fx {
     billboard: Handle<Mesh>,
     decal: Handle<Mesh>,
+    /// A paint bomb ball.
+    shrapnel: Handle<Mesh>,
     splats: Vec<Handle<Image>>,
     drips: Vec<Handle<Image>>,
     droplet: Handle<Image>,
@@ -300,6 +302,12 @@ pub struct Sounds {
 const DROPLET: u8 = 100;
 const PUFF: u8 = 101;
 const RING: u8 = 102;
+/// Solid paint for a paint bomb's balls (no texture).
+const SHRAPNEL: u8 = 103;
+/// One in this many paint bomb balls leaves a splat and effects where it lands.
+const SHRAPNEL_SPLAT_EVERY: u32 = 8;
+/// Splat sounds from paint bomb balls per frame, at most.
+const SHRAPNEL_SOUNDS_PER_FRAME: u32 = 2;
 const DRIP: u8 = 50;
 
 impl Fx {
@@ -321,6 +329,15 @@ impl Fx {
     ) -> Handle<StandardMaterial> {
         if let Some(h) = self.mats.get(&(paint, kind)) {
             return h.clone();
+        }
+        if kind == SHRAPNEL {
+            let handle = materials.add(StandardMaterial {
+                base_color: paint.color().with_alpha(1.0),
+                perceptual_roughness: 0.35,
+                ..default()
+            });
+            self.mats.insert((paint, kind), handle.clone());
+            return handle;
         }
         let (texture, unlit, roughness, depth_bias) = match kind {
             DROPLET => (self.droplet.clone(), true, 1.0, 0.0),
@@ -356,6 +373,7 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
     commands.insert_resource(Fx {
         billboard: meshes.add(Rectangle::new(1.0, 1.0)),
         decal: meshes.add(Plane3d::default().mesh().size(1.0, 1.0)),
+        shrapnel: meshes.add(Sphere::new(0.035).mesh().uv(8, 6)),
         splats: (1..=8)
             .map(|i| assets.load(format!("textures/splats/splat_{i:02}.png")))
             .collect(),
@@ -468,6 +486,12 @@ struct Projectile {
     gravity: f32,
     damage: f32,
     age: f32,
+    /// Despawned after this many seconds in the air.
+    max_age: f32,
+    /// One of a paint bomb's many balls: a plain sphere, only some of them
+    /// splat with full effects and sound, and their hits on a player are
+    /// summed into one `HitEvent` per frame instead of one each.
+    shrapnel: bool,
 }
 
 #[derive(Component)]
@@ -771,6 +795,8 @@ fn spawn_projectile(
         gravity: stats.gravity,
         damage: stats.damage,
         age: 0.0,
+        max_age: 3.0,
+        shrapnel: false,
     };
     if stats.water {
         let mat = fx.material(Paint::Water, DROPLET, materials);
@@ -791,22 +817,27 @@ fn spawn_projectile(
     }
 }
 
-/// A paintball that isn't from a gun (a paint bomb's burst): it hits and
-/// splats like any other, and the owner's screen reports its hits.
+/// One of a paint bomb's balls: it hits and splats like any other, and the
+/// owner's screen reports its hits. A cheap shared sphere rather than the
+/// gun's paintball model, since a bomb throws hundreds of them at once.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_paintball(
     commands: &mut Commands,
     fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
     owner: PlayerId,
     team: Team,
     origin: Vec3,
     velocity: Vec3,
     gravity: f32,
     damage: f32,
+    max_age: f32,
 ) {
+    let mat = fx.material(Paint::Team(team), SHRAPNEL, materials);
     commands.spawn((
-        WorldAssetRoot(fx.balls[&team].clone()),
-        Transform::from_translation(origin).with_scale(Vec3::splat(2.2)),
+        Mesh3d(fx.shrapnel.clone()),
+        MeshMaterial3d(mat),
+        Transform::from_translation(origin),
         Projectile {
             owner,
             team,
@@ -815,6 +846,8 @@ pub(crate) fn spawn_paintball(
             gravity,
             damage,
             age: 0.0,
+            max_age,
+            shrapnel: true,
         },
         DespawnOnExit(AppState::InGame),
     ));
@@ -1096,10 +1129,13 @@ fn move_projectiles(
         .unwrap_or_default();
     let local = local_q.single().ok();
     let local_id = local.map(|(_, p)| p.id);
+    // Paint bomb hits this frame, per (thrower, victim): (damage, velocity, point).
+    let mut shrapnel_hits: HashMap<(PlayerId, PlayerId), (f32, Vec3, Vec3)> = HashMap::new();
+    let mut shrapnel_sounds = 0;
 
     for (entity, mut tf, mut ball) in &mut balls {
         ball.age += dt;
-        if ball.age > 3.0 {
+        if ball.age > ball.max_age {
             commands.entity(entity).despawn();
             continue;
         }
@@ -1158,6 +1194,27 @@ fn move_projectiles(
                 // in `process_incoming_hits` so moving players never miss hits or take double damage.
                 commands.entity(entity).despawn();
             }
+            Some(Target::Remote(victim_id)) if ball.shrapnel => {
+                // Summed up and reported once after the loop.
+                let point = from.lerp(to, best_t);
+                if Some(ball.owner) == local_id {
+                    let damage = if headshot {
+                        ball.damage * HEADSHOT_MULTIPLIER
+                    } else {
+                        ball.damage
+                    };
+                    let e = shrapnel_hits
+                        .entry((ball.owner, victim_id))
+                        .or_insert((0.0, Vec3::ZERO, point));
+                    e.0 += damage;
+                    e.1 += ball.velocity;
+                } else {
+                    shrapnel_hits
+                        .entry((ball.owner, victim_id))
+                        .or_insert((0.0, ball.velocity, point));
+                }
+                commands.entity(entity).despawn();
+            }
             Some(Target::Remote(victim_id)) => {
                 let point = from.lerp(to, best_t);
                 let normal = -ball.velocity.normalize_or(Vec3::Z);
@@ -1202,41 +1259,91 @@ fn move_projectiles(
             Some(Target::Body(body, hit)) => {
                 let point = from.lerp(to, best_t);
                 let normal = -ball.velocity.normalize_or(Vec3::Z);
-                player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+                let full = !ball.shrapnel || fx.pick(SHRAPNEL_SPLAT_EVERY as usize) == 0;
+                if full {
+                    player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+                }
                 // The host moves the body for everyone (and a body the host
                 // hasn't sent us yet moves here).
                 if let Ok((_, mut rd)) = bodies.get_mut(body) {
                     rd.shove(&hit, ball.velocity, ball.damage);
                 }
-                let s = fx.sounds.player_hit.clone();
-                play_sfx(
-                    &mut commands,
-                    &s,
-                    0.45 * falloff(listener, point),
-                    &settings,
-                );
+                if full {
+                    let s = fx.sounds.player_hit.clone();
+                    play_sfx(
+                        &mut commands,
+                        &s,
+                        0.45 * falloff(listener, point),
+                        &settings,
+                    );
+                }
                 commands.entity(entity).despawn();
             }
             None => {
                 if let Some(hit) = world_hit {
-                    impact_fx(
-                        &mut commands,
-                        &mut fx,
-                        &mut materials,
-                        &settings,
-                        now,
-                        hit.point,
-                        hit.normal,
-                        paint,
-                        hit.decals,
-                        falloff(listener, hit.point),
-                    );
+                    // Most of a paint bomb's balls just vanish into the
+                    // splats the rest leave, and only a couple a frame make
+                    // a sound, so a burst doesn't flood the scene.
+                    let full = !ball.shrapnel || fx.pick(SHRAPNEL_SPLAT_EVERY as usize) == 0;
+                    if full {
+                        let mut volume = falloff(listener, hit.point);
+                        if ball.shrapnel {
+                            if shrapnel_sounds < SHRAPNEL_SOUNDS_PER_FRAME {
+                                shrapnel_sounds += 1;
+                            } else {
+                                volume = 0.0;
+                            }
+                        }
+                        impact_fx(
+                            &mut commands,
+                            &mut fx,
+                            &mut materials,
+                            &settings,
+                            now,
+                            hit.point,
+                            hit.normal,
+                            paint,
+                            hit.decals,
+                            volume,
+                        );
+                    }
                     commands.entity(entity).despawn();
                 } else {
                     tf.translation = to;
                 }
             }
         }
+    }
+
+    // One splash, one marker and one `HitEvent` per player a paint bomb got
+    // this frame, however many of its balls hit them.
+    for ((owner, victim_id), (damage, velocity, point)) in shrapnel_hits {
+        let normal = -velocity.normalize_or(Vec3::Z);
+        let paint = Paint::Team(Team::of(owner));
+        player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+        let s = fx.sounds.player_hit.clone();
+        play_sfx(&mut commands, &s, 0.6 * falloff(listener, point), &settings);
+        if damage <= 0.0 {
+            continue;
+        }
+        if combat.hitmarker_kind != HitmarkerKind::Kill || combat.hitmarker <= 0.0 {
+            combat.hitmarker_kind = HitmarkerKind::Hit;
+            combat.hitmarker = HITMARKER_SECS;
+        }
+        let s = fx.sounds.hit_tick.clone();
+        play_sfx(&mut commands, &s, 0.8, &settings);
+        let hit_id = hits.alloc_id();
+        net.send_hit(HitEvent {
+            hit_id,
+            attacker: owner,
+            victim: victim_id,
+            damage,
+            velocity: velocity.normalize_or(Vec3::Z).to_array().map(|v| v * 13.0),
+            point: point.to_array(),
+            water: false,
+            headshot: false,
+            flash: false,
+        });
     }
 }
 
