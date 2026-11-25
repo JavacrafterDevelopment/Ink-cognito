@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.6",
-      "published": "2026-11-25T05:32:12Z",
-      "notes": "## What's Changed\n* Release 0.6.6: random footsteps, lower crouch, faster paint bomb by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/20\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.5...v0.6.6",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.6",
+      "version": "0.6.7",
+      "published": "2026-11-25T07:24:49Z",
+      "notes": "## What's Changed\n* Release 0.6.7: throwables, flash rework, frame-rate independence, Portside names, chat, City map by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/21\n* Fix 0.6.7 release build (loadout test, City spawns) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/22\n* Fix 0.6.7 release: fit world state datagrams by size by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/23\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.6...v0.6.7",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.7",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.6/Ink-cognito-windows-x64.zip",
-        "size": 85668878,
-        "sha256": "72a80270e3c7efa6946be95705010ba83544b90541820da40b05e36649cc96e9"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.7/Ink-cognito-windows-x64.zip",
+        "size": 86565472,
+        "sha256": "62bcf0a163e51a01209d09ffe5916e8ffd9dc91cfc0d9499f2028cbbb27cdc4d"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -20,23 +20,23 @@
         },
         {
           "path": "assets/audio/footsteps/footstep_01.flac",
-          "size": 24163,
-          "sha256": "58e887b16aa0eb9bb2051194ea7a8fc9d26d1e1fc50877cc6ab440eb70ce0092"
+          "size": 28672,
+          "sha256": "a759e081592bec21172211068c0b3ebeacb822b58c2e600843227b49cbe508b4"
         },
         {
           "path": "assets/audio/footsteps/footstep_02.flac",
-          "size": 31584,
-          "sha256": "40e8d31019e31ca02a5d56fb1b3066c31f668abbbdbb44177057574cdd465ddf"
+          "size": 46986,
+          "sha256": "0a77b3eb54dc26d50d711f960e3532bd7e092062259d1bd79bd75fd5f7951b5e"
         },
         {
           "path": "assets/audio/footsteps/footstep_03.flac",
-          "size": 33687,
-          "sha256": "cda57cd9e0801c544d4660b186d35e15ca562ff8e2bcf30e7f925ddeacd8df3e"
+          "size": 42192,
+          "sha256": "2a83b921345c661702fae53c9b6af8c9c32af02648f15eae16d54a6ab95b9064"
         },
         {
           "path": "assets/audio/footsteps/footstep_04.flac",
-          "size": 29998,
-          "sha256": "34fdda4ff0abed35edadcfbbe06b560031b939629762c06b338b36bcf3d4c0fa"
+          "size": 36640,
+          "sha256": "93a991e3769bff25f8360a8f9ca78e10d5cca5e0bbb6b4f620817b1bce7c7417"
         },
         {
           "path": "assets/audio/footsteps/step_dirt_01.ogg",
@@ -92,6 +92,11 @@
           "path": "assets/audio/game/flag_captured.ogg",
           "size": 5721,
           "sha256": "66a4a4a2efdc6f03c60674b8fed44f624cdcb0109ca8c342448db7c211073054"
+        },
+        {
+          "path": "assets/audio/game/ringing.flac",
+          "size": 52203,
+          "sha256": "872503bf2f8c3d0c95ba070168aa03d03b6e93332cf99682dd4b7479ff6ff8a6"
         },
         {
           "path": "assets/audio/game/round_start_horn.ogg",
@@ -194,6 +199,11 @@
           "sha256": "a2ea73ccbe61e84827fa3f6fda6dcdff828b50715669ad86d3bc0a98950290e2"
         },
         {
+          "path": "assets/audio/weapons/flashexplosion.flac",
+          "size": 112793,
+          "sha256": "fae85901517e77a23cecb4538beac3cd44fe2b513a9e41e70a135abe04228460"
+        },
+        {
           "path": "assets/audio/weapons/hopper_rattle.ogg",
           "size": 13935,
           "sha256": "ea24f8d7e9c9405c4ff2a34ad062ade2cc71b6f50a728190e75847594eee9d1b"
@@ -214,6 +224,11 @@
           "sha256": "9f39083a7ef1002add94bdbf7f17f78812eb70e5ec283f489cbdf36be39f586c"
         },
         {
+          "path": "assets/audio/weapons/nade.flac",
+          "size": 43092,
+          "sha256": "3b032de8c3f8957dc2e5b431918816983cb27410e09738bdbd4bf2b3d6074f63"
+        },
+        {
           "path": "assets/audio/weapons/pod_reload.ogg",
           "size": 17526,
           "sha256": "02e88128e40fc37ba719d1e373776a665abd6ce9884f38d3b1407cea200f513b"
@@ -232,6 +247,11 @@
           "path": "assets/audio/weapons/tank_screw_in.ogg",
           "size": 10543,
           "sha256": "1b0e9f2e9fa4a28c8f887601ef254d743af73b3fed799b4bec51d3dca8145dc8"
+        },
+        {
+          "path": "assets/audio/weapons/ultra_bang.flac",
+          "size": 559718,
+          "sha256": "bd83fc737d00a4f33854c439c1f78cf4c97a62f2aad435285ceba6334c8bca29"
         },
         {
           "path": "assets/branding/logo.png",
@@ -262,6 +282,11 @@
           "path": "assets/fonts/ArchivoBlack-Regular.ttf",
           "size": 90988,
           "sha256": "dd9a89a019b4849f66ab75455fe7bdf931311042cbb0f0f97acc061539703180"
+        },
+        {
+          "path": "assets/maps/City.json",
+          "size": 47269,
+          "sha256": "6eff712d9eaf4ec5247402ca38cc4c5386a169c8a1465c3815d881f4374d39bb"
         },
         {
           "path": "assets/maps/Dockyard.json",
@@ -3065,25 +3090,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101593600,
-          "sha256": "14941066240503a39ef17dc142f2c5e990883ab982ea42716226683b4e71c6bc"
+          "size": 101926400,
+          "sha256": "d7ab3b525849377f861cbef391f0d36763e2b745f5a9b077a64ccdb4c3764bd2"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 98467840,
-          "sha256": "b726e5e4447426222be216486859137c953bd6da69fc9befab46aade5bf12f13"
+          "size": 98471424,
+          "sha256": "0dda2e885fcd750dff29dce4a8ee20c638e91d06e9c617f4dc34519051ab0802"
         }
       ]
     },
     "stable": {
-      "version": "0.6.6",
-      "published": "2026-11-25T05:32:12Z",
-      "notes": "## What's Changed\n* Release 0.6.6: random footsteps, lower crouch, faster paint bomb by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/20\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.5...v0.6.6",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.6",
+      "version": "0.6.7",
+      "published": "2026-11-25T07:24:49Z",
+      "notes": "## What's Changed\n* Release 0.6.7: throwables, flash rework, frame-rate independence, Portside names, chat, City map by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/21\n* Fix 0.6.7 release build (loadout test, City spawns) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/22\n* Fix 0.6.7 release: fit world state datagrams by size by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/23\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.6...v0.6.7",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.7",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.6/Ink-cognito-windows-x64.zip",
-        "size": 85668878,
-        "sha256": "72a80270e3c7efa6946be95705010ba83544b90541820da40b05e36649cc96e9"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.7/Ink-cognito-windows-x64.zip",
+        "size": 86565472,
+        "sha256": "62bcf0a163e51a01209d09ffe5916e8ffd9dc91cfc0d9499f2028cbbb27cdc4d"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3094,23 +3119,23 @@
         },
         {
           "path": "assets/audio/footsteps/footstep_01.flac",
-          "size": 24163,
-          "sha256": "58e887b16aa0eb9bb2051194ea7a8fc9d26d1e1fc50877cc6ab440eb70ce0092"
+          "size": 28672,
+          "sha256": "a759e081592bec21172211068c0b3ebeacb822b58c2e600843227b49cbe508b4"
         },
         {
           "path": "assets/audio/footsteps/footstep_02.flac",
-          "size": 31584,
-          "sha256": "40e8d31019e31ca02a5d56fb1b3066c31f668abbbdbb44177057574cdd465ddf"
+          "size": 46986,
+          "sha256": "0a77b3eb54dc26d50d711f960e3532bd7e092062259d1bd79bd75fd5f7951b5e"
         },
         {
           "path": "assets/audio/footsteps/footstep_03.flac",
-          "size": 33687,
-          "sha256": "cda57cd9e0801c544d4660b186d35e15ca562ff8e2bcf30e7f925ddeacd8df3e"
+          "size": 42192,
+          "sha256": "2a83b921345c661702fae53c9b6af8c9c32af02648f15eae16d54a6ab95b9064"
         },
         {
           "path": "assets/audio/footsteps/footstep_04.flac",
-          "size": 29998,
-          "sha256": "34fdda4ff0abed35edadcfbbe06b560031b939629762c06b338b36bcf3d4c0fa"
+          "size": 36640,
+          "sha256": "93a991e3769bff25f8360a8f9ca78e10d5cca5e0bbb6b4f620817b1bce7c7417"
         },
         {
           "path": "assets/audio/footsteps/step_dirt_01.ogg",
@@ -3166,6 +3191,11 @@
           "path": "assets/audio/game/flag_captured.ogg",
           "size": 5721,
           "sha256": "66a4a4a2efdc6f03c60674b8fed44f624cdcb0109ca8c342448db7c211073054"
+        },
+        {
+          "path": "assets/audio/game/ringing.flac",
+          "size": 52203,
+          "sha256": "872503bf2f8c3d0c95ba070168aa03d03b6e93332cf99682dd4b7479ff6ff8a6"
         },
         {
           "path": "assets/audio/game/round_start_horn.ogg",
@@ -3268,6 +3298,11 @@
           "sha256": "a2ea73ccbe61e84827fa3f6fda6dcdff828b50715669ad86d3bc0a98950290e2"
         },
         {
+          "path": "assets/audio/weapons/flashexplosion.flac",
+          "size": 112793,
+          "sha256": "fae85901517e77a23cecb4538beac3cd44fe2b513a9e41e70a135abe04228460"
+        },
+        {
           "path": "assets/audio/weapons/hopper_rattle.ogg",
           "size": 13935,
           "sha256": "ea24f8d7e9c9405c4ff2a34ad062ade2cc71b6f50a728190e75847594eee9d1b"
@@ -3288,6 +3323,11 @@
           "sha256": "9f39083a7ef1002add94bdbf7f17f78812eb70e5ec283f489cbdf36be39f586c"
         },
         {
+          "path": "assets/audio/weapons/nade.flac",
+          "size": 43092,
+          "sha256": "3b032de8c3f8957dc2e5b431918816983cb27410e09738bdbd4bf2b3d6074f63"
+        },
+        {
           "path": "assets/audio/weapons/pod_reload.ogg",
           "size": 17526,
           "sha256": "02e88128e40fc37ba719d1e373776a665abd6ce9884f38d3b1407cea200f513b"
@@ -3306,6 +3346,11 @@
           "path": "assets/audio/weapons/tank_screw_in.ogg",
           "size": 10543,
           "sha256": "1b0e9f2e9fa4a28c8f887601ef254d743af73b3fed799b4bec51d3dca8145dc8"
+        },
+        {
+          "path": "assets/audio/weapons/ultra_bang.flac",
+          "size": 559718,
+          "sha256": "bd83fc737d00a4f33854c439c1f78cf4c97a62f2aad435285ceba6334c8bca29"
         },
         {
           "path": "assets/branding/logo.png",
@@ -3336,6 +3381,11 @@
           "path": "assets/fonts/ArchivoBlack-Regular.ttf",
           "size": 90988,
           "sha256": "dd9a89a019b4849f66ab75455fe7bdf931311042cbb0f0f97acc061539703180"
+        },
+        {
+          "path": "assets/maps/City.json",
+          "size": 47269,
+          "sha256": "6eff712d9eaf4ec5247402ca38cc4c5386a169c8a1465c3815d881f4374d39bb"
         },
         {
           "path": "assets/maps/Dockyard.json",
@@ -6139,13 +6189,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 101593600,
-          "sha256": "14941066240503a39ef17dc142f2c5e990883ab982ea42716226683b4e71c6bc"
+          "size": 101926400,
+          "sha256": "d7ab3b525849377f861cbef391f0d36763e2b745f5a9b077a64ccdb4c3764bd2"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 98467840,
-          "sha256": "b726e5e4447426222be216486859137c953bd6da69fc9befab46aade5bf12f13"
+          "size": 98471424,
+          "sha256": "0dda2e885fcd750dff29dce4a8ee20c638e91d06e9c617f4dc34519051ab0802"
         }
       ]
     }
