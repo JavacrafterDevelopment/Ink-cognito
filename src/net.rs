@@ -1649,6 +1649,7 @@ mod tests {
             velocity: [0.0, 0.0, -30.0],
             point: [0.0, 1.2, 0.0],
             water: false,
+            headshot: false,
         };
         client.send_hit(c_hit);
         // Duplicate send should be deduplicated by the host.
@@ -1678,6 +1679,7 @@ mod tests {
             velocity: [0.0, 0.0, 30.0],
             point: [1.0, 1.1, 2.0],
             water: false,
+            headshot: false,
         };
         host.send_hit(h_hit);
         assert!(

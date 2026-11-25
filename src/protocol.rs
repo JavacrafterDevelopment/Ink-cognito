@@ -370,6 +370,9 @@ pub struct HitEvent {
     /// World-space impact point (for hit splash particles on the victim).
     pub point: [f32; 3],
     pub water: bool,
+    /// Landed in the head zone (damage already includes the bonus).
+    #[serde(default)]
+    pub headshot: bool,
 }
 
 /// Messages sent from a joining client to the host.
