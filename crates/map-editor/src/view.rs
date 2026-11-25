@@ -70,7 +70,7 @@ fn spawn_camera(mut commands: Commands) {
 
 /// Whether the cursor is over the 3D view (not a panel).
 fn in_view(window: &Window, cursor: Vec2, editor: &Editor) -> bool {
-    if editor.open_list.is_some() {
+    if editor.open_list.is_some() || editor.live.window {
         return false;
     }
     let w = window.width();
@@ -97,7 +97,11 @@ fn text_input(mut keys: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>
             }
             _ => {
                 if let Some(text) = &ev.text {
-                    let limit = if field == Field::Blurb { 160 } else { 40 };
+                    let limit = match field {
+                        Field::Blurb => 160,
+                        Field::JoinAddress => 400,
+                        _ => 40,
+                    };
                     for ch in text.chars().filter(|c| !c.is_control()) {
                         if editor.field_mut(field).chars().count() < limit {
                             editor.field_mut(field).push(ch);
@@ -108,7 +112,7 @@ fn text_input(mut keys: MessageReader<KeyboardInput>, mut editor: ResMut<Editor>
             }
         }
     }
-    if changed && field != Field::FileName {
+    if changed && !matches!(field, Field::FileName | Field::JoinAddress) {
         // One undo step per text box visit would be nicer; this keeps it simple.
         editor.dirty = true;
     }

@@ -7,6 +7,7 @@
 
 pub mod catalog;
 pub mod convex;
+pub mod daylight;
 mod pieces;
 
 use bevy_math::{Quat, Rect, Vec2, Vec3};
@@ -15,6 +16,7 @@ use std::f32::consts::FRAC_PI_2;
 
 pub use catalog::{Category, Hull, PIECES, Part, Piece, piece};
 pub use convex::{Convex, Place};
+pub use daylight::{Daylight, Fog, TIMES};
 use std::sync::Arc;
 
 /// The newest map file format this code reads and writes.
@@ -41,7 +43,8 @@ pub struct MapFile {
     pub size: String,
     /// Half the playable size along x and z (meters). The field is centered on 0, 0.
     pub half: [f32; 2],
-    /// Sky color, sRGB 0..1.
+    /// Sky color, sRGB 0..1. It also sets the time of day the map is lit
+    /// for: see [`Daylight::for_sky`].
     #[serde(default = "default_sky")]
     pub sky: [f32; 3],
     /// What stands around the edge.

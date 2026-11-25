@@ -1,22 +1,24 @@
 [package]
 name = "ink-cognito"
-version = "0.6.4"
+version = "0.6.5"
 edition = "2024"
 
 [dependencies]
 arboard = "3"
 ink-map = { path = "crates/ink-map" }
+ink-portside = { path = "crates/ink-portside" }
 bevy = { version = "0.20", features = ["flac"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tailcat = "0.1"
 tokio = { version = "1", features = ["io-util", "macros", "rt-multi-thread", "sync", "time"] }
 
-# The game is the root package; the map editor and the map format it shares
-# with the game are crates of their own. `cargo build` / `cargo run` at the
-# root still mean the game; `cargo run -p ink-map-editor` starts the editor.
+# The game is the root package; the map editor, the map format it shares
+# with the game and the Portside client both use are crates of their own.
+# `cargo build` / `cargo run` at the root still mean the game;
+# `cargo run -p ink-map-editor` starts the editor.
 [workspace]
-members = [".", "crates/ink-map", "crates/map-editor"]
+members = [".", "crates/ink-map", "crates/ink-portside", "crates/map-editor"]
 
 # Enable moderate optimization in dev mode for smooth Bevy frame rates.
 [profile.dev]

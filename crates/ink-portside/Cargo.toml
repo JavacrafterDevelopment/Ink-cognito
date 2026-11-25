@@ -1,0 +1,11 @@
+[package]
+name = "ink-portside"
+version = "0.1.0"
+edition = "2024"
+description = "A client for Portside's local game API, shared by Ink-cognito and its map editor."
+publish = false
+
+[dependencies]
+bevy = "0.20"
+serde_json = "1"
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt", "sync", "time"] }

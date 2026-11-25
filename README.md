@@ -49,7 +49,9 @@ The map editor is a separate program, `ink-map-editor.exe`, in the same folder a
 (from source: `cargo run --release -p ink-map-editor`). It edits map files (JSON): place
 pieces from the palette (bunkers, walls, structures, building parts, furniture, industrial and
 street props, nature and terrain: about 270 in all, on pages you scroll with the mouse wheel),
-set each team's spawns, and change the field's size, edge, sky and ground.
+set each team's spawns, and change the field's size, edge, time of day and ground. The time of
+day (Day, Clear, Pale, Haze, Sunset, Dusk, Night) sets the sky and how the map is lit: sun angle
+and strength, ambient light and fog, the same in the editor and in game.
 
 | Action | Keys |
 | --- | --- |
@@ -78,6 +80,23 @@ opening, a tree's trunk and crown), and it keeps colliding that way turned or ti
 angle, ramps included. Select a piece to see its shapes drawn in yellow. Pieces marked scenery
 (grass, bushes, flat ground decor) have nothing to collide with; turn any placed piece into
 scenery with the **Solid** button. **Level** in the Selected panel takes the tilt off a piece.
+
+### Live editing with friends
+
+**Live edit** in the top bar edits a map together: one person hosts the map they have open
+and others join and edit it with them, each seeing everyone's changes (and a ring where each
+other person's camera is) as they happen. It joins the way the game does:
+
+- **Portside**: with Portside running and everyone in the same hub, the host's map shows up
+  in each friend's Live edit window; click it to join. Portside asks once to allow the map
+  editor (it's a program of its own there, so its sessions never show up in the game).
+- **TailCat**: the host's window shows a `tc...` address to copy; anyone can paste it into
+  theirs and click Join.
+
+The host's copy is the real one, and only the host saves over its file. Guests can't use New
+or Open while joined. A guest's **Save copy** goes to their **Downloads** folder by default,
+not the game's maps folder (the window has a button to switch that). Undo only takes back
+your own changes.
 
 ### Adding a piece
 
@@ -149,12 +168,13 @@ sudo apt install pkg-config libasound2-dev libudev-dev libx11-dev libxkbcommon-x
 
 ## Project layout
 
-The repository is a Cargo workspace: the game is the root package, and two more crates sit in
-`crates/`:
+The repository is a Cargo workspace: the game is the root package, and three more crates sit
+in `crates/`:
 
 | Crate | What it is |
 | --- | --- |
 | `crates/ink-map` | The map file format, the catalog of placeable pieces and their collision shapes, and turning a map file into models and colliders. Shared by the game and the editor. |
+| `crates/ink-portside` | The client for Portside's local game API (hub sessions), used by the game and by the editor's live editing. |
 | `crates/map-editor` | The map editor (`ink-map-editor`). |
 
 `cargo run` and `cargo build` at the root still mean the game; add `--workspace` to build

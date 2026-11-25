@@ -64,7 +64,10 @@ impl Plugin for CombatPlugin {
                     .after(WorldSystems::Move)
                     .run_if(in_state(AppState::InGame)),
             )
-            .add_systems(Update, (update_particles, limit_decals));
+            .init_resource::<BakedPaint>()
+            .add_systems(OnExit(AppState::InGame), clear_baked_paint)
+            .add_systems(Update, update_particles)
+            .add_systems(Update, bake_decals.run_if(in_state(AppState::InGame)));
     }
 }
 
@@ -87,7 +90,16 @@ pub const HEAD_PAINT_SECS: f32 = 4.0;
 /// Hit marker lengths (seconds): a normal or head hit, and an elimination.
 const HITMARKER_SECS: f32 = 0.25;
 const KILLMARKER_SECS: f32 = 0.5;
-const MAX_DECALS: usize = 350;
+/// Paint is baked into merged meshes once this many fresh splats pile up,
+/// or once the oldest has sat for `BAKE_AFTER_SECS`.
+const BAKE_AT_COUNT: usize = 192;
+const BAKE_AFTER_SECS: f32 = 0.5;
+/// Splats per merged mesh before a new one is started, so rebuilding a mesh
+/// after new paint lands stays cheap.
+const QUADS_PER_BATCH: usize = 512;
+/// Merged paint is grouped into cells this wide (meters), so transparent
+/// sorting stays local and each rebuild only touches the area that was hit.
+const BAKE_CELL: f32 = 12.0;
 
 /// Tracks outbound hit IDs and deduplicates inbound UDP hit retries on the client.
 #[derive(Resource, Default)]
@@ -267,6 +279,8 @@ impl Paint {
 pub struct Fx {
     billboard: Handle<Mesh>,
     decal: Handle<Mesh>,
+    /// A paint bomb ball.
+    shrapnel: Handle<Mesh>,
     splats: Vec<Handle<Image>>,
     drips: Vec<Handle<Image>>,
     droplet: Handle<Image>,
@@ -300,6 +314,16 @@ pub struct Sounds {
 const DROPLET: u8 = 100;
 const PUFF: u8 = 101;
 const RING: u8 = 102;
+/// Solid paint for a paint bomb's balls (no texture).
+const SHRAPNEL: u8 = 103;
+/// One in this many paint bomb balls leaves a splat and effects where it lands.
+const SHRAPNEL_SPLAT_EVERY: u32 = 8;
+/// Of the rest, one in this many still leaves a plain splat (no particles or
+/// sound), so a bomb paints the area it covers. Cheap now that settled paint
+/// is merged into a few meshes (see `bake_decals`).
+const SHRAPNEL_DECAL_EVERY: u32 = 3;
+/// Splat sounds from paint bomb balls per frame, at most.
+const SHRAPNEL_SOUNDS_PER_FRAME: u32 = 2;
 const DRIP: u8 = 50;
 
 impl Fx {
@@ -321,6 +345,15 @@ impl Fx {
     ) -> Handle<StandardMaterial> {
         if let Some(h) = self.mats.get(&(paint, kind)) {
             return h.clone();
+        }
+        if kind == SHRAPNEL {
+            let handle = materials.add(StandardMaterial {
+                base_color: paint.color().with_alpha(1.0),
+                perceptual_roughness: 0.35,
+                ..default()
+            });
+            self.mats.insert((paint, kind), handle.clone());
+            return handle;
         }
         let (texture, unlit, roughness, depth_bias) = match kind {
             DROPLET => (self.droplet.clone(), true, 1.0, 0.0),
@@ -356,6 +389,7 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
     commands.insert_resource(Fx {
         billboard: meshes.add(Rectangle::new(1.0, 1.0)),
         decal: meshes.add(Plane3d::default().mesh().size(1.0, 1.0)),
+        shrapnel: meshes.add(Sphere::new(0.035).mesh().uv(8, 6)),
         splats: (1..=8)
             .map(|i| assets.load(format!("textures/splats/splat_{i:02}.png")))
             .collect(),
@@ -468,6 +502,12 @@ struct Projectile {
     gravity: f32,
     damage: f32,
     age: f32,
+    /// Despawned after this many seconds in the air.
+    max_age: f32,
+    /// One of a paint bomb's many balls: a plain sphere, only some of them
+    /// splat with full effects and sound, and their hits on a player are
+    /// summed into one `HitEvent` per frame instead of one each.
+    shrapnel: bool,
 }
 
 #[derive(Component)]
@@ -475,6 +515,60 @@ pub struct PaintDecal {
     born: f32,
     /// Water dries up.
     fade: Option<f32>,
+}
+
+/// Paint that has landed and stays for the rest of the match, merged into a
+/// handful of meshes (one per splat texture, team and area) instead of one
+/// entity per splat, so a paint bomb's hundreds of balls don't cost hundreds
+/// of draw calls forever.
+#[derive(Resource, Default)]
+struct BakedPaint {
+    batches: HashMap<(AssetId<StandardMaterial>, IVec3), Vec<PaintBatch>>,
+}
+
+struct PaintBatch {
+    entity: Entity,
+    material: Handle<StandardMaterial>,
+    /// Where the batch's mesh is anchored (the first splat in it); vertices are
+    /// stored relative to this so transparent sorting has a sensible center.
+    origin: Vec3,
+    positions: Vec<[f32; 3]>,
+    normals: Vec<[f32; 3]>,
+    uvs: Vec<[f32; 2]>,
+    indices: Vec<u32>,
+}
+
+impl PaintBatch {
+    fn quads(&self) -> usize {
+        self.positions.len() / 4
+    }
+
+    /// Adds one splat: the unit decal plane (normal +Y, texture top at -Z)
+    /// under the splat's transform, matching `Plane3d`'s UVs.
+    fn push(&mut self, tf: &Transform) {
+        let base = self.positions.len() as u32;
+        let n = (tf.rotation * Vec3::Y).normalize_or(Vec3::Y).to_array();
+        for (x, z) in [(-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5), (0.5, 0.5)] {
+            let p = tf.transform_point(Vec3::new(x, 0.0, z)) - self.origin;
+            self.positions.push(p.to_array());
+            self.normals.push(n);
+            self.uvs.push([x + 0.5, z + 0.5]);
+        }
+        // Counter-clockwise seen from +Y (corners: 0 = -x-z, 1 = +x-z, 2 = -x+z, 3 = +x+z).
+        self.indices
+            .extend_from_slice(&[base, base + 2, base + 3, base, base + 3, base + 1]);
+    }
+
+    fn mesh(&self) -> Mesh {
+        Mesh::new(
+            bevy::mesh::PrimitiveTopology::TriangleList,
+            bevy::asset::RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions.clone())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs.clone())
+        .with_inserted_indices(bevy::mesh::Indices::U32(self.indices.clone()))
+    }
 }
 
 #[derive(Component)]
@@ -771,6 +865,8 @@ fn spawn_projectile(
         gravity: stats.gravity,
         damage: stats.damage,
         age: 0.0,
+        max_age: 3.0,
+        shrapnel: false,
     };
     if stats.water {
         let mat = fx.material(Paint::Water, DROPLET, materials);
@@ -791,22 +887,27 @@ fn spawn_projectile(
     }
 }
 
-/// A paintball that isn't from a gun (a paint bomb's burst): it hits and
-/// splats like any other, and the owner's screen reports its hits.
+/// One of a paint bomb's balls: it hits and splats like any other, and the
+/// owner's screen reports its hits. A cheap shared sphere rather than the
+/// gun's paintball model, since a bomb throws hundreds of them at once.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_paintball(
     commands: &mut Commands,
     fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
     owner: PlayerId,
     team: Team,
     origin: Vec3,
     velocity: Vec3,
     gravity: f32,
     damage: f32,
+    max_age: f32,
 ) {
+    let mat = fx.material(Paint::Team(team), SHRAPNEL, materials);
     commands.spawn((
-        WorldAssetRoot(fx.balls[&team].clone()),
-        Transform::from_translation(origin).with_scale(Vec3::splat(2.2)),
+        Mesh3d(fx.shrapnel.clone()),
+        MeshMaterial3d(mat),
+        Transform::from_translation(origin),
         Projectile {
             owner,
             team,
@@ -815,6 +916,8 @@ pub(crate) fn spawn_paintball(
             gravity,
             damage,
             age: 0.0,
+            max_age,
+            shrapnel: true,
         },
         DespawnOnExit(AppState::InGame),
     ));
@@ -1096,10 +1199,13 @@ fn move_projectiles(
         .unwrap_or_default();
     let local = local_q.single().ok();
     let local_id = local.map(|(_, p)| p.id);
+    // Paint bomb hits this frame, per (thrower, victim): (damage, velocity, point).
+    let mut shrapnel_hits: HashMap<(PlayerId, PlayerId), (f32, Vec3, Vec3)> = HashMap::new();
+    let mut shrapnel_sounds = 0;
 
     for (entity, mut tf, mut ball) in &mut balls {
         ball.age += dt;
-        if ball.age > 3.0 {
+        if ball.age > ball.max_age {
             commands.entity(entity).despawn();
             continue;
         }
@@ -1158,6 +1264,31 @@ fn move_projectiles(
                 // in `process_incoming_hits` so moving players never miss hits or take double damage.
                 commands.entity(entity).despawn();
             }
+            Some(Target::Remote(victim_id)) if ball.shrapnel => {
+                // Summed up and reported once after the loop.
+                let point = from.lerp(to, best_t);
+                if Some(ball.owner) == local_id {
+                    let damage = if headshot {
+                        ball.damage * HEADSHOT_MULTIPLIER
+                    } else {
+                        ball.damage
+                    };
+                    let e = shrapnel_hits.entry((ball.owner, victim_id)).or_insert((
+                        0.0,
+                        Vec3::ZERO,
+                        point,
+                    ));
+                    e.0 += damage;
+                    e.1 += ball.velocity;
+                } else {
+                    shrapnel_hits.entry((ball.owner, victim_id)).or_insert((
+                        0.0,
+                        ball.velocity,
+                        point,
+                    ));
+                }
+                commands.entity(entity).despawn();
+            }
             Some(Target::Remote(victim_id)) => {
                 let point = from.lerp(to, best_t);
                 let normal = -ball.velocity.normalize_or(Vec3::Z);
@@ -1202,41 +1333,106 @@ fn move_projectiles(
             Some(Target::Body(body, hit)) => {
                 let point = from.lerp(to, best_t);
                 let normal = -ball.velocity.normalize_or(Vec3::Z);
-                player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+                let full = !ball.shrapnel || fx.pick(SHRAPNEL_SPLAT_EVERY as usize) == 0;
+                if full {
+                    player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+                }
                 // The host moves the body for everyone (and a body the host
                 // hasn't sent us yet moves here).
                 if let Ok((_, mut rd)) = bodies.get_mut(body) {
                     rd.shove(&hit, ball.velocity, ball.damage);
                 }
-                let s = fx.sounds.player_hit.clone();
-                play_sfx(
-                    &mut commands,
-                    &s,
-                    0.45 * falloff(listener, point),
-                    &settings,
-                );
+                if full {
+                    let s = fx.sounds.player_hit.clone();
+                    play_sfx(
+                        &mut commands,
+                        &s,
+                        0.45 * falloff(listener, point),
+                        &settings,
+                    );
+                }
                 commands.entity(entity).despawn();
             }
             None => {
                 if let Some(hit) = world_hit {
-                    impact_fx(
-                        &mut commands,
-                        &mut fx,
-                        &mut materials,
-                        &settings,
-                        now,
-                        hit.point,
-                        hit.normal,
-                        paint,
-                        hit.decals,
-                        falloff(listener, hit.point),
-                    );
+                    // Most of a paint bomb's balls just vanish into the
+                    // splats the rest leave, and only a couple a frame make
+                    // a sound, so a burst doesn't flood the scene.
+                    let full = !ball.shrapnel || fx.pick(SHRAPNEL_SPLAT_EVERY as usize) == 0;
+                    if !full && hit.decals && fx.pick(SHRAPNEL_DECAL_EVERY as usize) == 0 {
+                        // Paint now stays for the match (merged by
+                        // `bake_decals`), so more balls leave a plain splat
+                        // with no particles or sound.
+                        let n = hit.normal.normalize_or(Vec3::Y);
+                        spawn_decal(
+                            &mut commands,
+                            &mut fx,
+                            &mut materials,
+                            now,
+                            hit.point,
+                            n,
+                            paint,
+                        );
+                    }
+                    if full {
+                        let mut volume = falloff(listener, hit.point);
+                        if ball.shrapnel {
+                            if shrapnel_sounds < SHRAPNEL_SOUNDS_PER_FRAME {
+                                shrapnel_sounds += 1;
+                            } else {
+                                volume = 0.0;
+                            }
+                        }
+                        impact_fx(
+                            &mut commands,
+                            &mut fx,
+                            &mut materials,
+                            &settings,
+                            now,
+                            hit.point,
+                            hit.normal,
+                            paint,
+                            hit.decals,
+                            volume,
+                        );
+                    }
                     commands.entity(entity).despawn();
                 } else {
                     tf.translation = to;
                 }
             }
         }
+    }
+
+    // One splash, one marker and one `HitEvent` per player a paint bomb got
+    // this frame, however many of its balls hit them.
+    for ((owner, victim_id), (damage, velocity, point)) in shrapnel_hits {
+        let normal = -velocity.normalize_or(Vec3::Z);
+        let paint = Paint::Team(Team::of(owner));
+        player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
+        let s = fx.sounds.player_hit.clone();
+        play_sfx(&mut commands, &s, 0.6 * falloff(listener, point), &settings);
+        if damage <= 0.0 {
+            continue;
+        }
+        if combat.hitmarker_kind != HitmarkerKind::Kill || combat.hitmarker <= 0.0 {
+            combat.hitmarker_kind = HitmarkerKind::Hit;
+            combat.hitmarker = HITMARKER_SECS;
+        }
+        let s = fx.sounds.hit_tick.clone();
+        play_sfx(&mut commands, &s, 0.8, &settings);
+        let hit_id = hits.alloc_id();
+        net.send_hit(HitEvent {
+            hit_id,
+            attacker: owner,
+            victim: victim_id,
+            damage,
+            velocity: velocity.normalize_or(Vec3::Z).to_array().map(|v| v * 13.0),
+            point: point.to_array(),
+            water: false,
+            headshot: false,
+            flash: false,
+        });
     }
 }
 
@@ -1560,7 +1756,11 @@ fn update_viewmodel(
     // we move, so steps and gun bounce stay in sync; it fades out in the air
     // and while aiming down sights.
     let moving = (speed / 10.0).min(1.0);
-    let bob_target = if grounded { moving * (1.0 - combat.aim_blend * 0.85) } else { 0.0 };
+    let bob_target = if grounded {
+        moving * (1.0 - combat.aim_blend * 0.85)
+    } else {
+        0.0
+    };
     *bob_amount += (bob_target - *bob_amount) * (1.0 - (-10.0 * dt).exp());
     let freq = 1.55 + sb * 0.55; // steps per metre-ish, quicker cadence when sprinting
     *bob_phase = (*bob_phase + speed * freq * dt) % TAU;
@@ -1701,6 +1901,55 @@ fn player_hit_fx(
     spawn_particle(commands, fx, ring, point, Vec3::ZERO, 0.1, 0.6, 0.25, 0.0);
 }
 
+/// Leaves one paint splat (or a drip on a wall) at `point`, which `bake_decals`
+/// later merges into the match's lasting paint.
+fn spawn_decal(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    materials: &mut Assets<StandardMaterial>,
+    now: f32,
+    point: Vec3,
+    n: Vec3,
+    paint: Paint,
+) {
+    let water = paint == Paint::Water;
+    let wall = n.y.abs() < 0.5;
+    let (kind, rotation) = if wall && fx.rand() < 0.6 {
+        // Drips run down walls.
+        let count = fx.drips.len();
+        let i = DRIP + fx.pick(count) as u8;
+        let up = (Vec3::Y - n * n.y).normalize_or(Vec3::Y);
+        // The decal plane's +Y is the normal; its -Z (texture top) points up.
+        let rot = Quat::from_mat3(&Mat3::from_cols(up.cross(n).normalize_or(Vec3::X), n, -up));
+        (i, rot)
+    } else {
+        let count = fx.splats.len();
+        let i = fx.pick(count) as u8;
+        let rot = Quat::from_rotation_arc(Vec3::Y, n) * Quat::from_rotation_y(fx.range(0.0, TAU));
+        (i, rot)
+    };
+    let mat = fx.material(paint, kind, materials);
+    let size = if water {
+        fx.range(0.3, 0.5)
+    } else {
+        fx.range(0.25, 0.45)
+    };
+    commands.spawn((
+        Mesh3d(fx.decal.clone()),
+        MeshMaterial3d(mat),
+        Transform {
+            translation: point + n * 0.006,
+            rotation,
+            scale: Vec3::splat(size),
+        },
+        PaintDecal {
+            born: now,
+            fade: water.then_some(5.0),
+        },
+        DespawnOnExit(AppState::InGame),
+    ));
+}
+
 #[allow(clippy::too_many_arguments)]
 fn impact_fx(
     commands: &mut Commands,
@@ -1718,42 +1967,7 @@ fn impact_fx(
     let water = paint == Paint::Water;
 
     if decal {
-        let wall = n.y.abs() < 0.5;
-        let (kind, rotation) = if wall && fx.rand() < 0.6 {
-            // Drips run down walls.
-            let count = fx.drips.len();
-            let i = DRIP + fx.pick(count) as u8;
-            let up = (Vec3::Y - n * n.y).normalize_or(Vec3::Y);
-            // The decal plane's +Y is the normal; its -Z (texture top) points up.
-            let rot = Quat::from_mat3(&Mat3::from_cols(up.cross(n).normalize_or(Vec3::X), n, -up));
-            (i, rot)
-        } else {
-            let count = fx.splats.len();
-            let i = fx.pick(count) as u8;
-            let rot =
-                Quat::from_rotation_arc(Vec3::Y, n) * Quat::from_rotation_y(fx.range(0.0, TAU));
-            (i, rot)
-        };
-        let mat = fx.material(paint, kind, materials);
-        let size = if water {
-            fx.range(0.3, 0.5)
-        } else {
-            fx.range(0.25, 0.45)
-        };
-        commands.spawn((
-            Mesh3d(fx.decal.clone()),
-            MeshMaterial3d(mat),
-            Transform {
-                translation: point + n * 0.006,
-                rotation,
-                scale: Vec3::splat(size),
-            },
-            PaintDecal {
-                born: now,
-                fade: water.then_some(5.0),
-            },
-            DespawnOnExit(AppState::InGame),
-        ));
+        spawn_decal(commands, fx, materials, now, point, n, paint);
     }
 
     let droplet = fx.material(paint, DROPLET, materials);
@@ -1829,26 +2043,89 @@ fn update_particles(
     }
 }
 
-fn limit_decals(mut commands: Commands, time: Res<Time>, decals: Query<(Entity, &PaintDecal)>) {
+/// Dries up water, and merges settled paint into `BakedPaint` so splats on
+/// walls and floors stay for the whole match.
+fn bake_decals(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut baked: ResMut<BakedPaint>,
+    decals: Query<(
+        Entity,
+        &PaintDecal,
+        &Transform,
+        &MeshMaterial3d<StandardMaterial>,
+    )>,
+) {
     let now = time.elapsed_secs();
-    let mut count = 0;
-    for (e, d) in &decals {
-        if let Some(fade) = d.fade
-            && now - d.born > fade
-        {
-            commands.entity(e).despawn();
-            continue;
+    let mut fresh = 0;
+    let mut oldest = now;
+    for (e, d, _, _) in &decals {
+        match d.fade {
+            Some(fade) if now - d.born > fade => commands.entity(e).despawn(),
+            Some(_) => {}
+            None => {
+                fresh += 1;
+                oldest = oldest.min(d.born);
+            }
         }
-        count += 1;
     }
-    if count <= MAX_DECALS {
+    if fresh == 0 || (fresh < BAKE_AT_COUNT && now - oldest < BAKE_AFTER_SECS) {
         return;
     }
-    let mut all: Vec<(f32, Entity)> = decals.iter().map(|(e, d)| (d.born, e)).collect();
-    all.sort_by(|a, b| a.0.total_cmp(&b.0));
-    for (_, e) in all.into_iter().take(count - MAX_DECALS) {
+
+    let mut touched: HashSet<(AssetId<StandardMaterial>, IVec3, usize)> = HashSet::new();
+    for (e, d, tf, mat) in &decals {
+        if d.fade.is_some() {
+            continue;
+        }
+        let cell = (tf.translation / BAKE_CELL).floor().as_ivec3();
+        let key = (mat.id(), cell);
+        let list = baked.batches.entry(key).or_default();
+        if list.last().is_none_or(|b| b.quads() >= QUADS_PER_BATCH) {
+            list.push(PaintBatch {
+                entity: Entity::PLACEHOLDER,
+                material: mat.0.clone(),
+                origin: tf.translation,
+                positions: Vec::with_capacity(QUADS_PER_BATCH * 4),
+                normals: Vec::with_capacity(QUADS_PER_BATCH * 4),
+                uvs: Vec::with_capacity(QUADS_PER_BATCH * 4),
+                indices: Vec::with_capacity(QUADS_PER_BATCH * 6),
+            });
+        }
+        let idx = list.len() - 1;
+        list[idx].push(tf);
+        touched.insert((key.0, key.1, idx));
         commands.entity(e).despawn();
     }
+
+    // Respawn each changed batch with its rebuilt mesh, so its bounds (for
+    // culling) are worked out fresh. Batches are few and rebuilt rarely.
+    for (mat_id, cell, idx) in touched {
+        let Some(batch) = baked
+            .batches
+            .get_mut(&(mat_id, cell))
+            .and_then(|l| l.get_mut(idx))
+        else {
+            continue;
+        };
+        if batch.entity != Entity::PLACEHOLDER {
+            commands.entity(batch.entity).try_despawn();
+        }
+        batch.entity = commands
+            .spawn((
+                Mesh3d(meshes.add(batch.mesh())),
+                MeshMaterial3d(batch.material.clone()),
+                Transform::from_translation(batch.origin),
+                DespawnOnExit(AppState::InGame),
+            ))
+            .id();
+    }
+}
+
+/// The merged paint entities go with the match; forget them too.
+fn clear_baked_paint(mut baked: ResMut<BakedPaint>) {
+    baked.batches.clear();
 }
 
 #[cfg(test)]

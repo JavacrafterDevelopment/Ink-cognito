@@ -15,15 +15,15 @@ pub const LEFT_W: f32 = 236.0;
 pub const RIGHT_W: f32 = 290.0;
 pub const BOTTOM_H: f32 = 26.0;
 
-const PANEL: Color = Color::srgba(0.07, 0.10, 0.15, 0.94);
-const BTN: Color = Color::srgb(0.17, 0.22, 0.30);
-const BTN_HOVER: Color = Color::srgb(0.25, 0.32, 0.43);
-const BTN_ON: Color = Color::srgb(0.18, 0.52, 0.90);
-const BTN_ON_HOVER: Color = Color::srgb(0.24, 0.60, 0.98);
-const BTN_OFF: Color = Color::srgb(0.12, 0.15, 0.2);
-const TEXT: Color = Color::srgb(0.93, 0.95, 0.98);
-const MUTED: Color = Color::srgb(0.62, 0.68, 0.76);
-const ACCENT: Color = Color::srgb(1.0, 0.84, 0.2);
+pub(crate) const PANEL: Color = Color::srgba(0.07, 0.10, 0.15, 0.94);
+pub(crate) const BTN: Color = Color::srgb(0.17, 0.22, 0.30);
+pub(crate) const BTN_HOVER: Color = Color::srgb(0.25, 0.32, 0.43);
+pub(crate) const BTN_ON: Color = Color::srgb(0.18, 0.52, 0.90);
+pub(crate) const BTN_ON_HOVER: Color = Color::srgb(0.24, 0.60, 0.98);
+pub(crate) const BTN_OFF: Color = Color::srgb(0.12, 0.15, 0.2);
+pub(crate) const TEXT: Color = Color::srgb(0.93, 0.95, 0.98);
+pub(crate) const MUTED: Color = Color::srgb(0.62, 0.68, 0.76);
+pub(crate) const ACCENT: Color = Color::srgb(1.0, 0.84, 0.2);
 const FIELD_BG: Color = Color::srgb(0.04, 0.06, 0.09);
 const FIELD_FOCUS: Color = Color::srgb(0.10, 0.16, 0.26);
 
@@ -75,13 +75,15 @@ enum Action {
     Delete,
     Gizmo(GizmoMode),
     Level,
+    /// Opens the live editing window (see `live.rs`).
+    Live,
 }
 
 /// A button's colors.
 #[derive(Component)]
-struct Btn {
-    normal: Color,
-    hover: Color,
+pub(crate) struct Btn {
+    pub normal: Color,
+    pub hover: Color,
 }
 
 /// The list of pieces on the palette, which scrolls with the mouse wheel.
@@ -162,6 +164,9 @@ fn on_click(click: On<PointerClick>, actions: Query<&Action>, mut editor: ResMut
         ed.discard_armed = false;
     }
     match action {
+        Action::New | Action::Open if ed.live.guest => {
+            ed.status = "You're editing someone else's map live. Leave first to start or open another one.".into();
+        }
         Action::New | Action::Open => {
             if ed.dirty && !ed.discard_armed {
                 ed.discard_armed = true;
@@ -206,7 +211,7 @@ fn on_click(click: On<PointerClick>, actions: Query<&Action>, mut editor: ResMut
         Action::TurnStep => ed.turn_step = (ed.turn_step + 1) % crate::state::TURN_STEPS.len(),
         Action::Scenery => ed.place_scenery = !ed.place_scenery,
         Action::Focus(f) => {
-            if f != Field::FileName && ed.focus != Some(f) {
+            if !matches!(f, Field::FileName | Field::JoinAddress) && ed.focus != Some(f) {
                 ed.snapshot();
             }
             ed.focus = Some(f);
@@ -236,6 +241,7 @@ fn on_click(click: On<PointerClick>, actions: Query<&Action>, mut editor: ResMut
         Action::Duplicate => ed.duplicate(),
         Action::Mirror => ed.mirror(),
         Action::Delete => ed.delete(),
+        Action::Live => ed.live.window = true,
     }
 }
 
@@ -273,7 +279,7 @@ fn signature(ed: &Editor) -> String {
         ed.map.spawns.ffa.len(),
         ed.can_undo() as u8 * 2 + ed.can_redo() as u8,
         ed.place_yaw,
-    ) + &format!("{:?}", ed.gizmo)
+    ) + &format!("{:?}|{}", ed.gizmo, crate::live::badge(ed))
 }
 
 impl Tool {
@@ -341,7 +347,7 @@ fn rebuild_ui(
 
 // --- Widgets ----------------------------------------------------------------
 
-fn label(p: &mut ChildSpawnerCommands, text: impl Into<String>, size: f32, color: Color) {
+pub(crate) fn label(p: &mut ChildSpawnerCommands, text: impl Into<String>, size: f32, color: Color) {
     p.spawn((
         Node {
             flex_shrink: 0.0,
@@ -385,7 +391,7 @@ fn button(p: &mut ChildSpawnerCommands, text: impl Into<String>, action: Action,
     button_sized(p, text, action, on, true, false);
 }
 
-fn row(p: &mut ChildSpawnerCommands, f: impl FnOnce(&mut ChildSpawnerCommands)) {
+pub(crate) fn row(p: &mut ChildSpawnerCommands, f: impl FnOnce(&mut ChildSpawnerCommands)) {
     p.spawn((
         Node {
             flex_direction: FlexDirection::Row,
@@ -400,7 +406,7 @@ fn row(p: &mut ChildSpawnerCommands, f: impl FnOnce(&mut ChildSpawnerCommands)) 
     .with_children(f);
 }
 
-fn heading(p: &mut ChildSpawnerCommands, text: &str) {
+pub(crate) fn heading(p: &mut ChildSpawnerCommands, text: &str) {
     p.spawn((
         Node {
             margin: UiRect::top(Val::Px(8.0)),
@@ -412,7 +418,7 @@ fn heading(p: &mut ChildSpawnerCommands, text: &str) {
 }
 
 /// A text box: click to type, Enter to finish.
-fn text_field(p: &mut ChildSpawnerCommands, ed: &Editor, field: Field, value: &str, blink: bool, width: Val) {
+pub(crate) fn text_field(p: &mut ChildSpawnerCommands, ed: &Editor, field: Field, value: &str, blink: bool, width: Val) {
     let focused = ed.focus == Some(field);
     let shown = if focused {
         format!("{value}{}", if blink { "|" } else { " " })
@@ -475,6 +481,8 @@ fn top_bar(root: &mut ChildSpawnerCommands, ed: &Editor, blink: bool) {
         button(bar, "Save copy", Action::SaveCopy, false);
         button_sized(bar, "Undo", Action::Undo, false, ed.can_undo(), false);
         button_sized(bar, "Redo", Action::Redo, false, ed.can_redo(), false);
+        let live = crate::live::badge(ed);
+        button(bar, if live.is_empty() { "Live edit".to_string() } else { live }, Action::Live, ed.live.window);
         bar.spawn((Node { width: Val::Px(10.0), ..default() }, Pickable::IGNORE));
         label(bar, "File", 13.0, MUTED);
         text_field(bar, ed, Field::FileName, &ed.file_name, blink, Val::Px(170.0));
@@ -580,7 +588,7 @@ fn settings(mid: &mut ChildSpawnerCommands, ed: &Editor, blink: bool) {
             button(r, format!("Edge: {}", ed.map.perimeter.name()), Action::Perimeter, false);
         });
         row(p, |r| {
-            button(r, format!("Sky: {}", SKIES[nearest(&SKIES, ed.map.sky)].0), Action::Sky, false);
+            button(r, format!("Time: {}", SKIES[nearest(&SKIES, ed.map.sky)].0), Action::Sky, false);
         });
         if let Some(base) = ed.map.ground.first() {
             row(p, |r| {

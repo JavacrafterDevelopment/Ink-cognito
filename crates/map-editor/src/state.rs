@@ -74,6 +74,8 @@ pub enum Field {
     Name,
     Style,
     Blurb,
+    /// The TailCat address to join, in the live editing window.
+    JoinAddress,
 }
 
 /// Snap to a grid when placing and moving.
@@ -81,14 +83,8 @@ pub const SNAPS: [f32; 4] = [0.0, 0.25, 0.5, 1.0];
 /// Turn step, degrees.
 pub const TURN_STEPS: [f32; 3] = [90.0, 45.0, 15.0];
 
-pub const SKIES: [(&str, [f32; 3]); 6] = [
-    ("Day", [0.55, 0.76, 0.96]),
-    ("Clear", [0.6, 0.78, 0.95]),
-    ("Pale", [0.66, 0.8, 0.95]),
-    ("Haze", [0.7, 0.82, 0.9]),
-    ("Sunset", [0.93, 0.72, 0.56]),
-    ("Dusk", [0.36, 0.38, 0.55]),
-];
+/// Sky presets, one per time of day (they set the lighting too).
+pub const SKIES: [(&str, [f32; 3]); 7] = ink_map::TIMES;
 
 pub const TINTS: [(&str, [f32; 3]); 6] = [
     ("Natural", [1.0, 1.0, 1.0]),
@@ -100,6 +96,23 @@ pub const TINTS: [(&str, [f32; 3]); 6] = [
 ];
 
 pub const SIZES: [&str; 3] = ["Small", "Medium", "Large"];
+
+/// Live editing (see `live.rs`), as far as the rest of the editor cares.
+/// Kept across New and Open.
+#[derive(Default)]
+pub struct LiveFlags {
+    /// The live editing window is open.
+    pub window: bool,
+    /// Editing someone else's map: New and Open are off.
+    pub guest: bool,
+    /// Where Save copy writes instead of the custom maps folder (a guest's
+    /// Downloads folder).
+    pub save_dir: Option<PathBuf>,
+    /// The address typed or pasted to join with.
+    pub join_addr: String,
+    /// What the top bar's Live button says while a session is on ("" when not).
+    pub badge: String,
+}
 
 /// The map being edited, and the editor around it.
 #[derive(Resource)]
@@ -128,6 +141,7 @@ pub struct Editor {
     /// A New or Open waiting for a second click because of unsaved changes.
     pub discard_armed: bool,
     pub gizmo: GizmoMode,
+    pub live: LiveFlags,
     undo: Vec<MapFile>,
     redo: Vec<MapFile>,
 }
@@ -158,6 +172,7 @@ impl Editor {
             open_list: None,
             discard_armed: false,
             gizmo: GizmoMode::Move,
+            live: LiveFlags::default(),
             undo: Vec::new(),
             redo: Vec::new(),
         }
@@ -167,9 +182,25 @@ impl Editor {
     pub fn replace(&mut self, map: MapFile, path: Option<PathBuf>, file_name: String) {
         let structure = self.structure + 1;
         let page = self.page;
+        let live = std::mem::take(&mut self.live);
         *self = Self::with_map(map, path, file_name);
         self.structure = structure;
         self.page = page;
+        self.live = live;
+        // Another map: it's no guest's copy of someone else's.
+        self.live.save_dir = None;
+    }
+
+    /// Every map kept for undo and redo (live editing applies other people's
+    /// changes to them too, so undo only takes back your own).
+    pub fn history_mut(&mut self) -> impl Iterator<Item = &mut MapFile> {
+        self.undo.iter_mut().chain(self.redo.iter_mut())
+    }
+
+    /// Forgets undo and redo (when the whole map was replaced from outside).
+    pub fn clear_history(&mut self) {
+        self.undo.clear();
+        self.redo.clear();
     }
 
     /// Call before every change: remembers the map for undo.
@@ -567,6 +598,7 @@ impl Editor {
             Field::Name => &mut self.map.name,
             Field::Style => &mut self.map.style,
             Field::Blurb => &mut self.map.blurb,
+            Field::JoinAddress => &mut self.live.join_addr,
         }
     }
 }
