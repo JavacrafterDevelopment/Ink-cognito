@@ -20,8 +20,8 @@
 //! The loadout picks which kind each key throws (`Loadout::grenade` /
 //! `Loadout::flash`, sent to others in `PlayerState::throwables`):
 //!
-//! - **Ultra Bang** (G): lands like a paint bomb, then bursts like one every
-//!   0.5 s for 7 s. 90 s recharge.
+//! - **Ultra Bang** (G): a bouncier paint bomb that keeps rolling and bursts
+//!   into 400 paintballs 9 times, 0.5 s apart. 90 s recharge.
 //! - **9-Banger** (Q): a flashbang that goes off 9 times in a row. Three
 //!   times the flashbang's recharge.
 
@@ -54,8 +54,17 @@ pub const ULTRA_RECHARGE: f32 = 90.0;
 pub const NINE_BANG_RECHARGE: f32 = FLASH_RECHARGE * 3.0;
 /// The Ultra Bang bursts this often...
 const ULTRA_INTERVAL: f32 = 0.5;
-/// ...this many times: every 0.5 s over 7 s.
-const ULTRA_BURSTS: u32 = 14;
+/// ...this many times.
+const ULTRA_BURSTS: u32 = 9;
+/// Paintballs per Ultra Bang burst.
+const ULTRA_BALLS: u32 = 400;
+/// The Ultra Bang keeps this much of its speed along a surface it bounces
+/// off, so it keeps its momentum between bursts.
+const ULTRA_BOUNCE_KEEP: f32 = 0.9;
+/// How much of its push off a surface it keeps (the bounce height).
+const ULTRA_BOUNCE_LIFT: f32 = 0.55;
+/// Rolling slowdown per second (exponential, so the same at any frame rate).
+const ULTRA_ROLL_FRICTION: f32 = 0.35;
 /// The 9-Banger's bursts, and the time between them.
 const NINE_BANG_BURSTS: u32 = 9;
 const NINE_BANG_INTERVAL: f32 = 0.3;
@@ -563,12 +572,27 @@ fn move_grenades(
                 let n = hit.normal.normalize_or(Vec3::Y);
                 let v = g.velocity;
                 let speed = v.length();
-                g.velocity = (v - 2.0 * v.dot(n) * n) * 0.42;
+                let ultra = g.kind == Kind::UltraBang;
+                g.velocity = if ultra {
+                    // Keep rolling: bounce off the surface but hold on to the
+                    // speed along it.
+                    let into = v.dot(n);
+                    let along = v - into * n;
+                    let keep = if into.abs() > 1.0 {
+                        ULTRA_BOUNCE_KEEP
+                    } else {
+                        (-ULTRA_ROLL_FRICTION * dt).exp()
+                    };
+                    along * keep - n * into.min(0.0) * ULTRA_BOUNCE_LIFT
+                } else {
+                    (v - 2.0 * v.dot(n) * n) * 0.42
+                };
                 tf.translation = hit.point + n * (GRENADE_RADIUS + 0.01);
                 if speed > 2.5 {
                     play_sfx_at(&mut commands, &assets.bounce, 0.4, hit.point, &settings);
                 }
-                if n.y > 0.7 && g.velocity.length() < 1.2 {
+                let rest_below = if ultra { 0.15 } else { 1.2 };
+                if n.y > 0.7 && g.velocity.length() < rest_below {
                     g.resting = true;
                     g.velocity = Vec3::ZERO;
                 }
@@ -597,8 +621,14 @@ fn move_grenades(
             Kind::Bomb | Kind::UltraBang => {
                 paint_burst_fx(&mut commands, &mut fx, &mut materials, point, g.team, 1.0);
                 play_sfx_at(&mut commands, &assets.nade, 1.0, point, &settings);
-                let twist = (g.owner as f32) * 0.37;
-                for dir in burst_directions(BOMB_BALLS, twist) {
+                let balls = if g.kind == Kind::UltraBang {
+                    ULTRA_BALLS
+                } else {
+                    BOMB_BALLS
+                };
+                // Turned a bit more each Ultra Bang burst so they don't overlap.
+                let twist = (g.owner as f32) * 0.37 + g.bursts_left as f32 * 0.9;
+                for dir in burst_directions(balls, twist) {
                     spawn_paintball(
                         &mut commands,
                         &mut fx,
@@ -957,7 +987,8 @@ mod tests {
             (Kind::UltraBang, Kind::NineBang)
         );
         assert_eq!(NINE_BANG_RECHARGE, 66.0);
-        assert_eq!(ULTRA_BURSTS as f32 * ULTRA_INTERVAL, 7.0);
+        assert_eq!(ULTRA_BURSTS, 9);
+        assert_eq!(ULTRA_BALLS, 400);
     }
 
     #[test]
