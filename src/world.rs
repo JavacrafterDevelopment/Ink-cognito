@@ -392,6 +392,7 @@ pub fn poll_network_events(
             }
             NetEvent::PlayerLeft { id } => {
                 net.players.remove(&id);
+                net.forget_name(id);
             }
             NetEvent::WorldState { players } => {
                 let local_id = net.local_player_id;
@@ -428,6 +429,9 @@ pub fn poll_network_events(
             }
             NetEvent::Ragdolls(frame) => {
                 net.pending_ragdolls.push(frame);
+            }
+            NetEvent::Names(names) => {
+                net.learn_names(names);
             }
             NetEvent::Error(err) => {
                 net.disconnect();

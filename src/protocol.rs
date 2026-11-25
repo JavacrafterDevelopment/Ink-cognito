@@ -435,6 +435,9 @@ pub enum ClientMessage {
     Ping,
     /// The player is leaving (sent before closing).
     Leave,
+    /// The name to show for this player (their Portside name). Sent once
+    /// connected, and over UDP again every couple of seconds in case it's lost.
+    SetName(String),
 }
 
 /// Messages sent from the host to connected clients.
@@ -462,6 +465,40 @@ pub enum ServerMessage {
     Match(MatchState),
     /// Eliminated players' bodies as the host simulates them.
     Ragdolls(RagdollFrame),
+    /// Some players' names (`[id, name]`), added to what's already known.
+    /// Players without one show as "Player N". Sent whenever a name changes
+    /// and every couple of seconds, in pieces that fit a datagram.
+    Names(Vec<(PlayerId, String)>),
+}
+
+/// Longest name shown, in characters.
+pub const MAX_NAME_CHARS: usize = 20;
+
+/// A name fit to show: no control characters, trimmed, at most
+/// `MAX_NAME_CHARS`. `None` when nothing is left.
+pub fn clean_name(raw: &str) -> Option<String> {
+    let cut: String = raw
+        .chars()
+        .filter(|c| !c.is_control())
+        .collect::<String>()
+        .trim()
+        .chars()
+        .take(MAX_NAME_CHARS)
+        .collect();
+    let cut = cut.trim_end().to_string();
+    (!cut.is_empty()).then_some(cut)
+}
+
+/// Names per `Names` message, so each fits a datagram (20 characters of up
+/// to 4 bytes each, plus the id and JSON around it).
+pub const NAMES_PER_MESSAGE: usize = 8;
+
+/// Splits a name list into `Names` messages that each fit a datagram.
+pub fn names_messages(names: &[(PlayerId, String)]) -> Vec<ServerMessage> {
+    names
+        .chunks(NAMES_PER_MESSAGE)
+        .map(|chunk| ServerMessage::Names(chunk.to_vec()))
+        .collect()
 }
 
 /// Joints in a ragdoll pose (see `ragdoll.rs`).
@@ -651,6 +688,34 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn names_are_cleaned() {
+        assert_eq!(clean_name("  Kit  ").as_deref(), Some("Kit"));
+        assert_eq!(clean_name("Jo\n\u{7}"), Some("Jo".to_string()));
+        assert_eq!(clean_name("   "), None);
+        assert_eq!(clean_name("").as_deref(), None);
+        let long = clean_name(&"a".repeat(50)).unwrap();
+        assert_eq!(long.chars().count(), MAX_NAME_CHARS);
+    }
+
+    #[test]
+    fn name_messages_fit_datagrams() {
+        let names: Vec<(PlayerId, String)> = (0..40)
+            .map(|id| (1_000_000 + id, "\u{1F600}".repeat(MAX_NAME_CHARS)))
+            .collect();
+        let msgs = names_messages(&names);
+        let mut seen = 0;
+        for msg in &msgs {
+            for d in encode_server_datagrams(msg) {
+                assert!(d.len() <= MAX_DATAGRAM, "datagram of {} bytes", d.len());
+            }
+            if let ServerMessage::Names(n) = msg {
+                seen += n.len();
+            }
+        }
+        assert_eq!(seen, 40);
+    }
 
     #[test]
     fn ragdoll_frames_fit_datagrams() {

@@ -590,11 +590,16 @@ fn on_event(evt: &str, data: &Value, shared: &Mutex<Shared>, events: &std_mpsc::
     match evt {
         "hub" => {
             let hub = parse_hub(data);
+            // The hub lists us too: keep our name current if it changed in Portside.
+            let me = my_name_in_hub(data);
             update(shared, |s| {
                 if hub.is_none() {
                     s.sessions.clear();
                 }
                 s.hub = hub;
+                if me.is_some() {
+                    s.my_name = me;
+                }
             });
         }
         "sessions" => {
@@ -613,6 +618,17 @@ fn on_event(evt: &str, data: &Value, shared: &Mutex<Shared>, events: &std_mpsc::
         }
         _ => {}
     }
+}
+
+/// Our own name from a hub update (the member marked `me`, or whose id is
+/// the hub's `me`), if it has one.
+pub(crate) fn my_name_in_hub(v: &Value) -> Option<String> {
+    let is_me = |m: &&Value| m["me"].as_bool() == Some(true) || (!v["me"].is_null() && m["id"] == v["me"]);
+    let me = v["members"].as_array()?.iter().find(is_me)?;
+    me["name"]
+        .as_str()
+        .filter(|n| !n.trim().is_empty())
+        .map(str::to_string)
 }
 
 pub(crate) fn parse_hub(v: &Value) -> Option<Hub> {
@@ -693,6 +709,16 @@ fn clear_token(app: AppInfo) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_our_name_in_a_hub_update() {
+        let hub = json!({"me":1,"members":[{"id":1,"name":"Kit","me":true},{"id":2,"name":"Jo","me":false}]});
+        assert_eq!(my_name_in_hub(&hub).as_deref(), Some("Kit"));
+        let by_id = json!({"me":2,"members":[{"id":1,"name":"Kit"},{"id":2,"name":"Jo"}]});
+        assert_eq!(my_name_in_hub(&by_id).as_deref(), Some("Jo"));
+        assert_eq!(my_name_in_hub(&json!({"members":[{"id":1,"name":"Kit"}]})), None);
+        assert_eq!(my_name_in_hub(&Value::Null), None);
+    }
 
     #[test]
     fn parses_hub_and_sessions_like_the_docs() {
