@@ -931,9 +931,169 @@ pub fn apply_gun_skin(
     }
 }
 
-/// Where loadouts are saved between runs.
+/// Maximum number of custom loadout classes a player can keep.
+pub const MAX_LOADOUTS: usize = 10;
+/// Maximum character length of a custom loadout name.
+pub const MAX_LOADOUT_NAME_LEN: usize = 24;
+
+/// A single named custom loadout class (Call of Duty-style).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NamedLoadout {
+    pub name: String,
+    pub loadout: Loadout,
+}
+
+impl Default for NamedLoadout {
+    fn default() -> Self {
+        Self {
+            name: "Loadout 1".to_string(),
+            loadout: Loadout::default(),
+        }
+    }
+}
+
+/// The player's collection of named custom loadouts and which one is equipped.
+#[derive(Resource, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LoadoutBook {
+    pub active: usize,
+    pub presets: Vec<NamedLoadout>,
+}
+
+impl Default for LoadoutBook {
+    fn default() -> Self {
+        Self {
+            active: 0,
+            presets: vec![
+                NamedLoadout {
+                    name: "Loadout 1".to_string(),
+                    loadout: Loadout::default(),
+                },
+                NamedLoadout {
+                    name: "Loadout 2".to_string(),
+                    loadout: Loadout {
+                        body: 2, // Raptor
+                        ..Loadout::default()
+                    },
+                },
+                NamedLoadout {
+                    name: "Loadout 3".to_string(),
+                    loadout: Loadout {
+                        body: 5, // Breacher shotgun
+                        ..Loadout::default()
+                    },
+                },
+                NamedLoadout {
+                    name: "Loadout 4".to_string(),
+                    loadout: Loadout {
+                        body: 6, // Longshot sniper
+                        ..Loadout::default()
+                    },
+                },
+                NamedLoadout {
+                    name: "Loadout 5".to_string(),
+                    loadout: Loadout {
+                        kind: GunKind::Water,
+                        water: 1, // Tidal
+                        ..Loadout::default()
+                    },
+                },
+            ],
+        }
+    }
+}
+
+impl LoadoutBook {
+    pub fn sanitized(mut self) -> Self {
+        if self.presets.is_empty() {
+            return Self::default();
+        }
+        if self.presets.len() > MAX_LOADOUTS {
+            self.presets.truncate(MAX_LOADOUTS);
+        }
+        for (idx, preset) in self.presets.iter_mut().enumerate() {
+            preset.loadout = preset.loadout.sanitized();
+            let trimmed: String = preset
+                .name
+                .trim()
+                .chars()
+                .take(MAX_LOADOUT_NAME_LEN)
+                .collect();
+            preset.name = if trimmed.is_empty() {
+                format!("Loadout {}", idx + 1)
+            } else {
+                trimmed
+            };
+        }
+        self.active = self.active.min(self.presets.len() - 1);
+        self
+    }
+
+    pub fn active_preset(&self) -> &NamedLoadout {
+        &self.presets[self.active.min(self.presets.len() - 1)]
+    }
+
+    pub fn active_preset_mut(&mut self) -> &mut NamedLoadout {
+        let idx = self.active.min(self.presets.len() - 1);
+        &mut self.presets[idx]
+    }
+
+    pub fn active_loadout(&self) -> Loadout {
+        self.active_preset().loadout
+    }
+
+    pub fn select(&mut self, index: usize) {
+        if index < self.presets.len() {
+            self.active = index;
+        }
+    }
+
+    pub fn add_preset(&mut self) -> Option<usize> {
+        if self.presets.len() >= MAX_LOADOUTS {
+            return None;
+        }
+        let next_num = self.presets.len() + 1;
+        self.presets.push(NamedLoadout {
+            name: format!("Loadout {next_num}"),
+            loadout: Loadout::default(),
+        });
+        let idx = self.presets.len() - 1;
+        self.active = idx;
+        Some(idx)
+    }
+
+    pub fn delete_active(&mut self) -> bool {
+        if self.presets.len() <= 1 {
+            return false;
+        }
+        let idx = self.active.min(self.presets.len() - 1);
+        self.presets.remove(idx);
+        if self.active >= self.presets.len() {
+            self.active = self.presets.len() - 1;
+        }
+        true
+    }
+
+    pub fn rename_active(&mut self, name: &str) {
+        let idx = self.active.min(self.presets.len() - 1);
+        let cleaned: String = name.trim().chars().take(MAX_LOADOUT_NAME_LEN).collect();
+        self.presets[idx].name = if cleaned.is_empty() {
+            format!("Loadout {}", idx + 1)
+        } else {
+            cleaned
+        };
+    }
+}
+
+/// Legacy single-loadout file path.
 fn save_path() -> Option<PathBuf> {
     config_file("loadout.json")
+}
+
+/// Where custom loadout presets are saved between runs.
+fn book_save_path() -> Option<PathBuf> {
+    config_file("loadouts.json")
 }
 
 /// A file in the game's settings folder.
@@ -952,12 +1112,36 @@ pub fn config_file(name: &str) -> Option<PathBuf> {
     Some(base.join("Ink-cognito").join(name))
 }
 
-pub fn load_saved_loadout() -> Loadout {
-    save_path()
+pub fn load_saved_loadout_book() -> LoadoutBook {
+    if let Some(book) = book_save_path()
+        .and_then(|p| std::fs::read(p).ok())
+        .and_then(|bytes| serde_json::from_slice::<LoadoutBook>(&bytes).ok())
+    {
+        return book.sanitized();
+    }
+    // Migrate from legacy single loadout.json if present.
+    let mut book = LoadoutBook::default();
+    if let Some(legacy) = save_path()
         .and_then(|p| std::fs::read(p).ok())
         .and_then(|bytes| serde_json::from_slice::<Loadout>(&bytes).ok())
-        .map(Loadout::sanitized)
-        .unwrap_or_default()
+    {
+        book.presets[0].loadout = legacy.sanitized();
+    }
+    book.sanitized()
+}
+
+pub fn save_loadout_book(book: &LoadoutBook) {
+    let Some(path) = book_save_path() else {
+        return;
+    };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Ok(json) = serde_json::to_vec_pretty(book)
+        && let Err(err) = std::fs::write(&path, json)
+    {
+        warn!("Couldn't save loadouts to {}: {err}", path.display());
+    }
 }
 
 pub fn save_loadout(loadout: &Loadout) {
@@ -1034,5 +1218,27 @@ mod tests {
         let junk = Loadout::unpack(u32::MAX);
         let _ = junk.model_paths();
         let _ = junk.stats();
+    }
+
+    #[test]
+    fn loadout_book_manage_presets() {
+        let mut book = LoadoutBook::default();
+        assert_eq!(book.presets.len(), 5);
+        assert_eq!(book.active, 0);
+
+        book.rename_active("  Rush Class  ");
+        assert_eq!(book.active_preset().name, "Rush Class");
+
+        let added = book.add_preset().unwrap();
+        assert_eq!(book.active, added);
+        assert_eq!(book.presets.len(), 6);
+
+        assert!(book.delete_active());
+        assert_eq!(book.presets.len(), 5);
+        assert!(book.active < book.presets.len());
+
+        // Empty name falls back to default numbered name.
+        book.rename_active("   ");
+        assert!(book.active_preset().name.starts_with("Loadout "));
     }
 }

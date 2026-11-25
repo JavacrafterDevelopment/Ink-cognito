@@ -1,18 +1,23 @@
-//! Persistent audio settings and the Options overlay modal.
-//! Opens from both the Main Menu and the in-game Escape pause menu.
+//! Persistent game settings (Display, Audio, Crosshair, Keybinds) and the
+//! multi-section Options screen.
+//!
+//! Opens as a top-bar tab in the Main Menu (keeping the top bar clickable) and
+//! as a full-screen overlay from the in-game Escape pause menu.
 
 use crate::{
-    Overlay,
-    combat::{Fx, play_sfx},
+    AppState, Overlay,
+    loadout::CROSSHAIRS,
     menu::{
-        BG_CARD, BORDER_SUBTLE, BTN_DANGER, BTN_PRIMARY, ButtonStyle, TEXT_MUTED, TEXT_PRIMARY,
-        TEXT_STATUS, spawn_button,
+        BG_CARD, BORDER_SUBTLE, BTN_DANGER, BTN_PRIMARY, ButtonStyle, MenuScreen, MenuState,
+        TEXT_MUTED, TEXT_PRIMARY, TEXT_STATUS, TOP_BAR_HEIGHT, spawn_button,
     },
+    ui_kit::KIT_YELLOW,
 };
 use bevy::{
     audio::{AudioSink, AudioSinkPlayback, Volume},
     picking::prelude::*,
     prelude::*,
+    window::{MonitorSelection, PrimaryWindow, VideoModeSelection, WindowMode},
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -21,12 +26,25 @@ pub struct SettingsPlugin;
 
 impl Plugin for SettingsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(on_settings_click)
+        app.init_resource::<SettingsUiState>()
+            .add_observer(on_settings_click)
             .add_observer(on_slider_press)
             .add_observer(on_slider_over)
-            .add_systems(Update, (show_settings_screen, sync_sfx_volume));
+            .add_systems(
+                Update,
+                (
+                    listen_for_keybind,
+                    show_settings_screen,
+                    sync_sfx_volume,
+                    apply_display_settings,
+                ),
+            );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Settings data models
+// ---------------------------------------------------------------------------
 
 /// Persisted audio volume levels (all in 0.0..=1.0).
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -144,15 +162,365 @@ impl AudioChannel {
     }
 }
 
+/// Window presentation mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum WindowModeOption {
+    #[default]
+    Windowed,
+    Borderless,
+    Fullscreen,
+}
+
+impl WindowModeOption {
+    const ALL: [Self; 3] = [Self::Windowed, Self::Borderless, Self::Fullscreen];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Windowed => "Windowed",
+            Self::Borderless => "Borderless Fullscreen",
+            Self::Fullscreen => "Fullscreen",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::Windowed => "Standard resizable window.",
+            Self::Borderless => "Fills the screen with instant Alt+Tab switching.",
+            Self::Fullscreen => "Dedicated exclusive fullscreen on the current monitor.",
+        }
+    }
+
+    pub fn to_window_mode(self) -> WindowMode {
+        match self {
+            Self::Windowed => WindowMode::Windowed,
+            Self::Borderless => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+            Self::Fullscreen => {
+                WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current)
+            }
+        }
+    }
+}
+
+/// Persisted display settings.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct DisplaySettings {
+    pub window_mode: WindowModeOption,
+}
+
+/// Persisted crosshair choice (index into [`CROSSHAIRS`]).
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct CrosshairSettings {
+    pub style: u8,
+}
+
+impl CrosshairSettings {
+    pub fn sanitized(mut self) -> Self {
+        self.style = self.style.min(CROSSHAIRS.len() as u8 - 1);
+        self
+    }
+}
+
+/// A single keyboard key or mouse button bound to a gameplay action.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InputBinding {
+    Key(KeyCode),
+    Mouse(MouseButton),
+}
+
+impl InputBinding {
+    pub fn pressed(self, keys: &ButtonInput<KeyCode>, mouse: &ButtonInput<MouseButton>) -> bool {
+        match self {
+            Self::Key(k) => keys.pressed(k),
+            Self::Mouse(m) => mouse.pressed(m),
+        }
+    }
+
+    pub fn just_pressed(
+        self,
+        keys: &ButtonInput<KeyCode>,
+        mouse: &ButtonInput<MouseButton>,
+    ) -> bool {
+        match self {
+            Self::Key(k) => keys.just_pressed(k),
+            Self::Mouse(m) => mouse.just_pressed(m),
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Mouse(MouseButton::Left) => "LMB",
+            Self::Mouse(MouseButton::Right) => "RMB",
+            Self::Mouse(MouseButton::Middle) => "MMB",
+            Self::Mouse(MouseButton::Back) => "Mouse 4",
+            Self::Mouse(MouseButton::Forward) => "Mouse 5",
+            Self::Mouse(_) => "Mouse",
+            Self::Key(k) => key_label(k),
+        }
+    }
+
+    fn to_id(self) -> String {
+        match self {
+            Self::Mouse(MouseButton::Left) => "MouseLeft".into(),
+            Self::Mouse(MouseButton::Right) => "MouseRight".into(),
+            Self::Mouse(MouseButton::Middle) => "MouseMiddle".into(),
+            Self::Mouse(MouseButton::Back) => "MouseBack".into(),
+            Self::Mouse(MouseButton::Forward) => "MouseForward".into(),
+            Self::Mouse(_) => "MouseLeft".into(),
+            Self::Key(k) => format!("{k:?}"),
+        }
+    }
+
+    fn from_id(s: &str) -> Option<Self> {
+        match s {
+            "MouseLeft" => Some(Self::Mouse(MouseButton::Left)),
+            "MouseRight" => Some(Self::Mouse(MouseButton::Right)),
+            "MouseMiddle" => Some(Self::Mouse(MouseButton::Middle)),
+            "MouseBack" => Some(Self::Mouse(MouseButton::Back)),
+            "MouseForward" => Some(Self::Mouse(MouseButton::Forward)),
+            other => parse_key_code(other).map(Self::Key),
+        }
+    }
+}
+
+impl Serialize for InputBinding {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_id())
+    }
+}
+
+impl<'de> Deserialize<'de> for InputBinding {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Self::from_id(&s).ok_or_else(|| serde::de::Error::custom(format!("unknown binding: {s}")))
+    }
+}
+
+/// Every rebindable gameplay action.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum KeyAction {
+    MoveForward,
+    MoveBackward,
+    MoveLeft,
+    MoveRight,
+    Jump,
+    Sprint,
+    Crouch,
+    Shoot,
+    Aim,
+    Reload,
+    Scoreboard,
+}
+
+impl KeyAction {
+    pub const ALL: [Self; 11] = [
+        Self::MoveForward,
+        Self::MoveBackward,
+        Self::MoveLeft,
+        Self::MoveRight,
+        Self::Jump,
+        Self::Sprint,
+        Self::Crouch,
+        Self::Shoot,
+        Self::Aim,
+        Self::Reload,
+        Self::Scoreboard,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::MoveForward => "Move Forward",
+            Self::MoveBackward => "Move Backward",
+            Self::MoveLeft => "Move Left",
+            Self::MoveRight => "Move Right",
+            Self::Jump => "Jump",
+            Self::Sprint => "Sprint",
+            Self::Crouch => "Crouch",
+            Self::Shoot => "Shoot",
+            Self::Aim => "Aim Down Sights",
+            Self::Reload => "Reload",
+            Self::Scoreboard => "Scoreboard",
+        }
+    }
+}
+
+/// Persisted keybindings for gameplay controls.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct KeybindSettings {
+    pub move_forward: InputBinding,
+    pub move_backward: InputBinding,
+    pub move_left: InputBinding,
+    pub move_right: InputBinding,
+    pub jump: InputBinding,
+    pub sprint: InputBinding,
+    pub crouch: InputBinding,
+    pub shoot: InputBinding,
+    pub aim: InputBinding,
+    pub reload: InputBinding,
+    pub scoreboard: InputBinding,
+}
+
+impl Default for KeybindSettings {
+    fn default() -> Self {
+        Self {
+            move_forward: InputBinding::Key(KeyCode::KeyW),
+            move_backward: InputBinding::Key(KeyCode::KeyS),
+            move_left: InputBinding::Key(KeyCode::KeyA),
+            move_right: InputBinding::Key(KeyCode::KeyD),
+            jump: InputBinding::Key(KeyCode::Space),
+            sprint: InputBinding::Key(KeyCode::ShiftLeft),
+            crouch: InputBinding::Key(KeyCode::KeyC),
+            shoot: InputBinding::Mouse(MouseButton::Left),
+            aim: InputBinding::Mouse(MouseButton::Right),
+            reload: InputBinding::Key(KeyCode::KeyR),
+            scoreboard: InputBinding::Key(KeyCode::Tab),
+        }
+    }
+}
+
+impl KeybindSettings {
+    pub fn get(&self, action: KeyAction) -> InputBinding {
+        match action {
+            KeyAction::MoveForward => self.move_forward,
+            KeyAction::MoveBackward => self.move_backward,
+            KeyAction::MoveLeft => self.move_left,
+            KeyAction::MoveRight => self.move_right,
+            KeyAction::Jump => self.jump,
+            KeyAction::Sprint => self.sprint,
+            KeyAction::Crouch => self.crouch,
+            KeyAction::Shoot => self.shoot,
+            KeyAction::Aim => self.aim,
+            KeyAction::Reload => self.reload,
+            KeyAction::Scoreboard => self.scoreboard,
+        }
+    }
+
+    pub fn set(&mut self, action: KeyAction, binding: InputBinding) {
+        match action {
+            KeyAction::MoveForward => self.move_forward = binding,
+            KeyAction::MoveBackward => self.move_backward = binding,
+            KeyAction::MoveLeft => self.move_left = binding,
+            KeyAction::MoveRight => self.move_right = binding,
+            KeyAction::Jump => self.jump = binding,
+            KeyAction::Sprint => self.sprint = binding,
+            KeyAction::Crouch => self.crouch = binding,
+            KeyAction::Shoot => self.shoot = binding,
+            KeyAction::Aim => self.aim = binding,
+            KeyAction::Reload => self.reload = binding,
+            KeyAction::Scoreboard => self.scoreboard = binding,
+        }
+    }
+
+    pub fn pressed(
+        &self,
+        action: KeyAction,
+        keys: &ButtonInput<KeyCode>,
+        mouse: &ButtonInput<MouseButton>,
+    ) -> bool {
+        self.get(action).pressed(keys, mouse)
+    }
+
+    pub fn just_pressed(
+        &self,
+        action: KeyAction,
+        keys: &ButtonInput<KeyCode>,
+        mouse: &ButtonInput<MouseButton>,
+    ) -> bool {
+        self.get(action).just_pressed(keys, mouse)
+    }
+}
+
+/// Combined persistent settings stored in `settings.json`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct SavedSettings {
+    pub audio: AudioSettings,
+    pub display: DisplaySettings,
+    pub crosshair: CrosshairSettings,
+    pub keybinds: KeybindSettings,
+}
+
+impl SavedSettings {
+    pub fn sanitized(mut self) -> Self {
+        self.audio = self.audio.sanitized();
+        self.crosshair = self.crosshair.sanitized();
+        self
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Options UI state & components
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SettingsTab {
+    #[default]
+    Display,
+    Audio,
+    Crosshair,
+    Keybinds,
+}
+
+impl SettingsTab {
+    const ALL: [Self; 4] = [Self::Display, Self::Audio, Self::Crosshair, Self::Keybinds];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Display => "Display",
+            Self::Audio => "Audio",
+            Self::Crosshair => "Crosshair",
+            Self::Keybinds => "Keybinds",
+        }
+    }
+
+    fn subtitle(self) -> &'static str {
+        match self {
+            Self::Display => "Window mode and screen presentation",
+            Self::Audio => "Volume levels  •  Click or drag bars to adjust",
+            Self::Crosshair => "Choose the aiming reticle shown in-game",
+            Self::Keybinds => "Click a control and press any key or mouse button to rebind",
+        }
+    }
+
+    fn reset_label(self) -> &'static str {
+        match self {
+            Self::Display => "Reset Display",
+            Self::Audio => "Reset Audio",
+            Self::Crosshair => "Reset Crosshair",
+            Self::Keybinds => "Reset Keybinds",
+        }
+    }
+}
+
+/// Tracks which Options section is active and whether a keybind is being captured.
+#[derive(Resource, Default)]
+pub struct SettingsUiState {
+    pub tab: SettingsTab,
+    pub listening: Option<KeyAction>,
+    /// Prevents the click that started rebinding from being immediately bound as LMB.
+    skip_capture_frame: bool,
+}
+
+impl SettingsUiState {
+    pub fn is_listening(&self) -> bool {
+        self.listening.is_some()
+    }
+}
+
 #[derive(Component)]
 struct SettingsRoot;
 
 #[derive(Component, Clone, Copy)]
 enum SettingsAction {
-    Step(AudioChannel, f32),
+    SelectTab(SettingsTab),
+    SetWindowMode(WindowModeOption),
+    StepAudio(AudioChannel, f32),
     ToggleMute,
-    TestSfx,
-    ResetDefaults,
+    SetCrosshair(u8),
+    StartRebind(KeyAction),
+    ResetTab(SettingsTab),
     Done,
 }
 
@@ -162,6 +530,10 @@ struct SliderSegment {
     channel: AudioChannel,
     value: f32,
 }
+
+// ---------------------------------------------------------------------------
+// Persistence
+// ---------------------------------------------------------------------------
 
 fn save_path() -> Option<PathBuf> {
     let base = std::env::var_os("APPDATA").map(PathBuf::from).or_else(|| {
@@ -178,27 +550,55 @@ fn save_path() -> Option<PathBuf> {
     Some(base.join("Ink-cognito").join("settings.json"))
 }
 
-pub fn load_saved_settings() -> AudioSettings {
-    save_path()
-        .and_then(|p| std::fs::read(p).ok())
-        .and_then(|bytes| serde_json::from_slice::<AudioSettings>(&bytes).ok())
-        .map(AudioSettings::sanitized)
+pub fn load_saved_settings() -> SavedSettings {
+    let Some(bytes) = save_path().and_then(|p| std::fs::read(p).ok()) else {
+        return SavedSettings::default();
+    };
+    // Try current combined format first (checking that it actually has a known top-level section
+    // rather than being an older AudioSettings-only JSON).
+    if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&bytes)
+        && val.get("audio").is_none()
+        && val.get("master").is_some()
+        && let Ok(audio) = serde_json::from_value::<AudioSettings>(val)
+    {
+        return SavedSettings {
+            audio: audio.sanitized(),
+            ..SavedSettings::default()
+        };
+    }
+    serde_json::from_slice::<SavedSettings>(&bytes)
+        .map(SavedSettings::sanitized)
         .unwrap_or_default()
 }
 
-pub fn save_settings(settings: &AudioSettings) {
+pub fn save_all_settings(
+    audio: &AudioSettings,
+    display: &DisplaySettings,
+    crosshair: &CrosshairSettings,
+    keybinds: &KeybindSettings,
+) {
     let Some(path) = save_path() else {
         return;
     };
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    if let Ok(json) = serde_json::to_vec_pretty(settings)
+    let combined = SavedSettings {
+        audio: *audio,
+        display: *display,
+        crosshair: *crosshair,
+        keybinds: *keybinds,
+    };
+    if let Ok(json) = serde_json::to_vec_pretty(&combined)
         && let Err(err) = std::fs::write(&path, json)
     {
-        warn!("Couldn't save audio settings to {}: {err}", path.display());
+        warn!("Couldn't save settings to {}: {err}", path.display());
     }
 }
+
+// ---------------------------------------------------------------------------
+// Systems & observers
+// ---------------------------------------------------------------------------
 
 fn sync_sfx_volume(settings: Res<AudioSettings>, mut sinks: Query<(&mut AudioSink, &SfxAudio)>) {
     if !settings.is_changed() {
@@ -210,15 +610,89 @@ fn sync_sfx_volume(settings: Res<AudioSettings>, mut sinks: Query<(&mut AudioSin
     }
 }
 
+fn apply_display_settings(
+    display: Res<DisplaySettings>,
+    mut window_q: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    if !display.is_changed() {
+        return;
+    }
+    if let Ok(mut window) = window_q.single_mut() {
+        let target = display.window_mode.to_window_mode();
+        if window.mode != target {
+            window.mode = target;
+        }
+    }
+}
+
+fn listen_for_keybind(
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    mut ui: ResMut<SettingsUiState>,
+    mut keybinds: ResMut<KeybindSettings>,
+    audio: Res<AudioSettings>,
+    display: Res<DisplaySettings>,
+    crosshair: Res<CrosshairSettings>,
+) {
+    let Some(action) = ui.listening else {
+        return;
+    };
+    if ui.skip_capture_frame {
+        ui.skip_capture_frame = false;
+        return;
+    }
+
+    if keys.just_pressed(KeyCode::Escape) {
+        ui.listening = None;
+        return;
+    }
+
+    // Check keyboard presses.
+    for &key in keys.get_just_pressed() {
+        if key == KeyCode::Escape {
+            continue;
+        }
+        if parse_key_code(&format!("{key:?}")).is_some() {
+            keybinds.set(action, InputBinding::Key(key));
+            ui.listening = None;
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
+            return;
+        }
+    }
+
+    // Check mouse button presses.
+    for btn in [
+        MouseButton::Left,
+        MouseButton::Right,
+        MouseButton::Middle,
+        MouseButton::Back,
+        MouseButton::Forward,
+    ] {
+        if mouse.just_pressed(btn) {
+            keybinds.set(action, InputBinding::Mouse(btn));
+            ui.listening = None;
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
+            return;
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn on_settings_click(
     click: On<PointerClick>,
     actions: Query<&SettingsAction>,
-    mut commands: Commands,
-    mut settings: ResMut<AudioSettings>,
+    mut ui: ResMut<SettingsUiState>,
+    mut audio: ResMut<AudioSettings>,
+    mut display: ResMut<DisplaySettings>,
+    mut crosshair: ResMut<CrosshairSettings>,
+    mut keybinds: ResMut<KeybindSettings>,
     mut overlay: ResMut<Overlay>,
-    fx: Option<Res<Fx>>,
 ) {
     if click.button != PointerButton::Primary {
+        return;
+    }
+    // While listening for a keybind, let `listen_for_keybind` handle mouse clicks.
+    if ui.listening.is_some() {
         return;
     }
     let Ok(action) = actions.get(click.entity) else {
@@ -226,23 +700,45 @@ fn on_settings_click(
     };
 
     match *action {
-        SettingsAction::Step(ch, delta) => {
-            settings.step(ch, delta);
+        SettingsAction::SelectTab(tab) => {
+            ui.tab = tab;
+            ui.listening = None;
+        }
+        SettingsAction::SetWindowMode(mode) => {
+            display.window_mode = mode;
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
+        }
+        SettingsAction::StepAudio(ch, delta) => {
+            audio.step(ch, delta);
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
         }
         SettingsAction::ToggleMute => {
-            settings.muted = !settings.muted;
+            audio.muted = !audio.muted;
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
         }
-        SettingsAction::TestSfx => {
-            if let Some(fx) = fx {
-                let s = fx.sounds.hit_tick.clone();
-                play_sfx(&mut commands, &s, 0.85, &settings);
+        SettingsAction::SetCrosshair(style) => {
+            crosshair.style = style.min(CROSSHAIRS.len() as u8 - 1);
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
+        }
+        SettingsAction::StartRebind(key_action) => {
+            ui.listening = Some(key_action);
+            ui.skip_capture_frame = true;
+        }
+        SettingsAction::ResetTab(tab) => {
+            match tab {
+                SettingsTab::Display => *display = DisplaySettings::default(),
+                SettingsTab::Audio => *audio = AudioSettings::default(),
+                SettingsTab::Crosshair => *crosshair = CrosshairSettings::default(),
+                SettingsTab::Keybinds => {
+                    ui.listening = None;
+                    *keybinds = KeybindSettings::default();
+                }
             }
-        }
-        SettingsAction::ResetDefaults => {
-            *settings = AudioSettings::default();
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
         }
         SettingsAction::Done => {
-            save_settings(&settings);
+            ui.listening = None;
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
             overlay.settings = false;
         }
     }
@@ -251,13 +747,13 @@ fn on_settings_click(
 fn on_slider_press(
     press: On<PointerPress>,
     segments: Query<&SliderSegment>,
-    mut settings: ResMut<AudioSettings>,
+    mut audio: ResMut<AudioSettings>,
 ) {
     if press.button != PointerButton::Primary {
         return;
     }
     if let Ok(seg) = segments.get(press.entity) {
-        settings.set(seg.channel, seg.value);
+        audio.set(seg.channel, seg.value);
     }
 }
 
@@ -265,28 +761,41 @@ fn on_slider_over(
     over: On<PointerOver>,
     mouse: Res<ButtonInput<MouseButton>>,
     segments: Query<&SliderSegment>,
-    mut settings: ResMut<AudioSettings>,
+    mut audio: ResMut<AudioSettings>,
 ) {
     if !mouse.pressed(MouseButton::Left) {
         return;
     }
     if let Ok(seg) = segments.get(over.entity) {
-        settings.set(seg.channel, seg.value);
+        audio.set(seg.channel, seg.value);
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn show_settings_screen(
     mut commands: Commands,
+    state: Res<State<AppState>>,
+    menu: Res<MenuState>,
     overlay: Res<Overlay>,
-    settings: Res<AudioSettings>,
+    mut ui: ResMut<SettingsUiState>,
+    audio: Res<AudioSettings>,
+    display: Res<DisplaySettings>,
+    crosshair: Res<CrosshairSettings>,
+    keybinds: Res<KeybindSettings>,
+    assets: Res<AssetServer>,
     root_q: Query<Entity, With<SettingsRoot>>,
     mut was_open: Local<bool>,
+    mut was_embedded: Local<bool>,
 ) {
-    let open = overlay.settings;
+    let embedded = *state.get() == AppState::MainMenu && menu.screen == MenuScreen::Options;
+    let open = embedded || overlay.settings;
+
     if !open {
         if *was_open {
             *was_open = false;
-            save_settings(&settings);
+            *was_embedded = false;
+            ui.listening = None;
+            save_all_settings(&audio, &display, &crosshair, &keybinds);
             for root in &root_q {
                 commands.entity(root).despawn();
             }
@@ -294,41 +803,104 @@ fn show_settings_screen(
         return;
     }
 
-    if *was_open && !settings.is_changed() && !root_q.is_empty() {
+    let any_changed = ui.is_changed()
+        || audio.is_changed()
+        || display.is_changed()
+        || crosshair.is_changed()
+        || keybinds.is_changed()
+        || *was_embedded != embedded;
+
+    if *was_open && !any_changed && !root_q.is_empty() {
         return;
     }
 
     *was_open = true;
+    *was_embedded = embedded;
     for root in &root_q {
         commands.entity(root).despawn();
     }
-    spawn_settings_modal(&mut commands, &settings);
+    spawn_settings_view(
+        &mut commands,
+        embedded,
+        &ui,
+        &audio,
+        &display,
+        &crosshair,
+        &keybinds,
+        &assets,
+    );
 }
 
-fn spawn_settings_modal(commands: &mut Commands, settings: &AudioSettings) {
+// ---------------------------------------------------------------------------
+// UI construction
+// ---------------------------------------------------------------------------
+
+fn style_for(selected: bool) -> ButtonStyle {
+    if selected {
+        ButtonStyle::PRIMARY
+    } else {
+        ButtonStyle::SECONDARY
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_settings_view(
+    commands: &mut Commands,
+    embedded: bool,
+    ui: &SettingsUiState,
+    audio: &AudioSettings,
+    display: &DisplaySettings,
+    crosshair: &CrosshairSettings,
+    keybinds: &KeybindSettings,
+    assets: &AssetServer,
+) {
+    let root_node = if embedded {
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: Val::Px(TOP_BAR_HEIGHT),
+            bottom: Val::Px(0.0),
+            padding: UiRect::axes(Val::Px(48.0), Val::Px(28.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Stretch,
+            ..default()
+        }
+    } else {
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            padding: UiRect::all(Val::Px(32.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        }
+    };
+
+    let root_bg = if embedded {
+        Color::NONE
+    } else {
+        Color::srgba(0.0, 0.0, 0.0, 0.72)
+    };
+    let z = if embedded { 1 } else { 30 };
+
     commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.65)),
-            GlobalZIndex(30),
-            SettingsRoot,
-        ))
+        .spawn((root_node, BackgroundColor(root_bg), GlobalZIndex(z), SettingsRoot))
         .with_children(|root| {
             root.spawn((
                 Node {
-                    width: Val::Px(520.0),
-                    max_width: Val::Percent(92.0),
-                    padding: UiRect::all(Val::Px(28.0)),
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Stretch,
-                    row_gap: Val::Px(16.0),
+                    width: Val::Percent(100.0),
+                    max_width: Val::Px(980.0),
+                    height: if embedded {
+                        Val::Percent(100.0)
+                    } else {
+                        Val::Percent(88.0)
+                    },
+                    max_height: Val::Px(720.0),
+                    padding: UiRect::all(Val::Px(24.0)),
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(24.0),
                     border: UiRect::all(Val::Px(1.5)),
                     border_radius: BorderRadius::all(Val::Px(16.0)),
                     ..default()
@@ -336,93 +908,423 @@ fn spawn_settings_modal(commands: &mut Commands, settings: &AudioSettings) {
                 BackgroundColor(BG_CARD),
                 BorderColor::all(BORDER_SUBTLE),
             ))
-            .with_children(|card| {
-                // Header
-                card.spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(4.0),
-                        padding: UiRect::bottom(Val::Px(10.0)),
-                        border: UiRect::bottom(Val::Px(1.0)),
-                        ..default()
-                    },
-                    BorderColor::all(BORDER_SUBTLE),
-                    Pickable::IGNORE,
-                ))
-                .with_children(|header| {
-                    header.spawn((
-                        Text::new("OPTIONS"),
-                        TextFont::from_font_size(24.0),
-                        TextColor(TEXT_PRIMARY),
+            .with_children(|container| {
+                // Left navigation sidebar
+                container
+                    .spawn((
+                        Node {
+                            width: Val::Px(220.0),
+                            flex_shrink: 0.0,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(10.0),
+                            padding: UiRect::right(Val::Px(18.0)),
+                            border: UiRect::right(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BorderColor::all(BORDER_SUBTLE),
                         Pickable::IGNORE,
-                    ));
-                    header.spawn((
-                        Text::new("Audio Volume  •  Click or drag bars to adjust"),
-                        TextFont::from_font_size(13.0),
-                        TextColor(TEXT_MUTED),
+                    ))
+                    .with_children(|sidebar| {
+                        sidebar.spawn((
+                            Text::new("OPTIONS"),
+                            TextFont::from_font_size(28.0),
+                            TextColor(TEXT_PRIMARY),
+                            Node {
+                                margin: UiRect::bottom(Val::Px(8.0)),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ));
+
+                        for tab in SettingsTab::ALL {
+                            spawn_button(
+                                sidebar,
+                                tab.label(),
+                                SettingsAction::SelectTab(tab),
+                                style_for(ui.tab == tab),
+                                44.0,
+                                16.0,
+                                false,
+                            );
+                        }
+
+                        // Spacer
+                        sidebar.spawn((
+                            Node {
+                                flex_grow: 1.0,
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ));
+
+                        if !embedded {
+                            spawn_button(
+                                sidebar,
+                                "Done",
+                                SettingsAction::Done,
+                                ButtonStyle::PRIMARY,
+                                44.0,
+                                17.0,
+                                false,
+                            );
+                        }
+                    });
+
+                // Right content pane
+                container
+                    .spawn((
+                        Node {
+                            flex_grow: 1.0,
+                            flex_basis: Val::Px(0.0),
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(16.0),
+                            min_height: Val::Px(0.0),
+                            ..default()
+                        },
                         Pickable::IGNORE,
-                    ));
-                });
+                    ))
+                    .with_children(|pane| {
+                        // Section header with per-tab Reset All button
+                        pane.spawn((
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                justify_content: JustifyContent::SpaceBetween,
+                                align_items: AlignItems::Center,
+                                column_gap: Val::Px(16.0),
+                                padding: UiRect::bottom(Val::Px(12.0)),
+                                border: UiRect::bottom(Val::Px(1.0)),
+                                ..default()
+                            },
+                            BorderColor::all(BORDER_SUBTLE),
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|header| {
+                            header
+                                .spawn((
+                                    Node {
+                                        flex_direction: FlexDirection::Column,
+                                        row_gap: Val::Px(4.0),
+                                        ..default()
+                                    },
+                                    Pickable::IGNORE,
+                                ))
+                                .with_children(|col| {
+                                    col.spawn((
+                                        Text::new(ui.tab.label().to_uppercase()),
+                                        TextFont::from_font_size(26.0),
+                                        TextColor(TEXT_PRIMARY),
+                                        Pickable::IGNORE,
+                                    ));
+                                    col.spawn((
+                                        Text::new(ui.tab.subtitle()),
+                                        TextFont::from_font_size(13.0),
+                                        TextColor(TEXT_MUTED),
+                                        Pickable::IGNORE,
+                                    ));
+                                });
 
-                // Volume channels
-                for channel in AudioChannel::ALL {
-                    spawn_volume_row(card, channel, settings);
-                }
+                            header
+                                .spawn((
+                                    Node {
+                                        width: Val::Px(170.0),
+                                        flex_direction: FlexDirection::Column,
+                                        ..default()
+                                    },
+                                    Pickable::IGNORE,
+                                ))
+                                .with_children(|wrap| {
+                                    spawn_button(
+                                        wrap,
+                                        ui.tab.reset_label(),
+                                        SettingsAction::ResetTab(ui.tab),
+                                        ButtonStyle::SECONDARY,
+                                        38.0,
+                                        14.0,
+                                        false,
+                                    );
+                                });
+                        });
 
-                // Utility row: Mute / Test SFX / Reset
-                card.spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(10.0),
-                    margin: UiRect::top(Val::Px(4.0)),
+                        // Scrollable section body
+                        pane.spawn((
+                            Node {
+                                flex_grow: 1.0,
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(14.0),
+                                overflow: Overflow::scroll_y(),
+                                min_height: Val::Px(0.0),
+                                padding: UiRect::right(Val::Px(4.0)),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|body| match ui.tab {
+                            SettingsTab::Display => spawn_display_section(body, display),
+                            SettingsTab::Audio => spawn_audio_section(body, audio),
+                            SettingsTab::Crosshair => {
+                                spawn_crosshair_section(body, crosshair, assets)
+                            }
+                            SettingsTab::Keybinds => {
+                                spawn_keybinds_section(body, keybinds, ui.listening)
+                            }
+                        });
+                    });
+            });
+        });
+}
+
+fn spawn_display_section(parent: &mut ChildSpawnerCommands, display: &DisplaySettings) {
+    parent.spawn((
+        Text::new("WINDOW MODE"),
+        TextFont::from_font_size(13.0),
+        TextColor(TEXT_MUTED),
+        Pickable::IGNORE,
+    ));
+
+    for mode in WindowModeOption::ALL {
+        let selected = display.window_mode == mode;
+        let style = style_for(selected);
+        parent
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(4.0),
+                    padding: UiRect::axes(Val::Px(18.0), Val::Px(14.0)),
+                    border_radius: BorderRadius::all(Val::Px(10.0)),
                     ..default()
-                })
-                .with_children(|row| {
-                    let (mute_label, mute_style) = if settings.muted {
-                        ("Unmute All", ButtonStyle::DANGER)
+                },
+                BackgroundColor(style.normal),
+                style,
+                SettingsAction::SetWindowMode(mode),
+            ))
+            .with_children(|row| {
+                row.spawn((
+                    Text::new(mode.label()),
+                    TextFont::from_font_size(16.0),
+                    TextColor(TEXT_PRIMARY),
+                    Pickable::IGNORE,
+                ));
+                row.spawn((
+                    Text::new(mode.description()),
+                    TextFont::from_font_size(12.0),
+                    TextColor(if selected {
+                        Color::srgb(0.15, 0.17, 0.20)
                     } else {
-                        ("Mute All", ButtonStyle::SECONDARY)
-                    };
-                    spawn_button(
-                        row,
-                        mute_label,
-                        SettingsAction::ToggleMute,
-                        mute_style,
-                        40.0,
-                        14.0,
-                        true,
-                    );
-                    spawn_button(
-                        row,
-                        "Test Sound",
-                        SettingsAction::TestSfx,
-                        ButtonStyle::SECONDARY,
-                        40.0,
-                        14.0,
-                        true,
-                    );
-                    spawn_button(
-                        row,
-                        "Reset",
-                        SettingsAction::ResetDefaults,
-                        ButtonStyle::SECONDARY,
-                        40.0,
-                        14.0,
-                        true,
-                    );
-                });
+                        TEXT_MUTED
+                    }),
+                    Pickable::IGNORE,
+                ));
+            });
+    }
+}
 
-                // Done button
+fn spawn_audio_section(parent: &mut ChildSpawnerCommands, audio: &AudioSettings) {
+    for channel in AudioChannel::ALL {
+        spawn_volume_row(parent, channel, audio);
+    }
+
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(12.0),
+                margin: UiRect::top(Val::Px(8.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|row| {
+            let (mute_label, mute_style) = if audio.muted {
+                ("Unmute All", ButtonStyle::DANGER)
+            } else {
+                ("Mute All", ButtonStyle::SECONDARY)
+            };
+            row.spawn((
+                Node {
+                    width: Val::Px(200.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|wrap| {
                 spawn_button(
-                    card,
-                    "Done",
-                    SettingsAction::Done,
-                    ButtonStyle::PRIMARY,
-                    46.0,
-                    17.0,
+                    wrap,
+                    mute_label,
+                    SettingsAction::ToggleMute,
+                    mute_style,
+                    42.0,
+                    15.0,
                     false,
                 );
             });
         });
+}
+
+fn spawn_crosshair_section(
+    parent: &mut ChildSpawnerCommands,
+    crosshair: &CrosshairSettings,
+    assets: &AssetServer,
+) {
+    parent.spawn((
+        Text::new("CROSSHAIR STYLE"),
+        TextFont::from_font_size(13.0),
+        TextColor(TEXT_MUTED),
+        Pickable::IGNORE,
+    ));
+
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: Val::Px(16.0),
+                row_gap: Val::Px(16.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|row| {
+            for (i, (name, path)) in CROSSHAIRS.iter().enumerate() {
+                let selected = crosshair.style == i as u8;
+                let style = style_for(selected);
+                row.spawn((
+                    Node {
+                        width: Val::Px(150.0),
+                        padding: UiRect::all(Val::Px(16.0)),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        row_gap: Val::Px(12.0),
+                        border_radius: BorderRadius::all(Val::Px(12.0)),
+                        ..default()
+                    },
+                    BackgroundColor(style.normal),
+                    style,
+                    SettingsAction::SetCrosshair(i as u8),
+                ))
+                .with_children(|card| {
+                    card.spawn((
+                        Node {
+                            width: Val::Px(72.0),
+                            height: Val::Px(72.0),
+                            padding: UiRect::all(Val::Px(14.0)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border_radius: BorderRadius::all(Val::Px(10.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.03, 0.05, 0.08, 0.85)),
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|preview| {
+                        preview.spawn((
+                            ImageNode::new(assets.load(*path)),
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Percent(100.0),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ));
+                    });
+                    card.spawn((
+                        Text::new(*name),
+                        TextFont::from_font_size(16.0),
+                        TextColor(TEXT_PRIMARY),
+                        Pickable::IGNORE,
+                    ));
+                });
+            }
+        });
+}
+
+fn spawn_keybinds_section(
+    parent: &mut ChildSpawnerCommands,
+    keybinds: &KeybindSettings,
+    listening: Option<KeyAction>,
+) {
+    if let Some(action) = listening {
+        parent
+            .spawn((
+                Node {
+                    padding: UiRect::axes(Val::Px(14.0), Val::Px(10.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(8.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.96, 0.77, 0.17, 0.14)),
+                BorderColor::all(KIT_YELLOW),
+                Pickable::IGNORE,
+            ))
+            .with_children(|banner| {
+                banner.spawn((
+                    Text::new(format!(
+                        "Listening for \"{}\"... Press any key or mouse button (Esc to cancel).",
+                        action.label()
+                    )),
+                    TextFont::from_font_size(13.0),
+                    TextColor(KIT_YELLOW),
+                    Pickable::IGNORE,
+                ));
+            });
+    }
+
+    for action in KeyAction::ALL {
+        let is_listening = listening == Some(action);
+        let binding_text = if is_listening {
+            "Press a key...".to_string()
+        } else {
+            keybinds.get(action).label().to_string()
+        };
+
+        parent
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(10.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.03, 0.05, 0.08, 0.72)),
+                BorderColor::all(if is_listening {
+                    KIT_YELLOW
+                } else {
+                    BORDER_SUBTLE
+                }),
+                Pickable::IGNORE,
+            ))
+            .with_children(|row| {
+                row.spawn((
+                    Text::new(action.label()),
+                    TextFont::from_font_size(15.0),
+                    TextColor(TEXT_PRIMARY),
+                    Pickable::IGNORE,
+                ));
+
+                row.spawn((
+                    Node {
+                        width: Val::Px(160.0),
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|wrap| {
+                    spawn_button(
+                        wrap,
+                        &binding_text,
+                        SettingsAction::StartRebind(action),
+                        style_for(is_listening),
+                        34.0,
+                        14.0,
+                        false,
+                    );
+                });
+            });
+    }
 }
 
 fn spawn_volume_row(
@@ -498,7 +1400,7 @@ fn spawn_volume_row(
                         },
                         BackgroundColor(ButtonStyle::SECONDARY.normal),
                         ButtonStyle::SECONDARY,
-                        SettingsAction::Step(channel, -0.05),
+                        SettingsAction::StepAudio(channel, -0.05),
                     ))
                     .with_children(|btn| {
                         btn.spawn((
@@ -572,7 +1474,7 @@ fn spawn_volume_row(
                         },
                         BackgroundColor(ButtonStyle::SECONDARY.normal),
                         ButtonStyle::SECONDARY,
-                        SettingsAction::Step(channel, 0.05),
+                        SettingsAction::StepAudio(channel, 0.05),
                     ))
                     .with_children(|btn| {
                         btn.spawn((
@@ -584,6 +1486,202 @@ fn spawn_volume_row(
                     });
                 });
         });
+}
+
+// ---------------------------------------------------------------------------
+// KeyCode <-> string helpers
+// ---------------------------------------------------------------------------
+
+fn key_label(key: KeyCode) -> &'static str {
+    match key {
+        KeyCode::KeyA => "A",
+        KeyCode::KeyB => "B",
+        KeyCode::KeyC => "C",
+        KeyCode::KeyD => "D",
+        KeyCode::KeyE => "E",
+        KeyCode::KeyF => "F",
+        KeyCode::KeyG => "G",
+        KeyCode::KeyH => "H",
+        KeyCode::KeyI => "I",
+        KeyCode::KeyJ => "J",
+        KeyCode::KeyK => "K",
+        KeyCode::KeyL => "L",
+        KeyCode::KeyM => "M",
+        KeyCode::KeyN => "N",
+        KeyCode::KeyO => "O",
+        KeyCode::KeyP => "P",
+        KeyCode::KeyQ => "Q",
+        KeyCode::KeyR => "R",
+        KeyCode::KeyS => "S",
+        KeyCode::KeyT => "T",
+        KeyCode::KeyU => "U",
+        KeyCode::KeyV => "V",
+        KeyCode::KeyW => "W",
+        KeyCode::KeyX => "X",
+        KeyCode::KeyY => "Y",
+        KeyCode::KeyZ => "Z",
+        KeyCode::Digit0 => "0",
+        KeyCode::Digit1 => "1",
+        KeyCode::Digit2 => "2",
+        KeyCode::Digit3 => "3",
+        KeyCode::Digit4 => "4",
+        KeyCode::Digit5 => "5",
+        KeyCode::Digit6 => "6",
+        KeyCode::Digit7 => "7",
+        KeyCode::Digit8 => "8",
+        KeyCode::Digit9 => "9",
+        KeyCode::Space => "Space",
+        KeyCode::Tab => "Tab",
+        KeyCode::Enter => "Enter",
+        KeyCode::Backspace => "Backspace",
+        KeyCode::ShiftLeft => "L-Shift",
+        KeyCode::ShiftRight => "R-Shift",
+        KeyCode::ControlLeft => "L-Ctrl",
+        KeyCode::ControlRight => "R-Ctrl",
+        KeyCode::AltLeft => "L-Alt",
+        KeyCode::AltRight => "R-Alt",
+        KeyCode::CapsLock => "Caps",
+        KeyCode::ArrowUp => "Up",
+        KeyCode::ArrowDown => "Down",
+        KeyCode::ArrowLeft => "Left",
+        KeyCode::ArrowRight => "Right",
+        KeyCode::Backquote => "`",
+        KeyCode::Minus => "-",
+        KeyCode::Equal => "=",
+        KeyCode::BracketLeft => "[",
+        KeyCode::BracketRight => "]",
+        KeyCode::Backslash => "\\",
+        KeyCode::Semicolon => ";",
+        KeyCode::Quote => "'",
+        KeyCode::Comma => ",",
+        KeyCode::Period => ".",
+        KeyCode::Slash => "/",
+        KeyCode::Insert => "Ins",
+        KeyCode::Delete => "Del",
+        KeyCode::Home => "Home",
+        KeyCode::End => "End",
+        KeyCode::PageUp => "PgUp",
+        KeyCode::PageDown => "PgDn",
+        KeyCode::F1 => "F1",
+        KeyCode::F2 => "F2",
+        KeyCode::F3 => "F3",
+        KeyCode::F4 => "F4",
+        KeyCode::F5 => "F5",
+        KeyCode::F6 => "F6",
+        KeyCode::F7 => "F7",
+        KeyCode::F8 => "F8",
+        KeyCode::F9 => "F9",
+        KeyCode::F10 => "F10",
+        KeyCode::F11 => "F11",
+        KeyCode::F12 => "F12",
+        KeyCode::Numpad0 => "Num 0",
+        KeyCode::Numpad1 => "Num 1",
+        KeyCode::Numpad2 => "Num 2",
+        KeyCode::Numpad3 => "Num 3",
+        KeyCode::Numpad4 => "Num 4",
+        KeyCode::Numpad5 => "Num 5",
+        KeyCode::Numpad6 => "Num 6",
+        KeyCode::Numpad7 => "Num 7",
+        KeyCode::Numpad8 => "Num 8",
+        KeyCode::Numpad9 => "Num 9",
+        _ => "Key",
+    }
+}
+
+fn parse_key_code(s: &str) -> Option<KeyCode> {
+    Some(match s {
+        "KeyA" => KeyCode::KeyA,
+        "KeyB" => KeyCode::KeyB,
+        "KeyC" => KeyCode::KeyC,
+        "KeyD" => KeyCode::KeyD,
+        "KeyE" => KeyCode::KeyE,
+        "KeyF" => KeyCode::KeyF,
+        "KeyG" => KeyCode::KeyG,
+        "KeyH" => KeyCode::KeyH,
+        "KeyI" => KeyCode::KeyI,
+        "KeyJ" => KeyCode::KeyJ,
+        "KeyK" => KeyCode::KeyK,
+        "KeyL" => KeyCode::KeyL,
+        "KeyM" => KeyCode::KeyM,
+        "KeyN" => KeyCode::KeyN,
+        "KeyO" => KeyCode::KeyO,
+        "KeyP" => KeyCode::KeyP,
+        "KeyQ" => KeyCode::KeyQ,
+        "KeyR" => KeyCode::KeyR,
+        "KeyS" => KeyCode::KeyS,
+        "KeyT" => KeyCode::KeyT,
+        "KeyU" => KeyCode::KeyU,
+        "KeyV" => KeyCode::KeyV,
+        "KeyW" => KeyCode::KeyW,
+        "KeyX" => KeyCode::KeyX,
+        "KeyY" => KeyCode::KeyY,
+        "KeyZ" => KeyCode::KeyZ,
+        "Digit0" => KeyCode::Digit0,
+        "Digit1" => KeyCode::Digit1,
+        "Digit2" => KeyCode::Digit2,
+        "Digit3" => KeyCode::Digit3,
+        "Digit4" => KeyCode::Digit4,
+        "Digit5" => KeyCode::Digit5,
+        "Digit6" => KeyCode::Digit6,
+        "Digit7" => KeyCode::Digit7,
+        "Digit8" => KeyCode::Digit8,
+        "Digit9" => KeyCode::Digit9,
+        "Space" => KeyCode::Space,
+        "Tab" => KeyCode::Tab,
+        "Enter" => KeyCode::Enter,
+        "Backspace" => KeyCode::Backspace,
+        "ShiftLeft" => KeyCode::ShiftLeft,
+        "ShiftRight" => KeyCode::ShiftRight,
+        "ControlLeft" => KeyCode::ControlLeft,
+        "ControlRight" => KeyCode::ControlRight,
+        "AltLeft" => KeyCode::AltLeft,
+        "AltRight" => KeyCode::AltRight,
+        "CapsLock" => KeyCode::CapsLock,
+        "ArrowUp" => KeyCode::ArrowUp,
+        "ArrowDown" => KeyCode::ArrowDown,
+        "ArrowLeft" => KeyCode::ArrowLeft,
+        "ArrowRight" => KeyCode::ArrowRight,
+        "Backquote" => KeyCode::Backquote,
+        "Minus" => KeyCode::Minus,
+        "Equal" => KeyCode::Equal,
+        "BracketLeft" => KeyCode::BracketLeft,
+        "BracketRight" => KeyCode::BracketRight,
+        "Backslash" => KeyCode::Backslash,
+        "Semicolon" => KeyCode::Semicolon,
+        "Quote" => KeyCode::Quote,
+        "Comma" => KeyCode::Comma,
+        "Period" => KeyCode::Period,
+        "Slash" => KeyCode::Slash,
+        "Insert" => KeyCode::Insert,
+        "Delete" => KeyCode::Delete,
+        "Home" => KeyCode::Home,
+        "End" => KeyCode::End,
+        "PageUp" => KeyCode::PageUp,
+        "PageDown" => KeyCode::PageDown,
+        "F1" => KeyCode::F1,
+        "F2" => KeyCode::F2,
+        "F3" => KeyCode::F3,
+        "F4" => KeyCode::F4,
+        "F5" => KeyCode::F5,
+        "F6" => KeyCode::F6,
+        "F7" => KeyCode::F7,
+        "F8" => KeyCode::F8,
+        "F9" => KeyCode::F9,
+        "F10" => KeyCode::F10,
+        "F11" => KeyCode::F11,
+        "F12" => KeyCode::F12,
+        "Numpad0" => KeyCode::Numpad0,
+        "Numpad1" => KeyCode::Numpad1,
+        "Numpad2" => KeyCode::Numpad2,
+        "Numpad3" => KeyCode::Numpad3,
+        "Numpad4" => KeyCode::Numpad4,
+        "Numpad5" => KeyCode::Numpad5,
+        "Numpad6" => KeyCode::Numpad6,
+        "Numpad7" => KeyCode::Numpad7,
+        "Numpad8" => KeyCode::Numpad8,
+        "Numpad9" => KeyCode::Numpad9,
+        _ => return None,
+    })
 }
 
 #[cfg(test)]
@@ -618,5 +1716,17 @@ mod tests {
         s.set(AudioChannel::Music, 0.6);
         assert!(!s.muted);
         assert!((s.music - 0.6).abs() < 1e-5);
+    }
+
+    #[test]
+    fn keybinds_roundtrip_json() {
+        let mut kb = KeybindSettings::default();
+        kb.set(KeyAction::Jump, InputBinding::Mouse(MouseButton::Middle));
+        kb.set(KeyAction::Reload, InputBinding::Key(KeyCode::KeyE));
+        let json = serde_json::to_string(&kb).unwrap();
+        let back: KeybindSettings = serde_json::from_str(&json).unwrap();
+        assert_eq!(kb, back);
+        assert_eq!(back.get(KeyAction::Jump).label(), "MMB");
+        assert_eq!(back.get(KeyAction::Reload).label(), "E");
     }
 }

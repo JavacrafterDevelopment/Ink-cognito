@@ -490,16 +490,19 @@ fn aim_and_reload(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
+    keybinds: Res<crate::settings::KeybindSettings>,
     overlay: Res<Overlay>,
     fx: Res<Fx>,
     settings: Res<AudioSettings>,
     local_state: Res<LocalState>,
     mut combat: ResMut<Combat>,
 ) {
+    use crate::settings::KeyAction;
     let dt = time.delta_secs();
     let alive = local_state.0.health > 0.0;
     let can_act = alive && !overlay.blocks_input();
-    combat.aiming = can_act && mouse.pressed(MouseButton::Right) && combat.reloading.is_none();
+    combat.aiming =
+        can_act && keybinds.pressed(KeyAction::Aim, &keys, &mouse) && combat.reloading.is_none();
     let target = if combat.aiming { 1.0 } else { 0.0 };
     let k = 1.0 - (-14.0 * dt).exp();
     combat.aim_blend += (target - combat.aim_blend) * k;
@@ -517,7 +520,10 @@ fn aim_and_reload(
         } else {
             combat.reloading = Some(left);
         }
-    } else if can_act && keys.just_pressed(KeyCode::KeyR) && combat.ammo < combat.stats.capacity {
+    } else if can_act
+        && keybinds.just_pressed(KeyAction::Reload, &keys, &mouse)
+        && combat.ammo < combat.stats.capacity
+    {
         start_reload(&mut commands, &fx, &settings, &mut combat);
     }
 }
@@ -552,7 +558,9 @@ fn look_rotation(yaw: f32, pitch: f32) -> Quat {
 fn fire_local(
     mut commands: Commands,
     time: Res<Time>,
+    keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
+    keybinds: Res<crate::settings::KeybindSettings>,
     overlay: Res<Overlay>,
     net: Res<NetworkState>,
     settings: Res<AudioSettings>,
@@ -563,6 +571,7 @@ fn fire_local(
     player_q: Query<&LocalPlayer>,
     camera_q: Query<&Transform, With<MainCamera>>,
 ) {
+    use crate::settings::KeyAction;
     let (Ok(player), Ok(cam)) = (player_q.single(), camera_q.single()) else {
         return;
     };
@@ -570,7 +579,7 @@ fn fire_local(
     if !alive || overlay.blocks_input() || net.match_state.frozen() {
         return;
     }
-    if !mouse.pressed(MouseButton::Left) {
+    if !keybinds.pressed(KeyAction::Shoot, &keys, &mouse) {
         combat.dry_fired = false;
         return;
     }

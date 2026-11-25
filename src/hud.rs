@@ -161,6 +161,7 @@ fn spawn_hud(
     fonts: Res<UiKit>,
     net: Res<NetworkState>,
     loadout: Res<Loadout>,
+    crosshair_settings: Res<crate::settings::CrosshairSettings>,
 ) {
     let k = |p: &str| kit(&assets, p);
     let local = net.local_player_id.unwrap_or(0);
@@ -578,7 +579,7 @@ fn spawn_hud(
         });
 
     // --- Crosshair, hit marker and hit arc, dead center ---------------------
-    let crosshair = CROSSHAIRS[loadout.crosshair as usize].1;
+    let crosshair = CROSSHAIRS[crosshair_settings.style as usize].1;
     for (path, size, marker) in [
         (crosshair, 30.0, true),
         ("textures/ui/hit_marker.png", 34.0, false),
@@ -848,6 +849,7 @@ fn update_ammo(
     assets: Res<AssetServer>,
     combat: Res<Combat>,
     loadout: Res<Loadout>,
+    keybinds: Res<crate::settings::KeybindSettings>,
     net: Res<NetworkState>,
     mut icon_q: Query<&mut ImageNode, (With<AmmoIcon>, Without<HopperFill>)>,
     mut hopper_q: Query<(&mut Node, &mut ImageNode), (With<HopperFill>, Without<AmmoIcon>)>,
@@ -892,7 +894,13 @@ fn update_ammo(
         let s = match combat.reloading {
             Some(left) if combat.stats.water => format!("PUMPING...  {left:.1}s"),
             Some(left) => format!("RELOADING...  {left:.1}s"),
-            None if combat.ammo == 0 => "EMPTY  |  R TO RELOAD".to_string(),
+            None if combat.ammo == 0 => format!(
+                "EMPTY  |  {} TO RELOAD",
+                keybinds
+                    .get(crate::settings::KeyAction::Reload)
+                    .label()
+                    .to_uppercase()
+            ),
             None => loadout.display_name().to_uppercase(),
         };
         if text.0 != s {
@@ -906,7 +914,7 @@ fn update_center(
     combat: Res<Combat>,
     overlay: Res<Overlay>,
     local_state: Res<LocalState>,
-    loadout: Res<Loadout>,
+    crosshair_settings: Res<crate::settings::CrosshairSettings>,
     assets: Res<AssetServer>,
     rig_q: Query<&CameraRig, With<MainCamera>>,
     mut cross_q: Query<&mut ImageNode, (With<Crosshair>, Without<HitMarker>)>,
@@ -916,8 +924,8 @@ fn update_center(
 ) {
     let alive = local_state.0.health > 0.0;
     if let Ok(mut img) = cross_q.single_mut() {
-        if loadout.is_changed() {
-            img.image = assets.load(CROSSHAIRS[loadout.crosshair as usize].1);
+        if crosshair_settings.is_changed() {
+            img.image = assets.load(CROSSHAIRS[crosshair_settings.style as usize].1);
         }
         // Fades while aiming down a sight (the sight is the crosshair then).
         let a = if alive && !overlay.blocks_input() {
@@ -1391,6 +1399,8 @@ fn update_scoreboard(
     mut commands: Commands,
     assets: Res<AssetServer>,
     keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keybinds: Res<crate::settings::KeybindSettings>,
     overlay: Res<Overlay>,
     net: Res<NetworkState>,
     library: Res<crate::maps::MapLibrary>,
@@ -1400,7 +1410,8 @@ fn update_scoreboard(
     mut last: Local<Vec<(PlayerId, u32, u32, u16, bool)>>,
 ) {
     let ms = &net.match_state;
-    let open = keys.pressed(KeyCode::Tab) && !overlay.blocks_input();
+    let open = keybinds.pressed(crate::settings::KeyAction::Scoreboard, &keys, &mouse)
+        && !overlay.blocks_input();
     if let Ok(mut node) = board_q.single_mut() {
         let want = if open { Display::Flex } else { Display::None };
         if node.display != want {

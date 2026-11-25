@@ -402,6 +402,8 @@ pub fn poll_network_events(
 fn move_local_player(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keybinds: Res<crate::settings::KeybindSettings>,
     overlay: Res<Overlay>,
     colliders: Res<Colliders>,
     map: Res<MapInfo>,
@@ -411,6 +413,7 @@ fn move_local_player(
     camera_q: Query<&CameraRig, With<MainCamera>>,
     mut player_q: Query<(&mut Transform, &mut LocalPlayer)>,
 ) {
+    use crate::settings::KeyAction;
     let Ok((mut transform, mut player)) = player_q.single_mut() else {
         return;
     };
@@ -419,25 +422,24 @@ fn move_local_player(
     let can_move = alive && !overlay.blocks_input() && !net.match_state.frozen();
     let dt = time.delta_secs().min(0.05);
 
-    // Crouch while C or Ctrl is held.
     let crouch_held = alive
         && !overlay.blocks_input()
-        && (keys.pressed(KeyCode::KeyC) || keys.pressed(KeyCode::ControlLeft));
+        && keybinds.pressed(KeyAction::Crouch, &keys, &mouse);
     let crouch_target = if crouch_held { 1.0 } else { 0.0 };
     player.crouch += (crouch_target - player.crouch) * (1.0 - (-14.0 * dt).exp());
 
     let mut input_dir = Vec2::ZERO;
     if can_move {
-        if keys.pressed(KeyCode::KeyW) || keys.pressed(KeyCode::ArrowUp) {
+        if keybinds.pressed(KeyAction::MoveForward, &keys, &mouse) {
             input_dir.y += 1.0;
         }
-        if keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown) {
+        if keybinds.pressed(KeyAction::MoveBackward, &keys, &mouse) {
             input_dir.y -= 1.0;
         }
-        if keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) {
+        if keybinds.pressed(KeyAction::MoveRight, &keys, &mouse) {
             input_dir.x += 1.0;
         }
-        if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
+        if keybinds.pressed(KeyAction::MoveLeft, &keys, &mouse) {
             input_dir.x -= 1.0;
         }
     }
@@ -451,7 +453,7 @@ fn move_local_player(
         let right = Vec3::new(rig_yaw.cos(), 0.0, -rig_yaw.sin());
         let move_vec = (forward * input_dir.y + right * input_dir.x).normalize_or_zero();
 
-        let sprinting = (keys.pressed(KeyCode::ShiftLeft) || keys.pressed(KeyCode::ShiftRight))
+        let sprinting = keybinds.pressed(KeyAction::Sprint, &keys, &mouse)
             && !combat.aiming
             && !crouch_held;
         let mut speed = if sprinting { SPRINT_SPEED } else { WALK_SPEED };
@@ -470,7 +472,7 @@ fn move_local_player(
     transform.rotation = Quat::from_rotation_y(player.yaw);
 
     // Jump & gravity.
-    if can_move && player.grounded && keys.just_pressed(KeyCode::Space) {
+    if can_move && player.grounded && keybinds.just_pressed(KeyAction::Jump, &keys, &mouse) {
         player.velocity_y = JUMP_SPEED;
         player.grounded = false;
     }

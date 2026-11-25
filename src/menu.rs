@@ -84,16 +84,18 @@ impl Plugin for MenuPlugin {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-enum MenuScreen {
+pub enum MenuScreen {
     #[default]
     Home,
     Join,
     Play,
+    Loadout,
+    Options,
 }
 
 #[derive(Resource, Default)]
-struct MenuState {
-    screen: MenuScreen,
+pub struct MenuState {
+    pub screen: MenuScreen,
     join_address: String,
 }
 
@@ -298,7 +300,6 @@ fn on_menu_click(
     actions: Query<&MenuAction>,
     mut menu: ResMut<MenuState>,
     mut net: ResMut<NetworkState>,
-    mut overlay: ResMut<Overlay>,
     portside: Res<Portside>,
     mut setup: ResMut<MatchSetup>,
     mut current_map: ResMut<CurrentMap>,
@@ -306,8 +307,9 @@ fn on_menu_click(
     mut commands: Commands,
     sounds: Option<Res<UiSounds>>,
     settings: Option<Res<AudioSettings>>,
+    settings_ui: Res<crate::settings::SettingsUiState>,
 ) {
-    if click.button != PointerButton::Primary {
+    if click.button != PointerButton::Primary || settings_ui.is_listening() {
         return;
     }
     let Ok(action) = actions.get(click.entity) else {
@@ -359,12 +361,14 @@ fn on_menu_click(
         }
         MenuAction::OpenLoadout => {
             if !net.is_connecting {
-                overlay.loadout = true;
+                net.error_text = None;
+                menu.screen = MenuScreen::Loadout;
             }
         }
         MenuAction::OpenSettings => {
             if !net.is_connecting {
-                overlay.settings = true;
+                net.error_text = None;
+                menu.screen = MenuScreen::Options;
             }
         }
         MenuAction::OpenJoin => {
@@ -585,15 +589,15 @@ const MENU_BG_TOP: Color = Color::srgb(0.075, 0.094, 0.125);
 const MENU_BG_BOTTOM: Color = Color::srgb(0.035, 0.043, 0.059);
 /// The strip behind the tabs.
 const TOP_BAR_BG: Color = Color::srgba(0.02, 0.025, 0.035, 0.96);
-const TOP_BAR_HEIGHT: f32 = 76.0;
+pub const TOP_BAR_HEIGHT: f32 = 76.0;
 /// A tile's border at rest and under the mouse.
 const TILE_BORDER: Color = Color::srgba(0.55, 0.62, 0.72, 0.25);
 const TILE_BORDER_HOVER: Color = KIT_YELLOW;
 const TILE_BG: Color = Color::srgb(0.085, 0.105, 0.14);
 
-/// A tab in the top bar. `None` tabs open a window instead of a screen.
+/// A tab in the top bar.
 #[derive(Component)]
-struct NavTab(Option<MenuScreen>);
+struct NavTab(MenuScreen);
 
 /// The yellow line under the active tab.
 #[derive(Component)]
@@ -1075,21 +1079,11 @@ fn spawn_top_bar(commands: &mut Commands, assets: &AssetServer, fonts: &UiKit) {
             DespawnOnExit(AppState::MainMenu),
         ))
         .with_children(|bar| {
-            bar.spawn((
-                ImageNode::new(assets.load("branding/logo.png")),
-                Node {
-                    width: Val::Px(110.0),
-                    height: Val::Px(60.0),
-                    margin: UiRect::right(Val::Px(22.0)),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ));
-            let tabs: [(&str, MenuAction, Option<MenuScreen>); 4] = [
-                ("HOME", MenuAction::BackToHome, Some(MenuScreen::Home)),
-                ("PLAY", MenuAction::OpenPlay, Some(MenuScreen::Play)),
-                ("LOADOUT", MenuAction::OpenLoadout, None),
-                ("OPTIONS", MenuAction::OpenSettings, None),
+            let tabs: [(&str, MenuAction, MenuScreen); 4] = [
+                ("HOME", MenuAction::BackToHome, MenuScreen::Home),
+                ("PLAY", MenuAction::OpenPlay, MenuScreen::Play),
+                ("LOADOUT", MenuAction::OpenLoadout, MenuScreen::Loadout),
+                ("OPTIONS", MenuAction::OpenSettings, MenuScreen::Options),
             ];
             for (label, action, screen) in tabs {
                 bar.spawn((
@@ -1112,22 +1106,20 @@ fn spawn_top_bar(commands: &mut Commands, assets: &AssetServer, fonts: &UiKit) {
                         TextColor(TEXT_MUTED),
                         Pickable::IGNORE,
                     ));
-                    if let Some(screen) = screen {
-                        tab.spawn((
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: Val::Px(12.0),
-                                right: Val::Px(12.0),
-                                bottom: Val::Px(0.0),
-                                height: Val::Px(4.0),
-                                ..default()
-                            },
-                            BackgroundColor(KIT_YELLOW),
-                            Visibility::Hidden,
-                            Pickable::IGNORE,
-                            NavUnderline(screen),
-                        ));
-                    }
+                    tab.spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(12.0),
+                            right: Val::Px(12.0),
+                            bottom: Val::Px(0.0),
+                            height: Val::Px(4.0),
+                            ..default()
+                        },
+                        BackgroundColor(KIT_YELLOW),
+                        Visibility::Hidden,
+                        Pickable::IGNORE,
+                        NavUnderline(screen),
+                    ));
                 });
             }
 
@@ -1407,7 +1399,7 @@ fn style_tiles_and_tabs(
         *border = BorderColor::all(if h.0 { TILE_BORDER_HOVER } else { TILE_BORDER });
     }
     for (tab, h, children) in &tabs {
-        let color = if tab.0 == Some(menu.screen) {
+        let color = if tab.0 == menu.screen {
             TEXT_PRIMARY
         } else if h.0 {
             KIT_YELLOW
@@ -1879,15 +1871,22 @@ fn update_rank_card(
     }
 }
 
-/// Escape steps back out of the play and join screens.
+/// Escape steps back out of the play, loadout and options screens.
 fn menu_escape(
     keys: Res<ButtonInput<KeyCode>>,
     mut menu: ResMut<MenuState>,
     overlay: Res<Overlay>,
+    settings_ui: Res<crate::settings::SettingsUiState>,
+    loadout_screen: Option<Res<crate::loadout_ui::LoadoutScreen>>,
 ) {
     if keys.just_pressed(KeyCode::Escape)
-        && menu.screen == MenuScreen::Play
+        && matches!(
+            menu.screen,
+            MenuScreen::Play | MenuScreen::Loadout | MenuScreen::Options
+        )
         && !overlay.blocks_input()
+        && !settings_ui.is_listening()
+        && !loadout_screen.is_some_and(|s| s.is_renaming())
     {
         menu.screen = MenuScreen::Home;
     }
@@ -2283,40 +2282,6 @@ fn spawn_in_game_hud(
                     HudHubText,
                 ));
 
-            });
-
-            // Controls hint, bottom center (above the health and ammo panels).
-            root.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(0.0),
-                    right: Val::Px(0.0),
-                    bottom: Val::Px(100.0),
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .with_children(|wrap| {
-                wrap.spawn((
-                    Node {
-                        padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                        border_radius: BorderRadius::all(Val::Px(8.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgba(0.07, 0.10, 0.15, 0.55)),
-                    Pickable::IGNORE,
-                ))
-                .with_children(|hint| {
-                    hint.spawn((
-                        Text::new(
-                            "WASD: Move  |  Shift: Sprint  |  C: Crouch  |  Space: Jump  |  LMB: Shoot  |  RMB: Aim  |  R: Reload  |  Tab: Scores  |  Esc: Menu",
-                        ),
-                        TextFont::from_font_size(12.0),
-                        TextColor(TEXT_MUTED),
-                        Pickable::IGNORE,
-                    ));
-                });
             });
 
             // Pop-up: someone in the hub started a game

@@ -9,7 +9,10 @@
 
 use crate::{
     AppState,
-    loadout::{BODIES, GunKind, Loadout, SKINS, Slot, config_file, save_loadout},
+    loadout::{
+        BODIES, GunKind, Loadout, LoadoutBook, SKINS, Slot, config_file, save_loadout,
+        save_loadout_book,
+    },
     net::NetworkState,
     ui_kit::{KIT_YELLOW, UiKit, kit, sliced},
 };
@@ -300,7 +303,21 @@ fn save_progress(progress: &Progress) {
 }
 
 /// A saved loadout can't use parts that aren't unlocked.
-fn lock_saved_loadout(mut loadout: ResMut<Loadout>, progress: Res<Progress>) {
+fn lock_saved_loadout(
+    mut loadout: ResMut<Loadout>,
+    mut book: ResMut<LoadoutBook>,
+    progress: Res<Progress>,
+) {
+    let mut book_changed = false;
+    for preset in &mut book.presets {
+        if lock_loadout(&mut preset.loadout, &progress) {
+            book_changed = true;
+        }
+    }
+    if book_changed {
+        save_loadout_book(&book);
+    }
+    *loadout = book.active_loadout();
     if lock_loadout(&mut loadout, &progress) {
         save_loadout(&loadout);
     }
