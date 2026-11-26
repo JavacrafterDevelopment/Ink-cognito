@@ -40,7 +40,7 @@ impl Plugin for MapsPlugin {
         let library = MapLibrary::load();
         let layout = library.layout(MapId::default());
         app.init_resource::<CurrentMap>()
-            .insert_resource(Colliders(layout.colliders.clone()))
+            .insert_resource(Colliders::new(layout.colliders.clone()))
             .insert_resource(layout.info.clone())
             .insert_resource(library)
             .add_systems(Startup, load_ground_textures)
@@ -460,7 +460,7 @@ fn rebuild_map(
             MapEntity,
         ));
     }
-    commands.insert_resource(Colliders(layout.colliders));
+    commands.insert_resource(Colliders::new(layout.colliders));
     commands.insert_resource(layout.info);
 }
 
@@ -486,7 +486,7 @@ mod tests {
     fn every_spawn_is_clear_and_inside() {
         for id in MapId::BUILT_IN {
             let l = layout(id);
-            let colliders = Colliders(l.colliders.clone());
+            let colliders = Colliders::new(l.colliders.clone());
             let mut points: Vec<Vec3> = l.info.ffa.clone();
             points.extend(l.info.spawns[0].iter());
             points.extend(l.info.spawns[1].iter());
@@ -535,13 +535,13 @@ mod tests {
     #[test]
     fn ramps_rise_toward_their_platform() {
         let l = layout(MapId::RING_ROAD);
-        let colliders = Colliders(l.colliders.clone());
+        let colliders = Colliders::new(l.colliders.clone());
         // Walking up the north ramp (z = 3 -> 1) ends on the platform deck.
         let mut pos = Vec3::new(0.0, 0.9 + 0.5, 2.0);
         let floor = colliders.resolve_player(&mut pos, 0.42, 0.45, 2.3);
         assert!((floor - 0.5).abs() < 0.05, "floor {floor}");
         let l = layout(MapId::PINE_HOLLOW);
-        let colliders = Colliders(l.colliders.clone());
+        let colliders = Colliders::new(l.colliders.clone());
         let mut pos = Vec3::new(4.5, 0.9 + 0.75, 0.0);
         let floor = colliders.resolve_player(&mut pos, 0.42, 0.7, 2.5);
         assert!((floor - 0.75).abs() < 0.05, "floor {floor}");
@@ -550,7 +550,7 @@ mod tests {
     #[test]
     fn pine_hollow_bridge_collides_as_it_looks() {
         let l = layout(MapId::PINE_HOLLOW);
-        let colliders = Colliders(l.colliders.clone());
+        let colliders = Colliders::new(l.colliders.clone());
         // Paint flies under the deck (the old box filled it to the ground)...
         assert!(colliders.segment_hit(Vec3::new(0.0, 0.5, -3.0), Vec3::new(0.0, 0.5, 3.0)).is_none());
         // ...stops on the deck from above...
@@ -584,5 +584,34 @@ mod tests {
         assert_eq!(serde_json::to_string(&MapId::THREE_LANES).unwrap(), "\"ThreeLanes\"");
         let back: MapId = serde_json::from_str("\"PineHollow\"").unwrap();
         assert_eq!(back, MapId::PINE_HOLLOW);
+    }
+
+    #[test]
+    fn built_in_maps_collide_the_same_through_the_grid() {
+        use crate::arena::tests::{same_hit, segment_hit_slow};
+        for id in MapId::BUILT_IN {
+            let l = layout(id);
+            let colliders = Colliders::new(l.colliders.clone());
+            let half = l.info.half;
+            let mut seed = 0x9e3779b97f4a7c15u64;
+            let mut f = || {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                (seed >> 40) as f32 / (1u64 << 24) as f32
+            };
+            for i in 0..5000 {
+                let from = Vec3::new((f() * 2.0 - 1.0) * half.x, f() * 4.0, (f() * 2.0 - 1.0) * half.y);
+                let to = if i % 8 == 0 {
+                    Vec3::new((f() * 2.0 - 1.0) * half.x, f() * 4.0 - 0.5, (f() * 2.0 - 1.0) * half.y)
+                } else {
+                    from + Vec3::new(f() - 0.5, f() - 0.6, f() - 0.5) * 3.0
+                };
+                assert!(
+                    same_hit(colliders.segment_hit(from, to), segment_hit_slow(&colliders, from, to)),
+                    "{id:?}: {from} -> {to}"
+                );
+            }
+        }
     }
 }
