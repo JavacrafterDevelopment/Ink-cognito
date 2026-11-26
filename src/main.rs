@@ -4,6 +4,7 @@
 mod arena;
 mod armory_v2_fx;
 mod audio;
+mod bots;
 mod chat;
 mod combat;
 mod frame_rate;
@@ -141,6 +142,7 @@ fn main() {
             WorldPlugin,
             MapsPlugin,
             GameModePlugin,
+            bots::BotsPlugin,
             RankedPlugin,
             MenuPlugin,
             HubPlugin,

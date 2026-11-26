@@ -21,6 +21,14 @@ has respawned three times.
 | Elimination | One life per round (2 minute rounds). The first team to win 5 rounds wins. |
 | Ranked Elimination | Elimination for rank points (RP). |
 
+**Bots and the 10 player cap:** a match holds 10 players at most. Bots fill the empty places
+(5 a team in Team Splat and Elimination, 10 in all in Free-for-All), so a host on their own gets a
+full match right away to practice, warm up or try out a map. Each bot leaves as a person joins, and
+once 10 people are in, anyone else is told the match is full. Pick **Bots** in Match Options: Off,
+Easy, Normal (the default) or Hard; harder bots react sooner, aim steadier and lead moving targets
+more. Bots carry random loadouts, find their way around bunkers, take cover when they're hurt or
+reloading and peek out to shoot. They show as **BOT** on the scoreboard. Ranked never has bots.
+
 A match waits in warmup until there is someone to play against, then everyone goes back to
 spawn for a 5 second countdown. When the match ends, the top three splatters celebrate on a podium for two minutes, then
 everyone goes back to the main menu (or click **Main Menu** to leave sooner).

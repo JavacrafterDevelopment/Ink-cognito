@@ -18,6 +18,21 @@ const MAX_FRAME_BYTES: usize = 64 * 1024;
 
 pub type PlayerId = u32;
 
+/// Most players in a match, bots included. Bots fill the empty places (5 a
+/// team in team modes) and leave as people join; the host turns away anyone
+/// past this many people.
+pub const MAX_PLAYERS: usize = 10;
+
+/// Bots get ids in `FIRST_BOT_ID..BOT_ID_END` (people's ids skip this range),
+/// so everyone can tell a bot by its id. Below 200, like every id the
+/// free-for-all winner can name.
+pub const FIRST_BOT_ID: PlayerId = 100;
+pub const BOT_ID_END: PlayerId = 200;
+
+pub fn is_bot(id: PlayerId) -> bool {
+    (FIRST_BOT_ID..BOT_ID_END).contains(&id)
+}
+
 /// Network-synced state for a single player in the 3D world.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct PlayerSnapshot {
@@ -297,6 +312,34 @@ impl MovementSpeed {
     }
 }
 
+/// Whether the host fills empty places with bots, and how well they play.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum BotLevel {
+    Off,
+    Easy,
+    #[default]
+    Normal,
+    Hard,
+}
+
+impl BotLevel {
+    pub const ALL: [BotLevel; 4] = [
+        BotLevel::Off,
+        BotLevel::Easy,
+        BotLevel::Normal,
+        BotLevel::Hard,
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            BotLevel::Off => "Off",
+            BotLevel::Easy => "Easy",
+            BotLevel::Normal => "Normal",
+            BotLevel::Hard => "Hard",
+        }
+    }
+}
+
 /// What the host picked: mode, map, movement, custom private-match rules,
 /// and whether it counts for ranked.
 ///
@@ -321,6 +364,8 @@ pub struct MatchSettings {
     pub round_seconds: u16,
     /// Team Splat / Free-for-All respawn delay in seconds (0 = default 5 s).
     pub respawn_seconds: u8,
+    /// Bots filling the empty places (never in ranked).
+    pub bots: BotLevel,
 }
 
 impl MatchSettings {
@@ -374,8 +419,18 @@ impl MatchSettings {
         }
     }
 
+    /// The bots this match plays with: none in ranked.
+    pub fn effective_bots(&self) -> BotLevel {
+        if self.ranked {
+            BotLevel::Off
+        } else {
+            self.bots
+        }
+    }
+
     /// Resets customizable match rules to standard defaults (keeping mode & map).
     pub fn reset_rules(&mut self) {
+        self.bots = BotLevel::default();
         self.movement = MovementSpeed::Normal;
         self.match_minutes = 0;
         self.score_limit = 0;
@@ -574,6 +629,8 @@ pub enum ServerMessage {
     PlayerHit(HitEvent),
     /// The host is closing the game: everyone goes back to the menu.
     HostLeaving,
+    /// The match already has `MAX_PLAYERS` people: the joiner is turned away.
+    MatchFull,
     /// The match clock, phase and scores.
     Match(MatchState),
     /// Eliminated players' bodies as the host simulates them.
@@ -960,6 +1017,7 @@ mod tests {
                 rounds_to_win: 7,
                 round_seconds: 120,
                 respawn_seconds: 3,
+                bots: BotLevel::Hard,
             },
             phase: Phase::MatchOver,
             time_left: 18.5,
