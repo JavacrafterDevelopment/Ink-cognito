@@ -12,7 +12,7 @@
 use crate::{
     AppState, Overlay,
     combat::{Combat, HEAD_PAINT_SECS, Killfeed, LocalState},
-    loadout::{CROSSHAIRS, GunKind, Loadout},
+    loadout::{CROSSHAIRS, GunKind, Loadout, sight_eye},
     maps::MapInfo,
     net::NetworkState,
     protocol::{
@@ -939,6 +939,7 @@ fn update_ammo(
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn update_center(
     combat: Res<Combat>,
+    loadout: Res<Loadout>,
     overlay: Res<Overlay>,
     local_state: Res<LocalState>,
     crosshair_settings: Res<crate::settings::CrosshairSettings>,
@@ -954,9 +955,15 @@ fn update_center(
         if crosshair_settings.is_changed() {
             img.image = assets.load(CROSSHAIRS[crosshair_settings.style as usize].1);
         }
-        // Fades while aiming down a sight (the sight is the crosshair then).
+        // Fades while aiming down a sight (the sight is the crosshair then):
+        // all the way when looking through one with a centred reticle.
+        let fade = if combat.kind == GunKind::Paintball && sight_eye(loadout.sight).is_some() {
+            1.0
+        } else {
+            0.3
+        };
         let a = if alive && !overlay.menu_open() {
-            0.9 * (1.0 - combat.aim_blend * 0.3)
+            0.9 * (1.0 - combat.aim_blend * fade)
         } else {
             0.0
         };

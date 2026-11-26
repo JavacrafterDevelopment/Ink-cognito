@@ -2,6 +2,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod arena;
+mod armory_v2_fx;
 mod chat;
 mod combat;
 mod frame_rate;
@@ -154,6 +155,7 @@ fn main() {
             MusicPlugin,
             frame_rate::FrameRatePlugin,
             chat::ChatPlugin,
+            armory_v2_fx::ArmoryV2FxPlugin,
         ))
         .run();
 }
