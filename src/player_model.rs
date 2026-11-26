@@ -7,6 +7,7 @@
 
 use crate::{
     loadout::{GunAssets, GunModel, Loadout, spawn_gun_parts},
+    locomotion::{self, Locomotion},
     protocol::{FLAG_AIMING, FLAG_AIRBORNE, FLAG_CROUCH, FLAG_RELOADING, Team},
 };
 use bevy::{
@@ -22,9 +23,15 @@ impl Plugin for PlayerModelPlugin {
         app.add_systems(Startup, load_player_assets)
             .add_observer(on_model_ready)
             .add_systems(Update, (drive_animation, sync_held_guns))
+            .add_plugins(locomotion::LocomotionPlugin)
             .add_systems(
                 PostUpdate,
-                pose_upper_body
+                (
+                    locomotion::sample_model_transforms,
+                    locomotion::drive_legs,
+                    pose_upper_body,
+                )
+                    .chain()
                     .after(AnimationSystems)
                     .before(TransformSystems::Propagate),
             );
@@ -243,6 +250,10 @@ fn on_model_ready(
     } else {
         anim_player = None;
     }
+    if posed {
+        // Legs and hips are procedural; the clips keep the upper body.
+        commands.entity(root).insert(Locomotion::default());
+    }
     commands.entity(root).insert(Rig {
         bones,
         anim_player,
@@ -386,15 +397,22 @@ fn elbow_for(shoulder: Vec3, target: Vec3, pole: Vec3) -> (Vec3, Vec3) {
 }
 
 /// After the animation: lean the chest toward the aim and put both hands on the gun.
-fn pose_upper_body(models: Query<(&Rig, &PlayerPose)>, mut transforms: Query<&mut Transform>) {
-    for (rig, pose) in &models {
+fn pose_upper_body(
+    models: Query<(&Rig, &PlayerPose, Option<&Locomotion>)>,
+    mut transforms: Query<&mut Transform>,
+) {
+    for (rig, pose, loco) in &models {
         // Celebrating: the victory clip moves freely.
         if pose.victory {
             continue;
         }
         let reloading = pose.flags & FLAG_RELOADING != 0;
         if let Some(mut chest) = rig.bone("Spine2").and_then(|e| transforms.get_mut(e).ok()) {
-            chest.rotation = Quat::from_rotation_x(-pose.pitch * 0.85);
+            // Undo the hips' procedural twist and lean so the gun stays on aim.
+            let hips = loco
+                .filter(|l| l.active)
+                .map_or(Quat::IDENTITY, |l| l.hips_rot);
+            chest.rotation = hips.inverse() * Quat::from_rotation_x(-pose.pitch * 0.85);
         }
         if let Some(mut head) = rig.bone("Head").and_then(|e| transforms.get_mut(e).ok()) {
             head.rotation = Quat::from_rotation_x(-pose.pitch * 0.15);

@@ -16,6 +16,7 @@ use crate::{
         GunAssets, GunKind, GunModel, Loadout, WeaponStats, is_canted_sight, sight_eye,
         spawn_gun_parts,
     },
+    locomotion::FootPlant,
     maps::MapInfo,
     net::NetworkState,
     player_model::{PlayerModelAssets, Rig},
@@ -2008,34 +2009,39 @@ fn footsteps(
     }
 }
 
-/// Other players' footsteps, heard from where they walk: their step counter
-/// went up, so play one step at their feet (panned, ITD-delayed, occluded and
-/// faded by distance).
+/// Other players' footsteps, heard where their feet visibly land: the
+/// procedural legs (`locomotion.rs`) send a `FootPlant` each time a foot comes
+/// down, and that step is played there (panned, ITD-delayed, occluded and
+/// faded by distance). Their step counter is still kept in sync but no longer
+/// makes a sound, so steps are never heard out of time with what's seen.
 fn remote_footsteps(
     mut commands: Commands,
     mut fx: ResMut<Fx>,
-    mut remote_q: Query<(&Transform, &mut RemotePlayer)>,
+    mut plants: MessageReader<FootPlant>,
+    mut remote_q: Query<&mut RemotePlayer>,
 ) {
-    for (transform, mut remote) in &mut remote_q {
-        let steps = remote.state.steps;
-        let new = steps.wrapping_sub(remote.seen_steps);
-        remote.seen_steps = steps;
-        // Nothing new, or way out of order (a rejoin / wrapped counter).
-        if new == 0 || new > 20 || !remote.alive() {
+    for mut remote in &mut remote_q {
+        remote.seen_steps = remote.state.steps;
+    }
+    for plant in plants.read() {
+        let Some(remote) = remote_q.iter().find(|r| r.model == plant.model) else {
+            continue;
+        };
+        if !remote.alive() {
             continue;
         }
         let crouched = remote.state.flags & FLAG_CROUCH != 0;
-        let feet = transform.translation - Vec3::Y * PLAYER_GROUND_Y;
         let s = fx.step_sound();
         let pitch = fx.range(0.92, 1.08);
-        // Several steps can arrive in one snapshot; one sound is enough.
+        // Landing a jump puts both feet down hard.
+        let volume = step_volume(crouched, remote.speed) * if plant.landing { 1.2 } else { 1.0 };
         play_sfx_at(
             &mut commands,
             &s,
-            step_volume(crouched, remote.speed),
-            feet,
+            volume,
+            plant.pos,
             SoundProfile::Footstep,
-            pitch,
+            if plant.landing { pitch * 0.92 } else { pitch },
         );
     }
 }
