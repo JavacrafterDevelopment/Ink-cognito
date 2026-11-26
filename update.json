@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.9",
-      "published": "2026-11-26T01:41:41Z",
-      "notes": "## What's Changed\n* Switch every gun to the Armory V2 models, add canted sights and hopper/water physics by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/25\n* Release 0.6.9: Armory V2 guns, canted sights, hopper and water physics by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/26\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.8...v0.6.9",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.9",
+      "version": "0.7.0",
+      "published": "2026-11-26T09:11:15Z",
+      "notes": "## What's Changed\n* Fix 3D spatial audio, overhaul Play lobby (COD Private Match style), and add end-of-match map voting by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/27\n* Procedural leg animation and faster projectile collision by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/28\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.9...v0.7.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.7.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.9/Ink-cognito-windows-x64.zip",
-        "size": 109469851,
-        "sha256": "3b141aff75679e54e74aceb63097331c0fd64fdbe432e77fcc852fdf58a637fa"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.7.0/Ink-cognito-windows-x64.zip",
+        "size": 109804247,
+        "sha256": "55a81d835d9f865622956ca904920d6aec4a30d5e5057de51cf73ba9611079d1"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3125,25 +3125,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 102008832,
-          "sha256": "ffb34890015a5e9c0ff15d2639159777b434f6a7305b9d0d1194d1ee7715b7dd"
+          "size": 103190528,
+          "sha256": "bf9d48972571dd977208bb35bed37e37d01a592ffda906274052927bd8eb156c"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 98472960,
-          "sha256": "fa2ad4c4062d0d9cd2b011e305ccd305d67148bc94d9014425e2cf532751bb85"
+          "sha256": "8d653031e86b2aee74696f726155ad55f7c69c179ae37b73fb5d03766a0d7cb8"
         }
       ]
     },
     "stable": {
-      "version": "0.6.9",
-      "published": "2026-11-26T01:41:41Z",
-      "notes": "## What's Changed\n* Switch every gun to the Armory V2 models, add canted sights and hopper/water physics by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/25\n* Release 0.6.9: Armory V2 guns, canted sights, hopper and water physics by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/26\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.8...v0.6.9",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.9",
+      "version": "0.7.0",
+      "published": "2026-11-26T09:11:15Z",
+      "notes": "## What's Changed\n* Fix 3D spatial audio, overhaul Play lobby (COD Private Match style), and add end-of-match map voting by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/27\n* Procedural leg animation and faster projectile collision by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/28\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.9...v0.7.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.7.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.9/Ink-cognito-windows-x64.zip",
-        "size": 109469851,
-        "sha256": "3b141aff75679e54e74aceb63097331c0fd64fdbe432e77fcc852fdf58a637fa"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.7.0/Ink-cognito-windows-x64.zip",
+        "size": 109804247,
+        "sha256": "55a81d835d9f865622956ca904920d6aec4a30d5e5057de51cf73ba9611079d1"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -6259,13 +6259,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 102008832,
-          "sha256": "ffb34890015a5e9c0ff15d2639159777b434f6a7305b9d0d1194d1ee7715b7dd"
+          "size": 103190528,
+          "sha256": "bf9d48972571dd977208bb35bed37e37d01a592ffda906274052927bd8eb156c"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 98472960,
-          "sha256": "fa2ad4c4062d0d9cd2b011e305ccd305d67148bc94d9014425e2cf532751bb85"
+          "sha256": "8d653031e86b2aee74696f726155ad55f7c69c179ae37b73fb5d03766a0d7cb8"
         }
       ]
     }
