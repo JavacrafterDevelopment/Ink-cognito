@@ -1,8 +1,8 @@
 use crate::protocol::{
-    ClientDatagram, ClientMessage, GAME_PORT, HitEvent, MatchState, PING_EVERY, PlayerId,
-    PlayerSnapshot, PlayerState, RagdollFrame, SILENCE_TIMEOUT, ServerDatagram, ServerMessage,
-    clean_chat, clean_name, encode_server_datagrams, enemies, names_messages, player_color,
-    read_frame, spawn_position, write_frame,
+    BOT_ID_END, ClientDatagram, ClientMessage, GAME_PORT, HitEvent, MAX_PLAYERS, MatchState,
+    PING_EVERY, PlayerId, PlayerSnapshot, PlayerState, RagdollFrame, SILENCE_TIMEOUT,
+    ServerDatagram, ServerMessage, clean_chat, clean_name, encode_server_datagrams, enemies,
+    is_bot, names_messages, player_color, read_frame, spawn_position, write_frame,
 };
 use bevy::prelude::*;
 use std::{
@@ -68,7 +68,21 @@ enum OutboundCommand {
     /// A chat line the local player typed.
     Chat(String),
     /// End-of-match map vote from the local player.
-    VoteMap { match_id: u32, choice: u8 },
+    VoteMap {
+        match_id: u32,
+        choice: u8,
+    },
+    /// Host only: a bot joins the game, called `name`.
+    AddBot {
+        snapshot: PlayerSnapshot,
+        name: String,
+    },
+    /// Host only: where a bot is and its state.
+    UpdateBot(PlayerSnapshot),
+    /// Host only: a bot leaves.
+    RemoveBot(PlayerId),
+    /// Host only: a bot's paintball hit someone (`attacker` is the bot).
+    BotHit(HitEvent),
 }
 
 /// Events produced by the background Tailcat networking tasks for Bevy to process.
@@ -101,6 +115,8 @@ pub enum NetEvent {
     Roster(Vec<PlayerId>),
     /// A shooter-confirmed hit on the local player.
     HitReceived(HitEvent),
+    /// Host only: a shooter-confirmed hit on one of the host's bots.
+    BotHit(HitEvent),
     /// The host's match clock and scores.
     Match(MatchState),
     /// The host's ragdolls.
@@ -162,6 +178,8 @@ pub struct NetworkState {
     pub pending_chat: Vec<(PlayerId, String)>,
     /// Host only: end-of-match map votes queued for `game_mode.rs`: (from, match_id, choice).
     pub pending_votes: Vec<(PlayerId, u32, u8)>,
+    /// Host only: confirmed hits on bots, queued for `bots.rs`.
+    pub pending_bot_hits: Vec<HitEvent>,
 }
 
 impl Default for NetworkState {
@@ -193,6 +211,7 @@ impl Default for NetworkState {
             name_sent: None,
             pending_chat: Vec::new(),
             pending_votes: Vec::new(),
+            pending_bot_hits: Vec::new(),
         }
     }
 }
@@ -407,6 +426,42 @@ impl NetworkState {
         }
     }
 
+    /// Host only: a bot joins (everyone sees it as a player called `name`).
+    pub fn add_bot(&mut self, snapshot: PlayerSnapshot, name: &str) {
+        self.players.insert(snapshot.id, snapshot);
+        self.learn_names(vec![(snapshot.id, name.to_string())]);
+        if let Some(session) = &self.session {
+            let _ = session.tx_out.send(OutboundCommand::AddBot {
+                snapshot,
+                name: name.to_string(),
+            });
+        }
+    }
+
+    /// Host only: a bot moved or its state changed.
+    pub fn update_bot(&mut self, snapshot: PlayerSnapshot) {
+        self.players.insert(snapshot.id, snapshot);
+        if let Some(session) = &self.session {
+            let _ = session.tx_out.send(OutboundCommand::UpdateBot(snapshot));
+        }
+    }
+
+    /// Host only: a bot leaves.
+    pub fn remove_bot(&mut self, id: PlayerId) {
+        self.players.remove(&id);
+        self.forget_name(id);
+        if let Some(session) = &self.session {
+            let _ = session.tx_out.send(OutboundCommand::RemoveBot(id));
+        }
+    }
+
+    /// Host only: a bot's ball hit someone.
+    pub fn send_bot_hit(&self, hit: HitEvent) {
+        if let Some(session) = &self.session {
+            let _ = session.tx_out.send(OutboundCommand::BotHit(hit));
+        }
+    }
+
     /// Drains all pending network events produced by background tasks without blocking.
     pub fn poll_events(&self) -> Vec<NetEvent> {
         let Some(session) = &self.session else {
@@ -442,6 +497,7 @@ impl NetworkState {
         self.name_sent = None;
         self.pending_chat.clear();
         self.pending_votes.clear();
+        self.pending_bot_hits.clear();
         self.match_state = MatchState::default();
         crate::protocol::set_free_for_all(false);
     }
@@ -500,6 +556,8 @@ struct HostSharedState {
     seen_chat: HitTracker,
     /// Counts chat lines passed on (each gets the next number).
     chat_count: u32,
+    /// The host's bots (they're in `players` too).
+    bots: HashSet<PlayerId>,
 }
 
 impl HostSharedState {
@@ -513,6 +571,11 @@ impl HostSharedState {
         for id in dead {
             self.clients.remove(&id);
         }
+    }
+
+    /// People in the game (the host included), not bots.
+    fn people(&self) -> usize {
+        self.players.len() - self.bots.len()
     }
 
     fn snapshot_list(&self) -> Vec<PlayerSnapshot> {
@@ -583,7 +646,9 @@ async fn relay_hit(
     if !guard.seen_hits.record(hit.attacker, hit.hit_id) {
         return;
     }
-    if hit.victim == 0 {
+    if guard.bots.contains(&hit.victim) {
+        let _ = tx_in.send(NetEvent::BotHit(hit));
+    } else if hit.victim == 0 {
         let _ = tx_in.send(NetEvent::HitReceived(hit));
     } else if let Some(client_tx) = guard.clients.get(&hit.victim) {
         let _ = client_tx.send(ServerMessage::PlayerHit(hit));
@@ -640,6 +705,7 @@ async fn run_host_session(
         names: HashMap::new(),
         seen_chat: HitTracker::default(),
         chat_count: 0,
+        bots: HashSet::new(),
     }));
     let next_id = Arc::new(AtomicU32::new(1));
 
@@ -705,38 +771,12 @@ async fn run_host_session(
                 host_goodbye(&shared, &shutdown, udp_task).await;
                 return;
             }
-            cmd = rx_out.recv() => match cmd {
-                Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
-                    set_host_transform(&shared, position, yaw, state).await;
-                }
-                Some(OutboundCommand::ReportHit(hit)) => {
-                    relay_hit(0, hit, &shared, &tx_in).await;
-                }
-                Some(OutboundCommand::Match(state)) => {
-                    set_match(&shared, *state).await;
-                }
-                Some(OutboundCommand::Ragdolls(frames)) => {
-                    broadcast_ragdolls(&shared, frames).await;
-                }
-                Some(OutboundCommand::SetName(name)) => {
-                    set_player_name(0, &name, &shared, &tx_in).await;
-                }
-                Some(OutboundCommand::Chat(text)) => {
-                    host_chat_seq = host_chat_seq.wrapping_add(1);
-                    relay_chat(0, host_chat_seq, &text, &shared, &tx_in).await;
-                }
-                Some(OutboundCommand::VoteMap { match_id, choice }) => {
-                    let _ = tx_in.send(NetEvent::MapVote {
-                        from: 0,
-                        match_id,
-                        choice,
-                    });
-                }
-                None => {
+            cmd = rx_out.recv() => {
+                if !host_command(cmd, &shared, &tx_in, &mut host_chat_seq).await {
                     host_goodbye(&shared, &shutdown, udp_task).await;
                     return;
                 }
-            },
+            }
             _ = broadcast_tick.tick() => {
                 let mut guard = shared.lock().await;
                 if !guard.clients.is_empty() {
@@ -772,34 +812,8 @@ async fn run_host_session(
                 break;
             }
             cmd = rx_out.recv() => {
-                match cmd {
-                    Some(OutboundCommand::UpdateLocalTransform { position, yaw, state }) => {
-                        set_host_transform(&shared, position, yaw, state).await;
-                    }
-                    Some(OutboundCommand::ReportHit(hit)) => {
-                        relay_hit(0, hit, &shared, &tx_in).await;
-                    }
-                    Some(OutboundCommand::Match(state)) => {
-                        set_match(&shared, *state).await;
-                    }
-                    Some(OutboundCommand::Ragdolls(frames)) => {
-                        broadcast_ragdolls(&shared, frames).await;
-                    }
-                    Some(OutboundCommand::SetName(name)) => {
-                        set_player_name(0, &name, &shared, &tx_in).await;
-                    }
-                    Some(OutboundCommand::Chat(text)) => {
-                        host_chat_seq = host_chat_seq.wrapping_add(1);
-                        relay_chat(0, host_chat_seq, &text, &shared, &tx_in).await;
-                    }
-                    Some(OutboundCommand::VoteMap { match_id, choice }) => {
-                        let _ = tx_in.send(NetEvent::MapVote {
-                            from: 0,
-                            match_id,
-                            choice,
-                        });
-                    }
-                    None => break,
+                if !host_command(cmd, &shared, &tx_in, &mut host_chat_seq).await {
+                    break;
                 }
             }
             _ = broadcast_tick.tick() => {
@@ -820,6 +834,84 @@ async fn run_host_session(
     if let Some(server) = server {
         server.close().await;
     }
+}
+
+/// Acts on one command from the host's own game. False once the game has
+/// dropped its end (the host is leaving).
+async fn host_command(
+    cmd: Option<OutboundCommand>,
+    shared: &Arc<AsyncMutex<HostSharedState>>,
+    tx_in: &mpsc::UnboundedSender<NetEvent>,
+    host_chat_seq: &mut u32,
+) -> bool {
+    match cmd {
+        Some(OutboundCommand::UpdateLocalTransform {
+            position,
+            yaw,
+            state,
+        }) => {
+            set_host_transform(shared, position, yaw, state).await;
+        }
+        Some(OutboundCommand::ReportHit(hit)) => {
+            relay_hit(0, hit, shared, tx_in).await;
+        }
+        Some(OutboundCommand::Match(state)) => {
+            set_match(shared, *state).await;
+        }
+        Some(OutboundCommand::Ragdolls(frames)) => {
+            broadcast_ragdolls(shared, frames).await;
+        }
+        Some(OutboundCommand::SetName(name)) => {
+            set_player_name(0, &name, shared, tx_in).await;
+        }
+        Some(OutboundCommand::Chat(text)) => {
+            *host_chat_seq = host_chat_seq.wrapping_add(1);
+            relay_chat(0, *host_chat_seq, &text, shared, tx_in).await;
+        }
+        Some(OutboundCommand::VoteMap { match_id, choice }) => {
+            let _ = tx_in.send(NetEvent::MapVote {
+                from: 0,
+                match_id,
+                choice,
+            });
+        }
+        Some(OutboundCommand::AddBot { snapshot, name }) => {
+            let mut guard = shared.lock().await;
+            if is_bot(snapshot.id) && !guard.players.contains_key(&snapshot.id) {
+                guard.bots.insert(snapshot.id);
+                guard.players.insert(snapshot.id, snapshot);
+                guard.broadcast(&ServerMessage::PlayerJoined(snapshot));
+                if let Some(name) = clean_name(&name) {
+                    guard.names.insert(snapshot.id, name.clone());
+                    guard.broadcast(&ServerMessage::Names(vec![(snapshot.id, name)]));
+                }
+            }
+        }
+        Some(OutboundCommand::UpdateBot(snapshot)) => {
+            let mut guard = shared.lock().await;
+            if guard.bots.contains(&snapshot.id)
+                && let Some(player) = guard.players.get_mut(&snapshot.id)
+            {
+                *player = snapshot;
+            }
+        }
+        Some(OutboundCommand::RemoveBot(id)) => {
+            let mut guard = shared.lock().await;
+            if guard.bots.remove(&id) {
+                guard.players.remove(&id);
+                guard.names.remove(&id);
+                guard.broadcast(&ServerMessage::PlayerLeft { id });
+            }
+        }
+        Some(OutboundCommand::BotHit(hit)) => {
+            let is_ours = shared.lock().await.bots.contains(&hit.attacker);
+            if is_ours {
+                relay_hit(hit.attacker, hit, shared, tx_in).await;
+            }
+        }
+        None => return false,
+    }
+    true
 }
 
 /// The host is closing: tell every player, give it a moment to go out, then
@@ -873,6 +965,21 @@ async fn set_host_transform(
     }
 }
 
+/// The next id for a person who joins: counts up, stepping over the ids kept
+/// for bots.
+fn next_player_id(next_id: &AtomicU32) -> PlayerId {
+    loop {
+        let id = next_id.fetch_add(1, Ordering::Relaxed);
+        if !is_bot(id) {
+            return id;
+        }
+        let _ = next_id.compare_exchange(id + 1, BOT_ID_END, Ordering::Relaxed, Ordering::Relaxed);
+    }
+}
+
+/// What a joiner is told when the match already has `MAX_PLAYERS` people.
+const FULL_TEXT: &str = "That match is full (10 players).";
+
 struct UdpPeer {
     id: PlayerId,
     last_seen: Instant,
@@ -914,7 +1021,13 @@ async fn run_udp_host(
                             }
                             continue;
                         }
-                        let id = next_id.fetch_add(1, Ordering::Relaxed);
+                        if shared.lock().await.people() >= MAX_PLAYERS {
+                            if let Ok(d) = serde_json::to_vec(&ServerDatagram::Msg(ServerMessage::MatchFull)) {
+                                let _ = sock.send_to(&d, from).await;
+                            }
+                            continue;
+                        }
+                        let id = next_player_id(&next_id);
                         let snapshot = PlayerSnapshot {
                             id,
                             position: spawn_position(id),
@@ -1062,7 +1175,13 @@ async fn handle_host_client(
     tx_in: mpsc::UnboundedSender<NetEvent>,
     shutdown: Arc<Notify>,
 ) {
-    let player_id = next_id.fetch_add(1, Ordering::Relaxed);
+    if shared.lock().await.people() >= MAX_PLAYERS {
+        let (_, mut writer) = tokio::io::split(stream);
+        let _ = write_frame(&mut writer, &ServerMessage::MatchFull).await;
+        tokio::time::sleep(GOODBYE_GRACE).await;
+        return;
+    }
+    let player_id = next_player_id(&next_id);
     let snapshot = PlayerSnapshot {
         id: player_id,
         position: spawn_position(player_id),
@@ -1255,6 +1374,12 @@ async fn run_client_session(
                 match_state,
             });
         }
+        Ok(Some(ServerMessage::MatchFull)) => {
+            reader_task.abort();
+            client.close().await;
+            let _ = tx_in.send(NetEvent::Error(FULL_TEXT.to_string()));
+            return;
+        }
         Ok(Some(_)) => {
             reader_task.abort();
             client.close().await;
@@ -1342,7 +1467,14 @@ async fn run_client_session(
                             break Some("Lost connection to host.".to_string());
                         }
                     }
-                    Some(OutboundCommand::Match(_) | OutboundCommand::Ragdolls(_)) => {}
+                    Some(
+                        OutboundCommand::Match(_)
+                        | OutboundCommand::Ragdolls(_)
+                        | OutboundCommand::AddBot { .. }
+                        | OutboundCommand::UpdateBot(_)
+                        | OutboundCommand::RemoveBot(_)
+                        | OutboundCommand::BotHit(_),
+                    ) => {}
                     None => break None,
                 }
             }
@@ -1395,6 +1527,9 @@ async fn run_client_session(
                     }
                     Some(ServerMessage::Welcome { your_id, players, match_state }) => {
                         let _ = tx_in.send(NetEvent::Connected { your_id, players, match_state });
+                    }
+                    Some(ServerMessage::MatchFull) => {
+                        break Some(FULL_TEXT.to_string());
                     }
                     Some(ServerMessage::HostLeaving) | None => {
                         break Some("Host ended the game.".to_string());
@@ -1478,6 +1613,10 @@ async fn run_udp_client_session(
                         welcome_id = Some(your_id);
                         welcome_players = players;
                         welcome_match = match_state;
+                    }
+                    Ok(ServerDatagram::Msg(ServerMessage::MatchFull)) if welcome_id.is_none() => {
+                        let _ = tx_in.send(NetEvent::Error(FULL_TEXT.to_string()));
+                        return;
                     }
                     // A big world comes as Welcome then chunks, right behind it.
                     Ok(ServerDatagram::Players { players }) if welcome_id.is_some() => {
@@ -1568,7 +1707,14 @@ async fn run_udp_client_session(
                         }
                     });
                 }
-                Some(OutboundCommand::Match(_) | OutboundCommand::Ragdolls(_)) => {}
+                Some(
+                        OutboundCommand::Match(_)
+                        | OutboundCommand::Ragdolls(_)
+                        | OutboundCommand::AddBot { .. }
+                        | OutboundCommand::UpdateBot(_)
+                        | OutboundCommand::RemoveBot(_)
+                        | OutboundCommand::BotHit(_),
+                    ) => {}
                 None => break None,
             },
             _ = send_tick.tick() => {
@@ -1610,6 +1756,9 @@ async fn run_udp_client_session(
                     ServerDatagram::Players { players } => NetEvent::PlayerUpdates(players),
                     ServerDatagram::Roster { ids } => NetEvent::Roster(ids),
                     ServerDatagram::Keepalive => continue,
+                    ServerDatagram::Msg(ServerMessage::MatchFull) => {
+                        break Some(FULL_TEXT.to_string())
+                    }
                     ServerDatagram::Msg(ServerMessage::HostLeaving) | ServerDatagram::Bye => {
                         break Some("Host ended the game.".to_string())
                     }
@@ -1901,7 +2050,11 @@ mod tests {
         let mut port = None;
         for _ in 0..100 {
             for ev in host.poll_events() {
-                if let NetEvent::HostingStarted { udp_port, local_player } = ev {
+                if let NetEvent::HostingStarted {
+                    udp_port,
+                    local_player,
+                } = ev
+                {
                     port = Some(udp_port);
                     host.local_player_id = Some(local_player.id);
                 }
@@ -1929,7 +2082,9 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(20));
         }
-        let me = client.local_player_id.expect("client did not get its welcome");
+        let me = client
+            .local_player_id
+            .expect("client did not get its welcome");
         client.set_local_name("Jo");
 
         for _ in 0..200 {

@@ -5,7 +5,7 @@ use crate::{
     maps::{CurrentMap, MapLibrary},
     net::{NetRole, NetworkState, Transport},
     portside::{Portside, Session, Status},
-    protocol::{GameMode, MapId, MatchSettings, MovementSpeed},
+    protocol::{BotLevel, GameMode, MapId, MatchSettings, MovementSpeed},
     ranked::{self, Rank, Tier},
     settings::AudioSettings,
     ui_kit::{KIT_YELLOW, KitButton, UiKit, kit, sliced, sliced_rect},
@@ -152,6 +152,7 @@ enum MenuAction {
     PickMap(MapId),
     PickRandomMap,
     PickMovement(MovementSpeed),
+    PickBots(BotLevel),
     PickMatchMinutes(u16),
     PickScoreLimit(u32),
     PickRoundsToWin(u32),
@@ -375,8 +376,7 @@ fn on_menu_click(
         MenuAction::OpenPlay => {
             if !net.is_connecting {
                 net.error_text = None;
-                let return_to_lobby =
-                    menu.screen == MenuScreen::Loadout && menu.loadout_from_play;
+                let return_to_lobby = menu.screen == MenuScreen::Loadout && menu.loadout_from_play;
                 menu.loadout_from_play = false;
                 menu.screen = MenuScreen::Play;
                 if !return_to_lobby {
@@ -474,6 +474,12 @@ fn on_menu_click(
         MenuAction::PickMovement(movement) => {
             if !setup.0.ranked {
                 setup.0.movement = movement;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::PickBots(level) => {
+            if !setup.0.ranked {
+                setup.0.bots = level;
                 click_sfx(&mut commands);
             }
         }
@@ -766,6 +772,7 @@ enum LobbyPart {
     SummaryMode,
     SummaryMap,
     SummaryMovement,
+    SummaryBots,
     SummaryRuleALabel,
     SummaryRuleAVal,
     SummaryRuleBLabel,
@@ -818,6 +825,7 @@ struct OptionsRuleMapValue;
 enum RuleOption {
     Mode(GameMode),
     Movement(MovementSpeed),
+    Bots(BotLevel),
     MatchMinutes(u16),
     ScoreLimit(u32),
     RoundsToWin(u32),
@@ -830,6 +838,7 @@ impl RuleOption {
         match self {
             RuleOption::Mode(m) => s.mode == m,
             RuleOption::Movement(mv) => s.movement == mv,
+            RuleOption::Bots(level) => s.bots == level,
             RuleOption::MatchMinutes(m) => s.effective_match_minutes() == m,
             RuleOption::ScoreLimit(l) => s.score_limit == l,
             RuleOption::RoundsToWin(r) => s.effective_rounds_to_win() == r,
@@ -2335,6 +2344,7 @@ fn spawn_play_lobby(commands: &mut Commands, assets: &AssetServer, fonts: &UiKit
                         spawn_summary_row(panel, "MODE", LobbyPart::SummaryMode);
                         spawn_summary_row(panel, "MAP", LobbyPart::SummaryMap);
                         spawn_summary_row(panel, "MOVEMENT", LobbyPart::SummaryMovement);
+                        spawn_summary_row(panel, "BOTS", LobbyPart::SummaryBots);
                         spawn_dynamic_summary_row(
                             panel,
                             LobbyPart::SummaryRuleALabel,
@@ -2926,6 +2936,24 @@ fn spawn_play_match_options(
                             .collect();
                         spawn_rule_row_owned(rules, assets, "MOVEMENT PACE", &move_items);
 
+                        // Bots filling the empty places, up to 10 players.
+                        let bot_items: Vec<(String, MenuAction, RuleOption)> = BotLevel::ALL
+                            .iter()
+                            .map(|&level| {
+                                (
+                                    level.name().to_uppercase(),
+                                    MenuAction::PickBots(level),
+                                    RuleOption::Bots(level),
+                                )
+                            })
+                            .collect();
+                        spawn_rule_row_owned(
+                            rules,
+                            assets,
+                            "BOTS (FILL TO 10 PLAYERS)",
+                            &bot_items,
+                        );
+
                         // Timed-mode rules (Team Splat / Free-for-All).
                         rules
                             .spawn((
@@ -2966,7 +2994,12 @@ fn spawn_play_match_options(
                                             )
                                         })
                                         .collect();
-                                spawn_rule_row_owned(timed, assets, "SCORE LIMIT (SPLATS)", &score_items);
+                                spawn_rule_row_owned(
+                                    timed,
+                                    assets,
+                                    "SCORE LIMIT (SPLATS)",
+                                    &score_items,
+                                );
 
                                 let respawn_items: Vec<(String, MenuAction, RuleOption)> =
                                     MatchSettings::RESPAWN_SECONDS_OPTIONS
@@ -2979,7 +3012,12 @@ fn spawn_play_match_options(
                                             )
                                         })
                                         .collect();
-                                spawn_rule_row_owned(timed, assets, "RESPAWN DELAY", &respawn_items);
+                                spawn_rule_row_owned(
+                                    timed,
+                                    assets,
+                                    "RESPAWN DELAY",
+                                    &respawn_items,
+                                );
                             });
 
                         // Elimination-specific rules.
@@ -3018,7 +3056,12 @@ fn spawn_play_match_options(
                                             )
                                         })
                                         .collect();
-                                spawn_rule_row_owned(elim, assets, "ROUND LENGTH", &round_len_items);
+                                spawn_rule_row_owned(
+                                    elim,
+                                    assets,
+                                    "ROUND LENGTH",
+                                    &round_len_items,
+                                );
                             });
                     });
                 });
@@ -3296,7 +3339,10 @@ fn update_play_lobby(
                     t.0 = if ranked {
                         format!("{} OFFICIAL MAPS  |  AUTO-SELECTED", MapId::BUILT_IN.len())
                     } else if menu.random_map {
-                        format!("{} MAPS AVAILABLE  |  ROLLED ON START", library.ids().count())
+                        format!(
+                            "{} MAPS AVAILABLE  |  ROLLED ON START",
+                            library.ids().count()
+                        )
                     } else {
                         format!(
                             "{}  |  {} MAP",
@@ -3311,7 +3357,8 @@ fn update_play_lobby(
                     t.0 = if ranked {
                         "A random official map is chosen automatically whenever a Ranked match starts.".to_string()
                     } else if menu.random_map {
-                        "A random map from your map library will load when the match starts.".to_string()
+                        "A random map from your map library will load when the match starts."
+                            .to_string()
                     } else {
                         map_meta.blurb.clone()
                     };
@@ -3343,6 +3390,14 @@ fn update_play_lobby(
             LobbyPart::SummaryMovement => {
                 if let Some(mut t) = text {
                     t.0 = s.movement.name().to_string();
+                }
+            }
+            LobbyPart::SummaryBots => {
+                if let Some(mut t) = text {
+                    t.0 = match s.effective_bots() {
+                        BotLevel::Off => "Off".to_string(),
+                        level => format!("{} (fill to 10)", level.name()),
+                    };
                 }
             }
             LobbyPart::SummaryRuleALabel => {
@@ -4008,7 +4063,6 @@ fn spawn_in_game_hud(
                     TextColor(TEXT_MUTED),
                     HudHubText,
                 ));
-
             });
 
             // Pop-up: someone in the hub started a game

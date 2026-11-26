@@ -30,17 +30,17 @@ pub const CROUCH_DROP: f32 = 0.75;
 const CROUCH_SPEED: f32 = 0.5;
 
 /// Run speeds and jump physics for each host-picked `MovementSpeed`.
-struct MovementTuning {
-    walk: f32,
-    sprint: f32,
-    jump: f32,
-    gravity: f32,
+pub(crate) struct MovementTuning {
+    pub walk: f32,
+    pub sprint: f32,
+    pub jump: f32,
+    pub gravity: f32,
     /// Whether WASD can steer while airborne.
-    air_control: bool,
+    pub air_control: bool,
 }
 
 impl MovementTuning {
-    fn of(movement: MovementSpeed) -> Self {
+    pub(crate) fn of(movement: MovementSpeed) -> Self {
         match movement {
             // The default: slower, and a jump keeps the direction you took off in.
             MovementSpeed::Normal => MovementTuning {
@@ -428,6 +428,9 @@ pub fn poll_network_events(
             NetEvent::HitReceived(hit) => {
                 net.pending_hits.push(hit);
             }
+            NetEvent::BotHit(hit) => {
+                net.pending_bot_hits.push(hit);
+            }
             NetEvent::Ragdolls(frame) => {
                 net.pending_ragdolls.push(frame);
             }
@@ -494,9 +497,8 @@ fn move_local_player(
     // steps, so movement, jumps and collisions play out the same at any FPS.
     let dt = time.delta_secs().min(MAX_FRAME_DT);
 
-    let crouch_held = alive
-        && !overlay.blocks_input()
-        && keybinds.pressed(KeyAction::Crouch, &keys, &mouse);
+    let crouch_held =
+        alive && !overlay.blocks_input() && keybinds.pressed(KeyAction::Crouch, &keys, &mouse);
     let crouch_target = if crouch_held { 1.0 } else { 0.0 };
     player.crouch += (crouch_target - player.crouch) * (1.0 - (-14.0 * dt).exp());
 
@@ -527,10 +529,13 @@ fn move_local_player(
         let right = Vec3::new(rig_yaw.cos(), 0.0, -rig_yaw.sin());
         let move_vec = (forward * input_dir.y + right * input_dir.x).normalize_or_zero();
 
-        let sprinting = keybinds.pressed(KeyAction::Sprint, &keys, &mouse)
-            && !combat.aiming
-            && !crouch_held;
-        let mut speed = if sprinting { tuning.sprint } else { tuning.walk };
+        let sprinting =
+            keybinds.pressed(KeyAction::Sprint, &keys, &mouse) && !combat.aiming && !crouch_held;
+        let mut speed = if sprinting {
+            tuning.sprint
+        } else {
+            tuning.walk
+        };
         speed *= combat.stats.mobility;
         if combat.aiming {
             speed *= 0.6;

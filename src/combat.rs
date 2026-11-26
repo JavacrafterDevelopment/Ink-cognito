@@ -11,6 +11,7 @@ use crate::{
     arena::Colliders,
     armory_v2_fx::Hopper,
     audio::{SoundProfile, spawn_local_sfx, spawn_spatial_sfx},
+    bots::BotIds,
     game_mode::respawn_local,
     loadout::{
         GunAssets, GunKind, GunModel, Loadout, WeaponStats, is_canted_sight, sight_eye,
@@ -801,6 +802,18 @@ fn look_rotation(yaw: f32, pitch: f32) -> Quat {
     Quat::from_rotation_y(yaw) * Quat::from_rotation_x(pitch)
 }
 
+/// Where another player's balls leave from, and which way, on every screen:
+/// `pos` is their body's center.
+pub(crate) fn remote_shot_origin(pos: Vec3, yaw: f32, pitch: f32, crouched: bool) -> (Vec3, Vec3) {
+    let rot = look_rotation(yaw, pitch);
+    let forward = rot * Vec3::NEG_Z;
+    let eye = pos + Vec3::Y * (EYE_OFFSET - if crouched { CROUCH_DROP } else { 0.0 });
+    (
+        eye + forward * 0.45 + rot * Vec3::new(0.06, -0.05, 0.0),
+        forward,
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 fn fire_local(
     mut commands: Commands,
@@ -1167,12 +1180,13 @@ fn fire_remote(
         }
         let loadout = Loadout::unpack(remote.state.loadout);
         let stats = loadout.stats();
-        let rot = look_rotation(remote.target_yaw, remote.state.pitch);
-        let forward = rot * Vec3::NEG_Z;
         let crouched = remote.state.flags & FLAG_CROUCH != 0;
-        let eye =
-            remote.target_pos + Vec3::Y * (EYE_OFFSET - if crouched { CROUCH_DROP } else { 0.0 });
-        let origin = eye + forward * 0.45 + rot * Vec3::new(0.06, -0.05, 0.0);
+        let (origin, forward) = remote_shot_origin(
+            remote.target_pos,
+            remote.target_yaw,
+            remote.state.pitch,
+            crouched,
+        );
         let team = Team::of(remote.id);
         for i in 0..new.min(8) {
             let shot = first.wrapping_add(i);
@@ -1300,6 +1314,7 @@ fn move_projectiles(
     remote_q: Query<(&Transform, &RemotePlayer), Without<Projectile>>,
     mut balls: Query<(Entity, &mut Transform, &mut Projectile)>,
     mut bodies: Query<(Entity, &mut Ragdoll)>,
+    bot_ids: Res<BotIds>,
 ) {
     // Capped only for hitches: balls sweep segments, so long steps can't skip walls.
     let dt = time.delta_secs().min(0.1);
@@ -1336,10 +1351,11 @@ fn move_projectiles(
             && ball.owner != lp.id
             && enemies(ball.owner, lp.id)
             && local_state.0.health > 0.0
-            && let Some((t, _)) = hits_player(from, to, lt.translation, lp.crouch > 0.5)
+            && let Some((t, head)) = hits_player(from, to, lt.translation, lp.crouch > 0.5)
             && t < best_t
         {
             best_t = t;
+            headshot = head;
             target = Some(Target::Local);
         }
         for (rt, remote) in &remote_q {
@@ -1374,6 +1390,28 @@ fn move_projectiles(
             Some(Target::Local) => {
                 // Visual cleanup only: damage is applied from shooter-confirmed HitEvents
                 // in `process_incoming_hits` so moving players never miss hits or take double damage.
+                // A host's bot is the shooter here, so its hit is confirmed here too.
+                if let Some(victim) = local_id
+                    && bot_ids.0.contains(&ball.owner)
+                    && !ball.shrapnel
+                {
+                    let point = from.lerp(to, best_t);
+                    net.send_bot_hit(HitEvent {
+                        hit_id: hits.alloc_id(),
+                        attacker: ball.owner,
+                        victim,
+                        damage: if headshot {
+                            ball.damage * HEADSHOT_MULTIPLIER
+                        } else {
+                            ball.damage
+                        },
+                        velocity: ball.velocity.to_array(),
+                        point: point.to_array(),
+                        water: ball.water,
+                        headshot,
+                        flash: false,
+                    });
+                }
                 commands.entity(entity).despawn();
             }
             Some(Target::Remote(victim_id)) if ball.shrapnel => {
@@ -1424,6 +1462,23 @@ fn move_projectiles(
                     let hit_id = hits.alloc_id();
                     net.send_hit(HitEvent {
                         hit_id,
+                        attacker: ball.owner,
+                        victim: victim_id,
+                        damage: if headshot {
+                            ball.damage * HEADSHOT_MULTIPLIER
+                        } else {
+                            ball.damage
+                        },
+                        velocity: ball.velocity.to_array(),
+                        point: point.to_array(),
+                        water: ball.water,
+                        headshot,
+                        flash: false,
+                    });
+                } else if bot_ids.0.contains(&ball.owner) {
+                    // One of the host's bots shot it: the host confirms its hits.
+                    net.send_bot_hit(HitEvent {
+                        hit_id: hits.alloc_id(),
                         attacker: ball.owner,
                         victim: victim_id,
                         damage: if headshot {

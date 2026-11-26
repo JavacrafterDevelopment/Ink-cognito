@@ -18,7 +18,7 @@ use crate::{
     net::{NetRole, NetworkState},
     protocol::{
         GameMode, MAX_HEALTH, MapId, MapVote, MatchSettings, MatchState, Phase, PlayerId, Team,
-        WIN_BLUE, WIN_DRAW, WIN_NONE, WIN_ORANGE, WIN_PLAYER, enemies, set_free_for_all,
+        WIN_BLUE, WIN_DRAW, WIN_NONE, WIN_ORANGE, WIN_PLAYER, enemies, is_bot, set_free_for_all,
     },
     world::{CameraRig, LocalPlayer, MainCamera, WorldSystems},
 };
@@ -298,6 +298,8 @@ struct Seen {
     health: f32,
     deaths: u32,
     killer: PlayerId,
+    /// One of the host's bots (they don't vote on the next map).
+    bot: bool,
 }
 
 /// Steps the match: counts splats, ends rounds and matches, runs map voting,
@@ -447,8 +449,8 @@ fn step_rules(
                 ms.vote.counts = counts;
 
                 // Speed up the countdown slightly once everyone has voted.
-                if !ids.is_empty() && votes.len() >= ids.len() && ms.time_left > MAP_VOTE_ALL_VOTED_CAP
-                {
+                let voters = players.iter().filter(|p| !p.bot).count();
+                if voters > 0 && votes.len() >= voters && ms.time_left > MAP_VOTE_ALL_VOTED_CAP {
                     ms.time_left = MAP_VOTE_ALL_VOTED_CAP;
                 }
 
@@ -511,6 +513,7 @@ fn run_host_rules(
             health: p.state.health,
             deaths: p.state.deaths,
             killer: p.state.killer,
+            bot: is_bot(p.id),
         })
         .collect();
 
@@ -660,6 +663,7 @@ mod tests {
             health: if alive { MAX_HEALTH } else { 0.0 },
             deaths,
             killer,
+            bot: false,
         }
     }
 

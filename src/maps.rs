@@ -268,6 +268,12 @@ pub struct Layout {
 }
 
 impl Layout {
+    /// The map's collision and info, for other modules' tests.
+    #[cfg(test)]
+    pub(crate) fn collision(&self) -> (Colliders, MapInfo) {
+        (Colliders::new(self.colliders.clone()), self.info.clone())
+    }
+
     fn from_file(id: MapId, file: &MapFile) -> Self {
         let built = ink_map::build(file);
         let half = file.half();
