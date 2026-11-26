@@ -2,26 +2,26 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.6.8",
-      "published": "2026-11-25T09:44:31Z",
-      "notes": "## What's Changed\n* 0.6.8: macOS build back in the release; Ultra Bang keeps rolling, 9 bursts of 400 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/24\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.7...v0.6.8",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.8",
+      "version": "0.6.9",
+      "published": "2026-11-26T01:41:41Z",
+      "notes": "## What's Changed\n* Switch every gun to the Armory V2 models, add canted sights and hopper/water physics by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/25\n* Release 0.6.9: Armory V2 guns, canted sights, hopper and water physics by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/26\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.8...v0.6.9",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.9",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.8/Ink-cognito-macos.zip",
-        "size": 94931766,
-        "sha256": "f2d79000c42508fc4fae76e76604edc49cd6ac1aea281889aa59f0199200daf1"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.9/Ink-cognito-macos.zip",
+        "size": 117871577,
+        "sha256": "bd42fc150777dc90f3abc9d84910e68aa1dc4aef5e18b30257feed64caff4e3d"
       },
       "exe": "Ink-cognito.app/Contents/MacOS/ink-cognito",
       "files": [
         {
           "path": "Ink-cognito.app/Contents/Info.plist",
           "size": 1140,
-          "sha256": "bb598944fb8a4f35a5e22be708e95668732e69f589f8e63bf23acf9cced8c759"
+          "sha256": "e8c2796d5fc9e6b6fde037fffc1ccc90e76843f956172d58317b510ab1853683"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-cognito",
-          "size": 148341936,
-          "sha256": "0a4ec691e4aa0fe98659c60ddba5c00ed78d604ee15d26f6ac548cf674d702ac"
+          "size": 148518800,
+          "sha256": "ca6c2286d7b3f3c1e685e409ae5ff64fc8a2c9782d532ba84afd205b047e8648"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-map-editor",
@@ -30,8 +30,8 @@
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/ASSETS-README.txt",
-          "size": 4170,
-          "sha256": "948a2066c207e4d7d3057bdffac91909e208d18148fe2f97d9780cb135478236"
+          "size": 4285,
+          "sha256": "7e4c8924bf686fb130209b657810fa6ac4500d15a946aa2127ff44cf8e923c03"
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/audio/footsteps/footstep_01.flac",
@@ -744,274 +744,309 @@
           "sha256": "a00ee42a03046a9029ac684fbaeacd06f09aba574896056ac12ed5b0c6179acc"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_bull.glb",
-          "size": 11380,
-          "sha256": "cd12f1fdae5f7c4e66211b16e23eabde19c7c0190fffa7a89a8de17c378f39c0"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_bull_v2.glb",
+          "size": 419024,
+          "sha256": "ed92745fe42e51afc162696034e4ea7b15b1f06d5598dde593b807adcdf34376"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_long.glb",
-          "size": 19548,
-          "sha256": "d36d22d4d17ad72f8c1b94a90dd5f9b9840072e55b61c461a73139986b36386d"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_long_v2.glb",
+          "size": 612280,
+          "sha256": "edbca044ed8073925397d9903f8e45b17552dfcfbb389d5936dea43f0eddd11d"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_ported.glb",
-          "size": 19472,
-          "sha256": "3b58042c47237c07d59784ef0034b26ede6a8b4d84aa2d5fbdfef8b186e5d111"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_ported_v2.glb",
+          "size": 612284,
+          "sha256": "99472ebdaebc3bf067f963328c7fc1f28396edddb6dff8b64e9fc53092714187"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_sawed_off.glb",
-          "size": 14308,
-          "sha256": "7eb25eabccdb99ea3aaaa915a7b7ea61531c69ca1a7c8560251976acb6df405e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_sawed_off_v2.glb",
+          "size": 592864,
+          "sha256": "bf1d4a15b6e951c9d810d80055a96acf7b9b45d78853d2d9209f3f8c29b07139"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_shrouded.glb",
-          "size": 18256,
-          "sha256": "d9f0b9dc29f96745da3a05dbdff31289a3fcf680c84f951b25174719d6d4e16d"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_shrouded_v2.glb",
+          "size": 608980,
+          "sha256": "4fe284f66b8f13bd0a413e0071c89a312525a46f30c0bd31ba94d328910f5985"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_stub.glb",
-          "size": 12016,
-          "sha256": "5df8569752b3c00acc19540693ec5cede0a5dc20e46d2417db41c053ada638ea"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_stub_v2.glb",
+          "size": 420032,
+          "sha256": "05762a759b90dbe30c8c89c72a4ce0076d40c91af7a0edcbac2b73b97a2e281c"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_suppressor.glb",
-          "size": 21848,
-          "sha256": "656bdf8310b368963910a12742899db94639f6bfc43817f891e0fc69a2d284f9"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_suppressor_v2.glb",
+          "size": 621520,
+          "sha256": "ab683d7bca60acd28568f3b18c5245fe895ab38f1a635f0733ad3cc08acd449e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_twin.glb",
-          "size": 17120,
-          "sha256": "135f45730206fdff6c42f50270023f9e3e3733e19bca78af13ca73c42a74cd27"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_twin_v2.glb",
+          "size": 434992,
+          "sha256": "08cec13635dbf89781feba5beb5d16cfb6743eb38fd4fcc5436e35c8b834b199"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_angled.glb",
-          "size": 5484,
-          "sha256": "9aa1020a9f94b762028f548bf12c4d10543d0626ccf7ce51edbff900fbd6b83f"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_angled_v2.glb",
+          "size": 200076,
+          "sha256": "e0ee8b2197c79c490ef7e299b521dba8f2d51d477e130b000e198f90ef1833fc"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_bipod.glb",
-          "size": 12472,
-          "sha256": "93c2bf063d9f0ad71b477a268026304c7014cbae55a5c6dc3a73cef86afa4d83"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_bipod_v2.glb",
+          "size": 397928,
+          "sha256": "2372b49dee509dff77039d05a6b2a68e7f24263405c72b2d8e565fad3670e630"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_handstop.glb",
-          "size": 6952,
-          "sha256": "1b6a77e7b5fdab67f96493d0a81c77a694471d6b2e3411241de52c360b17f955"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_handstop_v2.glb",
+          "size": 202808,
+          "sha256": "77bcd3c728b7e373c290dd6ae30d2cad49ae44b09defe335a97265b0bde7b04d"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_stubby.glb",
-          "size": 9540,
-          "sha256": "42dae1bd3a24af5d3d7933eecb9db5f8d9d290551f1c5fb745fedc18c9e18892"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_stubby_v2.glb",
+          "size": 371584,
+          "sha256": "2f2a3d430dc949e5fb25769069334284578c8cbb903452084b9d4a9581fd432e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_vertical.glb",
-          "size": 8172,
-          "sha256": "eecf78191e8c3a2fbb5ecd23ecf6ab3260f5e6c7a863ad9abd8bb2fb826145b8"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_vertical_v2.glb",
+          "size": 214492,
+          "sha256": "096fb45d207895bbab29eaf9d4c759978bac59faae3e1311eb01a38686ab1b10"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_box.glb",
-          "size": 7808,
-          "sha256": "9893888a13750b2d89e61a27ba1530b07fca3bdeb5148cfdf50669c925db219b"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_box_v2.glb",
+          "size": 225464,
+          "sha256": "d5e35cb910a978a9a6dcbf272eff692a837c966a9dc2d58623e7b073d2ea3256"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_drum.glb",
-          "size": 15092,
-          "sha256": "9c95dbdc21eeec64bfbd3f16caa4df8cded9e72b78e7047f48f8a881282d2d03"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_drum_v2.glb",
+          "size": 260272,
+          "sha256": "6fbd2ca56e2e83b3fb5480a4478f4ee828cb1b082fe1c1f0485a7a3e6f0bf226"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_gravity.glb",
-          "size": 10928,
-          "sha256": "8561b80d55209e7c5af58677e2d3c15aec04939a6053125ab42b775948fd1444"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_gravity_v2.glb",
+          "size": 246868,
+          "sha256": "c7a135ce3b1df834c6a7b8cf367513335b353e955ae5de2658490141ec688758"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_loader.glb",
-          "size": 16024,
-          "sha256": "ec251d594202812d936c7e0a58167a52ac569fbbb26f2877fda82d248beebf65"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_loader_v2.glb",
+          "size": 271616,
+          "sha256": "6a47dd3a572ea1dcaf254517d1aa641fac6e2c337b96124427182d35df4e8dd5"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_low_pro.glb",
-          "size": 6380,
-          "sha256": "f65d05e06ec07ae2f8e34ece54f01612c82fe713eab093c58c521b40788efbb3"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_low_pro_v2.glb",
+          "size": 222348,
+          "sha256": "c1e3c6c77b7178307dc6a8efccd5509473d54b83247f9a8ebff2c7814e18e988"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_pod.glb",
-          "size": 22104,
-          "sha256": "58d7e7a5dc47c9cc41bcdf8c131316b5ca15077397095a89f68dd88d7b718fc4"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_pod_v2.glb",
+          "size": 238620,
+          "sha256": "b137ae1c234bf7b9dc7c41cde409d3ae6b0517b8e7ecda5e39b91ad5c2c7f1ee"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_speedfeed.glb",
-          "size": 18060,
-          "sha256": "5cb62b4d3a458818d78d9f679e4bb979f3e02bfd31c304d82cb65c9e47b6575f"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_speedfeed_v2.glb",
+          "size": 279120,
+          "sha256": "5bbc98eb437cc7e9698c7002ab024445e9dc3da85548bbdf91e908471511fe76"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_stick_mag.glb",
-          "size": 6936,
-          "sha256": "7ea69fac70262654e4a598ab8cbbf99534926631a508cb620d4dcb048018020e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_stick_mag_v2.glb",
+          "size": 384428,
+          "sha256": "da0316fbe3b7e0473592fd21bb4782c7f6b349bc0315e04989a29b8ee7806813"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_holo.glb",
-          "size": 13148,
-          "sha256": "11347d7bd4b06e054e034147333f8d9b055dc4b6416404b23b13646fcb0b0645"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_holo_canted_v2.glb",
+          "size": 448808,
+          "sha256": "fe913a024634ee25d466dfc427dd52e0d6196cb2083c057817c49b6cded0b854"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_iron.glb",
-          "size": 9028,
-          "sha256": "9cc2025b926239e55feb2fcf79adb69997c5e1a378bad712dd1544968c54b55e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_holo_v2.glb",
+          "size": 437488,
+          "sha256": "65fb63f17df4a8b3837668af8303b8cc0d5d5020ad67dbddffe1b8f66573a399"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_laser.glb",
-          "size": 9872,
-          "sha256": "bf7f678154e250a23d977e3f6095af32bc37b8ada5d77e25e34f8cb8572d46f6"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_iron_canted_v2.glb",
+          "size": 270768,
+          "sha256": "9eb695cfa4784f287c7dc9620771ad9209139d937de087900733b95592d13a88"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_prism.glb",
-          "size": 13688,
-          "sha256": "d16563c2844bf6da67e65a66c5ff18975acd7e36e835c069f13430ff6c009221"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_iron_v2.glb",
+          "size": 219720,
+          "sha256": "8520d6f0413e6a81c4a3d0a57fed89e46100878de35dfce2596d6d2768ff462e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_red_dot.glb",
-          "size": 9884,
-          "sha256": "2a2c682235c9702f5900b497a338e9092f22e2b8a580bb2e0ee78ddff3dc9c3a"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_laser_canted_v2.glb",
+          "size": 411368,
+          "sha256": "ccf2ce4c32f1ff50bda9d62c1da58d16c6e5a099f81dd69d3b855cc951b3aec9"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_reflex.glb",
-          "size": 9056,
-          "sha256": "273cd85ce1760da7ed44d4aa7bbc0f859d8bc26e21dec2fa4fa7546a0b6e2ad5"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_laser_v2.glb",
+          "size": 400100,
+          "sha256": "c16352ebd4f04161577caea63fc8c4acb31d4e7c6385ffb6ac35cdbc2217ffe1"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_scope.glb",
-          "size": 18904,
-          "sha256": "e1ee1eff85edd4a58044b0a24010b93cda025c9ec68c619889e499f1bbe8ff18"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_prism_canted_v2.glb",
+          "size": 453480,
+          "sha256": "23cced7f5bc87e3817a6aa842da1d4df4891959f5923ff17cd424025ba2b0d0b"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_cheek_rise.glb",
-          "size": 12064,
-          "sha256": "6b2fb3975bbb75ca70b7dbe164f5bfccff8114c49d5e084910ef0445efba4993"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_prism_v2.glb",
+          "size": 442156,
+          "sha256": "ee4e24371aa2eccb9e7ec96796b61f61ff98cf2b2d67333180e7df12e5a60841"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_collapsible.glb",
-          "size": 11020,
-          "sha256": "fb201e2769ec82ac3fa23cd6dce4db5d6498347c5c448a8e87b4612421768eab"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_red_dot_canted_v2.glb",
+          "size": 498792,
+          "sha256": "32898fbe44615983013e4082a92528ae58598d122477b8efd1f745574d4384ba"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_fixed.glb",
-          "size": 7184,
-          "sha256": "c4677bbb6d8dcb09af0eeecd83ec03ce27951f472d37f691669b50dbfb270dd4"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_red_dot_v2.glb",
+          "size": 487468,
+          "sha256": "0fe379900a8553917c61f2f616a14dd7781656d2868ff5e00ab9b0208be443a4"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_minimal.glb",
-          "size": 8448,
-          "sha256": "7d63409cae1b409c79f9059ed1e1ad10b53acef7a1c6fe7680702aba89064deb"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_reflex_canted_v2.glb",
+          "size": 414828,
+          "sha256": "4cbd00fa6ada5c9a1fdbcfc0379a275d8dc445bd5a91f81239423c187bab093f"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_skeleton.glb",
-          "size": 6900,
-          "sha256": "d50eab6920e042cf8b33737fda34f27fb29bff3fc2f9c5600840b945f6776660"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_reflex_v2.glb",
+          "size": 403508,
+          "sha256": "75f50685fe3c9d1e62f26a2239325fe618b427e5ceb87ffaf9629ab6c6d0d563"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_thumbhole.glb",
-          "size": 9220,
-          "sha256": "5ed378fb5f06c6415df30252083328d7abbfe63c819c959878d454894e96eddc"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_scope_canted_v2.glb",
+          "size": 609248,
+          "sha256": "577be95d4e43f05754e81202036f6e5540b92322c50227f15253aed70cf6ff6f"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_co2.glb",
-          "size": 10868,
-          "sha256": "2832f7eeb914780215cfeaf4c87e0c0854a07998f37f86d943a0ae5ec15dd787"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_scope_v2.glb",
+          "size": 597944,
+          "sha256": "be5c1061a6a9acfa6b5129049b0f391ef4d7ead33cdc6d6485a72aea65d4d4eb"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_hpa_carbon.glb",
-          "size": 17800,
-          "sha256": "bb5c922127b542d6ba5de5df569c72892002e537189e9f2745db50fda1045ab7"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_cheek_rise_v2.glb",
+          "size": 376608,
+          "sha256": "7daa14ba54f66a24054a15d06ad9675bd4185e0b81318d97300d472f0ae44b39"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_hpa_large.glb",
-          "size": 15504,
-          "sha256": "5b94dae54a26cecc779e06e09f9b3cff16ee407c8ce70fc03a64f32355650640"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_collapsible_v2.glb",
+          "size": 378928,
+          "sha256": "269e3e251b6d802312a2ba3c6199ee92d78228f84bd6840ec4a76ba5164cfab1"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_hpa_mini.glb",
-          "size": 13776,
-          "sha256": "e4543c2e2dc670ac1baab013a07b405e1caf0472a0f61a1bcf61d40a64391fed"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_fixed_v2.glb",
+          "size": 208028,
+          "sha256": "5f801cfcc6b37d7e94453a092d039a032d8733c6a00eb79f2c8bee01fda76aa8"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_hpa_small.glb",
-          "size": 15528,
-          "sha256": "43f5c63492baa46e78fd2107231948aa06e6aa0d080bb3e6b56851da61443510"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_minimal_v2.glb",
+          "size": 345700,
+          "sha256": "e8504fbd787efcfc16424c7aa847d3f261c40dfb9877470f717b533ad66d2c5f"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_twin_bottle.glb",
-          "size": 20932,
-          "sha256": "06df6b3dc892074fe183c4916a05d6f1f15ee78889b1ac149b609df1ce7dbdef"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_skeleton_v2.glb",
+          "size": 207464,
+          "sha256": "01b511d4a48889514e2dabf9c25aa39c661bdb804f8cdbf45336a5898aa2a60e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/bulldog.glb",
-          "size": 59556,
-          "sha256": "c827fefa64d06ae396673ba728c6740d8441d151fbf5a6eacf4c3cdeee708505"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_thumbhole_v2.glb",
+          "size": 370996,
+          "sha256": "daf5f64ccdf7288869ec16f3ecc0b16a72af2e329c05dbace04e8e816b85b5e6"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/phantom.glb",
-          "size": 67728,
-          "sha256": "1a0f560594538920c29e01c19b6c8f22adb5a658a01b9f0ecbf598371470ea8e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_co2_v2.glb",
+          "size": 67172,
+          "sha256": "0d45f85c0104c7c1256898a0c8c1e84bb8e0d7395a11d2cfa511310b1ac8bf1c"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/raptor.glb",
-          "size": 46492,
-          "sha256": "e65ad6ee6aaa9486a15380552b21677ffaf114cddfe0b2de95757d1758032c58"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_hpa_carbon_v2.glb",
+          "size": 419240,
+          "sha256": "e54da4b13c8a441b33a3e37f5e041b50d5efcf603ca5dfcaea7f5a26cacabf18"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/shotgun.glb",
-          "size": 87656,
-          "sha256": "f28c44fe8182905f7dc0fc8f0f2252b29bf954a7527ab597fbacb5cc65ed8b18"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_hpa_large_v2.glb",
+          "size": 407016,
+          "sha256": "4a4be196ffcd75d9bdd2846ebb1679042287cc89720732fd2ec2fd92f5b7fa10"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/sniper.glb",
-          "size": 69140,
-          "sha256": "aa93de0783e1f7fcb47b934188049fdc6e29ae6f3a64630097cb72984bec84a5"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_hpa_mini_v2.glb",
+          "size": 236484,
+          "sha256": "2d2b616de923af7675228c0b2d540b8821513e6d0fc956d8186ccd41a3d014ac"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/titan.glb",
-          "size": 54192,
-          "sha256": "08d564af06cbf5a7154f4cdd1c73c78ba608a45ffe5a56d400b2f6f5c25f5f7b"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_hpa_small_v2.glb",
+          "size": 407016,
+          "sha256": "8bddd4fe827ecda00875d0956a948ce9fc91701cf3d7cc8c143b42c9140a99f5"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/vanta.glb",
-          "size": 50456,
-          "sha256": "afb42b1d8f08cefcbcf4405b5ef6ba9fbc109f3192f9aa02b6becc8da01b14f7"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_twin_bottle_v2.glb",
+          "size": 424876,
+          "sha256": "0edb728292021db41096024017e8fc37b9af92a454727d410818e8fee7d8bd2e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/bulldog_factory.glb",
-          "size": 143452,
-          "sha256": "7e73322c683e6fe8ae8096c28f9c35c200d3975415c98cc1d2c635b03fac8ce9"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/bulldog_v2.glb",
+          "size": 743264,
+          "sha256": "09e78e47163f82a9b05c8f73ac76c5f464c04d1365a77109bd89d2a6ad2c7b1a"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/phantom_factory.glb",
-          "size": 151580,
-          "sha256": "8ed6f5d57cd5391066f333d722018b59053c72a1361e76e64513551dddb17e2c"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/phantom_v2.glb",
+          "size": 696512,
+          "sha256": "e50f7301a21fb2df4080368367dea9c2d9e84e571ab78109ef368575451e6838"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/raptor_factory.glb",
-          "size": 116448,
-          "sha256": "aaa048aa04e1c4817fa51004f5303f2fba237b7d063013241612cb0a8bae05c4"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/raptor_v2.glb",
+          "size": 709712,
+          "sha256": "98713e4a88bfed71e0648a8033ab624557991e13a59f8bb1b81eefe664fec2e1"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/shotgun_factory.glb",
-          "size": 166104,
-          "sha256": "f1776b51e625bfb6637efac20fdf206da1c9bae4988b51d205fe9dc996f4db33"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/shotgun_v2.glb",
+          "size": 919192,
+          "sha256": "1780254765043727550696c6e523004ac5ea68c8784ae7dbfefce3ee04c93bb5"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/sniper_factory.glb",
-          "size": 162216,
-          "sha256": "b278fa1572fc9d96a1ba526c2a796792f87c1ad8b08760c3b7a6ce7f9d5c2870"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/sniper_v2.glb",
+          "size": 768584,
+          "sha256": "3c056773da41b5380d37ca9b03e94e7ca42a35c84b377b7decbfda1d7ffb33b1"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/titan_factory.glb",
-          "size": 145736,
-          "sha256": "74d8ae08f4000008a970c97458da6bd1c452b0a50e3faeb44b909f20f16cd10e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/titan_v2.glb",
+          "size": 735068,
+          "sha256": "95d799f5ec65c0b7ae06edf273d67bea024846729e0e85440966f33629cfa7f3"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/vanta_factory.glb",
-          "size": 101552,
-          "sha256": "d1ac1298e1b43e6f27dfaf38b694aa92f23c5b5e195dc2db1de48a6921d2c00d"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/vanta_v2.glb",
+          "size": 680100,
+          "sha256": "8598e761c80154a977d1d2eb03f2385166c250ddb39cd77cf616df03080d7081"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/bulldog_factory_v2.glb",
+          "size": 1332488,
+          "sha256": "fef55fd51195183862075af10690ecdabead68ab0ff8ff5fd359b3112a8d0bd1"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/phantom_factory_v2.glb",
+          "size": 1012084,
+          "sha256": "30df1b6fd76e86993b205a8d80be7501c7c4e61ae28e8f935c40a6333af25dee"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/raptor_factory_v2.glb",
+          "size": 1104224,
+          "sha256": "7fef1deee6370742164c51ce145978240dce0bde6f9350889c448f5e2d7e28bf"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/shotgun_factory_v2.glb",
+          "size": 1277388,
+          "sha256": "1d49b789fe9e8a6076e53683396c8758dff2b49833dbf222f25abef8578ac687"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/sniper_factory_v2.glb",
+          "size": 1384956,
+          "sha256": "2236d5e68b2136c7ab962e14852d5ff4f9adb9d56ee3cbead983d9b33596e3b5"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/titan_factory_v2.glb",
+          "size": 1196296,
+          "sha256": "39be197309b7d5c50df5dc8ab44bf70abec78aa4d1162b0dc58d09f886ead8ec"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/vanta_factory_v2.glb",
+          "size": 937480,
+          "sha256": "5830104aa4f7517fbd0f56bd813f72d1230351157d5e55aa2f420edbe34b5af0"
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/models/industrial/machinery/conveyor_section_2m.glb",
@@ -2009,19 +2044,19 @@
           "sha256": "fc51861681d077221051a3ce366a53a332810d785a3ee8d081d2b2a8391993c4"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns/minnow.glb",
-          "size": 43244,
-          "sha256": "41ea3fabd188d9f4e04125a785aab51c9504127f4e28fb74377d91dc5dba5845"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns-v2/minnow_v2.glb",
+          "size": 257540,
+          "sha256": "c976328e04dd998362f977e7192e591e27c61fadb45d45ba112beffed542f83a"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns/monsoon.glb",
-          "size": 69160,
-          "sha256": "2907c5b77857329841095994e4c26ef1a51dc37149db8d70405fbd9f63b30774"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns-v2/monsoon_v2.glb",
+          "size": 415324,
+          "sha256": "51e0cc96dbeaa9276fc31509e6604eccdcc8ea45e62f6a90edb23573c06d9755"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns/tidal.glb",
-          "size": 59672,
-          "sha256": "26d3590956fe603281b41a1b39636af0269860817b9568805772e1dcb2e67dc0"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns-v2/tidal_v2.glb",
+          "size": 351912,
+          "sha256": "9bfa1dfa0b0d21b16fc12741f28ca57995014ca84efdb27906922b94ffbfd484"
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/models/weapons/gadgets/deployable_barricade.glb",
@@ -3105,32 +3140,32 @@
         },
         {
           "path": "Ink-cognito.app/Contents/_CodeSignature/CodeResources",
-          "size": 185402,
-          "sha256": "47f917ae7da4db9be417ad3dbcc03d919e24864e2d617789a2a8da7267cd1223"
+          "size": 188454,
+          "sha256": "852305762efbbeba1d243cfd974dd4e5d2834db2111bb1fc2b9143b0d85a031b"
         }
       ]
     },
     "stable": {
-      "version": "0.6.8",
-      "published": "2026-11-25T09:44:31Z",
-      "notes": "## What's Changed\n* 0.6.8: macOS build back in the release; Ultra Bang keeps rolling, 9 bursts of 400 by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/24\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.7...v0.6.8",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.8",
+      "version": "0.6.9",
+      "published": "2026-11-26T01:41:41Z",
+      "notes": "## What's Changed\n* Switch every gun to the Armory V2 models, add canted sights and hopper/water physics by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/25\n* Release 0.6.9: Armory V2 guns, canted sights, hopper and water physics by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/26\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.8...v0.6.9",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.6.9",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.8/Ink-cognito-macos.zip",
-        "size": 94931766,
-        "sha256": "f2d79000c42508fc4fae76e76604edc49cd6ac1aea281889aa59f0199200daf1"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.6.9/Ink-cognito-macos.zip",
+        "size": 117871577,
+        "sha256": "bd42fc150777dc90f3abc9d84910e68aa1dc4aef5e18b30257feed64caff4e3d"
       },
       "exe": "Ink-cognito.app/Contents/MacOS/ink-cognito",
       "files": [
         {
           "path": "Ink-cognito.app/Contents/Info.plist",
           "size": 1140,
-          "sha256": "bb598944fb8a4f35a5e22be708e95668732e69f589f8e63bf23acf9cced8c759"
+          "sha256": "e8c2796d5fc9e6b6fde037fffc1ccc90e76843f956172d58317b510ab1853683"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-cognito",
-          "size": 148341936,
-          "sha256": "0a4ec691e4aa0fe98659c60ddba5c00ed78d604ee15d26f6ac548cf674d702ac"
+          "size": 148518800,
+          "sha256": "ca6c2286d7b3f3c1e685e409ae5ff64fc8a2c9782d532ba84afd205b047e8648"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-map-editor",
@@ -3139,8 +3174,8 @@
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/ASSETS-README.txt",
-          "size": 4170,
-          "sha256": "948a2066c207e4d7d3057bdffac91909e208d18148fe2f97d9780cb135478236"
+          "size": 4285,
+          "sha256": "7e4c8924bf686fb130209b657810fa6ac4500d15a946aa2127ff44cf8e923c03"
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/audio/footsteps/footstep_01.flac",
@@ -3853,274 +3888,309 @@
           "sha256": "a00ee42a03046a9029ac684fbaeacd06f09aba574896056ac12ed5b0c6179acc"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_bull.glb",
-          "size": 11380,
-          "sha256": "cd12f1fdae5f7c4e66211b16e23eabde19c7c0190fffa7a89a8de17c378f39c0"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_bull_v2.glb",
+          "size": 419024,
+          "sha256": "ed92745fe42e51afc162696034e4ea7b15b1f06d5598dde593b807adcdf34376"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_long.glb",
-          "size": 19548,
-          "sha256": "d36d22d4d17ad72f8c1b94a90dd5f9b9840072e55b61c461a73139986b36386d"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_long_v2.glb",
+          "size": 612280,
+          "sha256": "edbca044ed8073925397d9903f8e45b17552dfcfbb389d5936dea43f0eddd11d"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_ported.glb",
-          "size": 19472,
-          "sha256": "3b58042c47237c07d59784ef0034b26ede6a8b4d84aa2d5fbdfef8b186e5d111"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_ported_v2.glb",
+          "size": 612284,
+          "sha256": "99472ebdaebc3bf067f963328c7fc1f28396edddb6dff8b64e9fc53092714187"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_sawed_off.glb",
-          "size": 14308,
-          "sha256": "7eb25eabccdb99ea3aaaa915a7b7ea61531c69ca1a7c8560251976acb6df405e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_sawed_off_v2.glb",
+          "size": 592864,
+          "sha256": "bf1d4a15b6e951c9d810d80055a96acf7b9b45d78853d2d9209f3f8c29b07139"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_shrouded.glb",
-          "size": 18256,
-          "sha256": "d9f0b9dc29f96745da3a05dbdff31289a3fcf680c84f951b25174719d6d4e16d"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_shrouded_v2.glb",
+          "size": 608980,
+          "sha256": "4fe284f66b8f13bd0a413e0071c89a312525a46f30c0bd31ba94d328910f5985"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_stub.glb",
-          "size": 12016,
-          "sha256": "5df8569752b3c00acc19540693ec5cede0a5dc20e46d2417db41c053ada638ea"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_stub_v2.glb",
+          "size": 420032,
+          "sha256": "05762a759b90dbe30c8c89c72a4ce0076d40c91af7a0edcbac2b73b97a2e281c"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_suppressor.glb",
-          "size": 21848,
-          "sha256": "656bdf8310b368963910a12742899db94639f6bfc43817f891e0fc69a2d284f9"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_suppressor_v2.glb",
+          "size": 621520,
+          "sha256": "ab683d7bca60acd28568f3b18c5245fe895ab38f1a635f0733ad3cc08acd449e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/barrels/barrel_twin.glb",
-          "size": 17120,
-          "sha256": "135f45730206fdff6c42f50270023f9e3e3733e19bca78af13ca73c42a74cd27"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/barrels/barrel_twin_v2.glb",
+          "size": 434992,
+          "sha256": "08cec13635dbf89781feba5beb5d16cfb6743eb38fd4fcc5436e35c8b834b199"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_angled.glb",
-          "size": 5484,
-          "sha256": "9aa1020a9f94b762028f548bf12c4d10543d0626ccf7ce51edbff900fbd6b83f"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_angled_v2.glb",
+          "size": 200076,
+          "sha256": "e0ee8b2197c79c490ef7e299b521dba8f2d51d477e130b000e198f90ef1833fc"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_bipod.glb",
-          "size": 12472,
-          "sha256": "93c2bf063d9f0ad71b477a268026304c7014cbae55a5c6dc3a73cef86afa4d83"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_bipod_v2.glb",
+          "size": 397928,
+          "sha256": "2372b49dee509dff77039d05a6b2a68e7f24263405c72b2d8e565fad3670e630"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_handstop.glb",
-          "size": 6952,
-          "sha256": "1b6a77e7b5fdab67f96493d0a81c77a694471d6b2e3411241de52c360b17f955"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_handstop_v2.glb",
+          "size": 202808,
+          "sha256": "77bcd3c728b7e373c290dd6ae30d2cad49ae44b09defe335a97265b0bde7b04d"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_stubby.glb",
-          "size": 9540,
-          "sha256": "42dae1bd3a24af5d3d7933eecb9db5f8d9d290551f1c5fb745fedc18c9e18892"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_stubby_v2.glb",
+          "size": 371584,
+          "sha256": "2f2a3d430dc949e5fb25769069334284578c8cbb903452084b9d4a9581fd432e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/foregrips/grip_vertical.glb",
-          "size": 8172,
-          "sha256": "eecf78191e8c3a2fbb5ecd23ecf6ab3260f5e6c7a863ad9abd8bb2fb826145b8"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/foregrips/grip_vertical_v2.glb",
+          "size": 214492,
+          "sha256": "096fb45d207895bbab29eaf9d4c759978bac59faae3e1311eb01a38686ab1b10"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_box.glb",
-          "size": 7808,
-          "sha256": "9893888a13750b2d89e61a27ba1530b07fca3bdeb5148cfdf50669c925db219b"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_box_v2.glb",
+          "size": 225464,
+          "sha256": "d5e35cb910a978a9a6dcbf272eff692a837c966a9dc2d58623e7b073d2ea3256"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_drum.glb",
-          "size": 15092,
-          "sha256": "9c95dbdc21eeec64bfbd3f16caa4df8cded9e72b78e7047f48f8a881282d2d03"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_drum_v2.glb",
+          "size": 260272,
+          "sha256": "6fbd2ca56e2e83b3fb5480a4478f4ee828cb1b082fe1c1f0485a7a3e6f0bf226"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_gravity.glb",
-          "size": 10928,
-          "sha256": "8561b80d55209e7c5af58677e2d3c15aec04939a6053125ab42b775948fd1444"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_gravity_v2.glb",
+          "size": 246868,
+          "sha256": "c7a135ce3b1df834c6a7b8cf367513335b353e955ae5de2658490141ec688758"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_loader.glb",
-          "size": 16024,
-          "sha256": "ec251d594202812d936c7e0a58167a52ac569fbbb26f2877fda82d248beebf65"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_loader_v2.glb",
+          "size": 271616,
+          "sha256": "6a47dd3a572ea1dcaf254517d1aa641fac6e2c337b96124427182d35df4e8dd5"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_low_pro.glb",
-          "size": 6380,
-          "sha256": "f65d05e06ec07ae2f8e34ece54f01612c82fe713eab093c58c521b40788efbb3"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_low_pro_v2.glb",
+          "size": 222348,
+          "sha256": "c1e3c6c77b7178307dc6a8efccd5509473d54b83247f9a8ebff2c7814e18e988"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_pod.glb",
-          "size": 22104,
-          "sha256": "58d7e7a5dc47c9cc41bcdf8c131316b5ca15077397095a89f68dd88d7b718fc4"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_pod_v2.glb",
+          "size": 238620,
+          "sha256": "b137ae1c234bf7b9dc7c41cde409d3ae6b0517b8e7ecda5e39b91ad5c2c7f1ee"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_speedfeed.glb",
-          "size": 18060,
-          "sha256": "5cb62b4d3a458818d78d9f679e4bb979f3e02bfd31c304d82cb65c9e47b6575f"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_speedfeed_v2.glb",
+          "size": 279120,
+          "sha256": "5bbc98eb437cc7e9698c7002ab024445e9dc3da85548bbdf91e908471511fe76"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/hoppers/hopper_stick_mag.glb",
-          "size": 6936,
-          "sha256": "7ea69fac70262654e4a598ab8cbbf99534926631a508cb620d4dcb048018020e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/hoppers/hopper_stick_mag_v2.glb",
+          "size": 384428,
+          "sha256": "da0316fbe3b7e0473592fd21bb4782c7f6b349bc0315e04989a29b8ee7806813"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_holo.glb",
-          "size": 13148,
-          "sha256": "11347d7bd4b06e054e034147333f8d9b055dc4b6416404b23b13646fcb0b0645"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_holo_canted_v2.glb",
+          "size": 448808,
+          "sha256": "fe913a024634ee25d466dfc427dd52e0d6196cb2083c057817c49b6cded0b854"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_iron.glb",
-          "size": 9028,
-          "sha256": "9cc2025b926239e55feb2fcf79adb69997c5e1a378bad712dd1544968c54b55e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_holo_v2.glb",
+          "size": 437488,
+          "sha256": "65fb63f17df4a8b3837668af8303b8cc0d5d5020ad67dbddffe1b8f66573a399"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_laser.glb",
-          "size": 9872,
-          "sha256": "bf7f678154e250a23d977e3f6095af32bc37b8ada5d77e25e34f8cb8572d46f6"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_iron_canted_v2.glb",
+          "size": 270768,
+          "sha256": "9eb695cfa4784f287c7dc9620771ad9209139d937de087900733b95592d13a88"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_prism.glb",
-          "size": 13688,
-          "sha256": "d16563c2844bf6da67e65a66c5ff18975acd7e36e835c069f13430ff6c009221"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_iron_v2.glb",
+          "size": 219720,
+          "sha256": "8520d6f0413e6a81c4a3d0a57fed89e46100878de35dfce2596d6d2768ff462e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_red_dot.glb",
-          "size": 9884,
-          "sha256": "2a2c682235c9702f5900b497a338e9092f22e2b8a580bb2e0ee78ddff3dc9c3a"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_laser_canted_v2.glb",
+          "size": 411368,
+          "sha256": "ccf2ce4c32f1ff50bda9d62c1da58d16c6e5a099f81dd69d3b855cc951b3aec9"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_reflex.glb",
-          "size": 9056,
-          "sha256": "273cd85ce1760da7ed44d4aa7bbc0f859d8bc26e21dec2fa4fa7546a0b6e2ad5"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_laser_v2.glb",
+          "size": 400100,
+          "sha256": "c16352ebd4f04161577caea63fc8c4acb31d4e7c6385ffb6ac35cdbc2217ffe1"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/sights/sight_scope.glb",
-          "size": 18904,
-          "sha256": "e1ee1eff85edd4a58044b0a24010b93cda025c9ec68c619889e499f1bbe8ff18"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_prism_canted_v2.glb",
+          "size": 453480,
+          "sha256": "23cced7f5bc87e3817a6aa842da1d4df4891959f5923ff17cd424025ba2b0d0b"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_cheek_rise.glb",
-          "size": 12064,
-          "sha256": "6b2fb3975bbb75ca70b7dbe164f5bfccff8114c49d5e084910ef0445efba4993"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_prism_v2.glb",
+          "size": 442156,
+          "sha256": "ee4e24371aa2eccb9e7ec96796b61f61ff98cf2b2d67333180e7df12e5a60841"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_collapsible.glb",
-          "size": 11020,
-          "sha256": "fb201e2769ec82ac3fa23cd6dce4db5d6498347c5c448a8e87b4612421768eab"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_red_dot_canted_v2.glb",
+          "size": 498792,
+          "sha256": "32898fbe44615983013e4082a92528ae58598d122477b8efd1f745574d4384ba"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_fixed.glb",
-          "size": 7184,
-          "sha256": "c4677bbb6d8dcb09af0eeecd83ec03ce27951f472d37f691669b50dbfb270dd4"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_red_dot_v2.glb",
+          "size": 487468,
+          "sha256": "0fe379900a8553917c61f2f616a14dd7781656d2868ff5e00ab9b0208be443a4"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_minimal.glb",
-          "size": 8448,
-          "sha256": "7d63409cae1b409c79f9059ed1e1ad10b53acef7a1c6fe7680702aba89064deb"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_reflex_canted_v2.glb",
+          "size": 414828,
+          "sha256": "4cbd00fa6ada5c9a1fdbcfc0379a275d8dc445bd5a91f81239423c187bab093f"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_skeleton.glb",
-          "size": 6900,
-          "sha256": "d50eab6920e042cf8b33737fda34f27fb29bff3fc2f9c5600840b945f6776660"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_reflex_v2.glb",
+          "size": 403508,
+          "sha256": "75f50685fe3c9d1e62f26a2239325fe618b427e5ceb87ffaf9629ab6c6d0d563"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/stocks/stock_thumbhole.glb",
-          "size": 9220,
-          "sha256": "5ed378fb5f06c6415df30252083328d7abbfe63c819c959878d454894e96eddc"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_scope_canted_v2.glb",
+          "size": 609248,
+          "sha256": "577be95d4e43f05754e81202036f6e5540b92322c50227f15253aed70cf6ff6f"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_co2.glb",
-          "size": 10868,
-          "sha256": "2832f7eeb914780215cfeaf4c87e0c0854a07998f37f86d943a0ae5ec15dd787"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/sights/sight_scope_v2.glb",
+          "size": 597944,
+          "sha256": "be5c1061a6a9acfa6b5129049b0f391ef4d7ead33cdc6d6485a72aea65d4d4eb"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_hpa_carbon.glb",
-          "size": 17800,
-          "sha256": "bb5c922127b542d6ba5de5df569c72892002e537189e9f2745db50fda1045ab7"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_cheek_rise_v2.glb",
+          "size": 376608,
+          "sha256": "7daa14ba54f66a24054a15d06ad9675bd4185e0b81318d97300d472f0ae44b39"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_hpa_large.glb",
-          "size": 15504,
-          "sha256": "5b94dae54a26cecc779e06e09f9b3cff16ee407c8ce70fc03a64f32355650640"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_collapsible_v2.glb",
+          "size": 378928,
+          "sha256": "269e3e251b6d802312a2ba3c6199ee92d78228f84bd6840ec4a76ba5164cfab1"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_hpa_mini.glb",
-          "size": 13776,
-          "sha256": "e4543c2e2dc670ac1baab013a07b405e1caf0472a0f61a1bcf61d40a64391fed"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_fixed_v2.glb",
+          "size": 208028,
+          "sha256": "5f801cfcc6b37d7e94453a092d039a032d8733c6a00eb79f2c8bee01fda76aa8"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_hpa_small.glb",
-          "size": 15528,
-          "sha256": "43f5c63492baa46e78fd2107231948aa06e6aa0d080bb3e6b56851da61443510"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_minimal_v2.glb",
+          "size": 345700,
+          "sha256": "e8504fbd787efcfc16424c7aa847d3f261c40dfb9877470f717b533ad66d2c5f"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/attachments/tanks/tank_twin_bottle.glb",
-          "size": 20932,
-          "sha256": "06df6b3dc892074fe183c4916a05d6f1f15ee78889b1ac149b609df1ce7dbdef"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_skeleton_v2.glb",
+          "size": 207464,
+          "sha256": "01b511d4a48889514e2dabf9c25aa39c661bdb804f8cdbf45336a5898aa2a60e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/bulldog.glb",
-          "size": 59556,
-          "sha256": "c827fefa64d06ae396673ba728c6740d8441d151fbf5a6eacf4c3cdeee708505"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/stocks/stock_thumbhole_v2.glb",
+          "size": 370996,
+          "sha256": "daf5f64ccdf7288869ec16f3ecc0b16a72af2e329c05dbace04e8e816b85b5e6"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/phantom.glb",
-          "size": 67728,
-          "sha256": "1a0f560594538920c29e01c19b6c8f22adb5a658a01b9f0ecbf598371470ea8e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_co2_v2.glb",
+          "size": 67172,
+          "sha256": "0d45f85c0104c7c1256898a0c8c1e84bb8e0d7395a11d2cfa511310b1ac8bf1c"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/raptor.glb",
-          "size": 46492,
-          "sha256": "e65ad6ee6aaa9486a15380552b21677ffaf114cddfe0b2de95757d1758032c58"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_hpa_carbon_v2.glb",
+          "size": 419240,
+          "sha256": "e54da4b13c8a441b33a3e37f5e041b50d5efcf603ca5dfcaea7f5a26cacabf18"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/shotgun.glb",
-          "size": 87656,
-          "sha256": "f28c44fe8182905f7dc0fc8f0f2252b29bf954a7527ab597fbacb5cc65ed8b18"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_hpa_large_v2.glb",
+          "size": 407016,
+          "sha256": "4a4be196ffcd75d9bdd2846ebb1679042287cc89720732fd2ec2fd92f5b7fa10"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/sniper.glb",
-          "size": 69140,
-          "sha256": "aa93de0783e1f7fcb47b934188049fdc6e29ae6f3a64630097cb72984bec84a5"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_hpa_mini_v2.glb",
+          "size": 236484,
+          "sha256": "2d2b616de923af7675228c0b2d540b8821513e6d0fc956d8186ccd41a3d014ac"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/titan.glb",
-          "size": 54192,
-          "sha256": "08d564af06cbf5a7154f4cdd1c73c78ba608a45ffe5a56d400b2f6f5c25f5f7b"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_hpa_small_v2.glb",
+          "size": 407016,
+          "sha256": "8bddd4fe827ecda00875d0956a948ce9fc91701cf3d7cc8c143b42c9140a99f5"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/bodies/vanta.glb",
-          "size": 50456,
-          "sha256": "afb42b1d8f08cefcbcf4405b5ef6ba9fbc109f3192f9aa02b6becc8da01b14f7"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/attachments/tanks/tank_twin_bottle_v2.glb",
+          "size": 424876,
+          "sha256": "0edb728292021db41096024017e8fc37b9af92a454727d410818e8fee7d8bd2e"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/bulldog_factory.glb",
-          "size": 143452,
-          "sha256": "7e73322c683e6fe8ae8096c28f9c35c200d3975415c98cc1d2c635b03fac8ce9"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/bulldog_v2.glb",
+          "size": 743264,
+          "sha256": "09e78e47163f82a9b05c8f73ac76c5f464c04d1365a77109bd89d2a6ad2c7b1a"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/phantom_factory.glb",
-          "size": 151580,
-          "sha256": "8ed6f5d57cd5391066f333d722018b59053c72a1361e76e64513551dddb17e2c"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/phantom_v2.glb",
+          "size": 696512,
+          "sha256": "e50f7301a21fb2df4080368367dea9c2d9e84e571ab78109ef368575451e6838"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/raptor_factory.glb",
-          "size": 116448,
-          "sha256": "aaa048aa04e1c4817fa51004f5303f2fba237b7d063013241612cb0a8bae05c4"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/raptor_v2.glb",
+          "size": 709712,
+          "sha256": "98713e4a88bfed71e0648a8033ab624557991e13a59f8bb1b81eefe664fec2e1"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/shotgun_factory.glb",
-          "size": 166104,
-          "sha256": "f1776b51e625bfb6637efac20fdf206da1c9bae4988b51d205fe9dc996f4db33"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/shotgun_v2.glb",
+          "size": 919192,
+          "sha256": "1780254765043727550696c6e523004ac5ea68c8784ae7dbfefce3ee04c93bb5"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/sniper_factory.glb",
-          "size": 162216,
-          "sha256": "b278fa1572fc9d96a1ba526c2a796792f87c1ad8b08760c3b7a6ce7f9d5c2870"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/sniper_v2.glb",
+          "size": 768584,
+          "sha256": "3c056773da41b5380d37ca9b03e94e7ca42a35c84b377b7decbfda1d7ffb33b1"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/titan_factory.glb",
-          "size": 145736,
-          "sha256": "74d8ae08f4000008a970c97458da6bd1c452b0a50e3faeb44b909f20f16cd10e"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/titan_v2.glb",
+          "size": 735068,
+          "sha256": "95d799f5ec65c0b7ae06edf273d67bea024846729e0e85440966f33629cfa7f3"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns/factory-builds/vanta_factory.glb",
-          "size": 101552,
-          "sha256": "d1ac1298e1b43e6f27dfaf38b694aa92f23c5b5e195dc2db1de48a6921d2c00d"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/bodies/vanta_v2.glb",
+          "size": 680100,
+          "sha256": "8598e761c80154a977d1d2eb03f2385166c250ddb39cd77cf616df03080d7081"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/bulldog_factory_v2.glb",
+          "size": 1332488,
+          "sha256": "fef55fd51195183862075af10690ecdabead68ab0ff8ff5fd359b3112a8d0bd1"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/phantom_factory_v2.glb",
+          "size": 1012084,
+          "sha256": "30df1b6fd76e86993b205a8d80be7501c7c4e61ae28e8f935c40a6333af25dee"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/raptor_factory_v2.glb",
+          "size": 1104224,
+          "sha256": "7fef1deee6370742164c51ce145978240dce0bde6f9350889c448f5e2d7e28bf"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/shotgun_factory_v2.glb",
+          "size": 1277388,
+          "sha256": "1d49b789fe9e8a6076e53683396c8758dff2b49833dbf222f25abef8578ac687"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/sniper_factory_v2.glb",
+          "size": 1384956,
+          "sha256": "2236d5e68b2136c7ab962e14852d5ff4f9adb9d56ee3cbead983d9b33596e3b5"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/titan_factory_v2.glb",
+          "size": 1196296,
+          "sha256": "39be197309b7d5c50df5dc8ab44bf70abec78aa4d1162b0dc58d09f886ead8ec"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/guns-v2/factory-builds/vanta_factory_v2.glb",
+          "size": 937480,
+          "sha256": "5830104aa4f7517fbd0f56bd813f72d1230351157d5e55aa2f420edbe34b5af0"
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/models/industrial/machinery/conveyor_section_2m.glb",
@@ -5118,19 +5188,19 @@
           "sha256": "fc51861681d077221051a3ce366a53a332810d785a3ee8d081d2b2a8391993c4"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns/minnow.glb",
-          "size": 43244,
-          "sha256": "41ea3fabd188d9f4e04125a785aab51c9504127f4e28fb74377d91dc5dba5845"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns-v2/minnow_v2.glb",
+          "size": 257540,
+          "sha256": "c976328e04dd998362f977e7192e591e27c61fadb45d45ba112beffed542f83a"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns/monsoon.glb",
-          "size": 69160,
-          "sha256": "2907c5b77857329841095994e4c26ef1a51dc37149db8d70405fbd9f63b30774"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns-v2/monsoon_v2.glb",
+          "size": 415324,
+          "sha256": "51e0cc96dbeaa9276fc31509e6604eccdcc8ea45e62f6a90edb23573c06d9755"
         },
         {
-          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns/tidal.glb",
-          "size": 59672,
-          "sha256": "26d3590956fe603281b41a1b39636af0269860817b9568805772e1dcb2e67dc0"
+          "path": "Ink-cognito.app/Contents/Resources/assets/models/water-guns-v2/tidal_v2.glb",
+          "size": 351912,
+          "sha256": "9bfa1dfa0b0d21b16fc12741f28ca57995014ca84efdb27906922b94ffbfd484"
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/models/weapons/gadgets/deployable_barricade.glb",
@@ -6214,8 +6284,8 @@
         },
         {
           "path": "Ink-cognito.app/Contents/_CodeSignature/CodeResources",
-          "size": 185402,
-          "sha256": "47f917ae7da4db9be417ad3dbcc03d919e24864e2d617789a2a8da7267cd1223"
+          "size": 188454,
+          "sha256": "852305762efbbeba1d243cfd974dd4e5d2834db2111bb1fc2b9143b0d85a031b"
         }
       ]
     }
