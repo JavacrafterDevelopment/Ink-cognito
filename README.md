@@ -122,7 +122,7 @@ Ids in `pieces.py` are what map files store, so never change one once a map uses
 
 ## How to play
 
-1. Start the game. The main menu has **Play**, **Join by Address**, **Loadout**, **Options**
+1. Start the game. The main menu has **Play**, **Join by Address**, **Loadout**, **Stats**, **Options**
    and **Quit**, your rank card, and the games in your Portside hub.
 2. **Host:** click **Play**, pick a mode and a map (the map shows behind the menu), and
    click **Create Match**. Once hosting starts, the in-game panel shows your TailCat address
@@ -139,6 +139,13 @@ Ids in `pieces.py` are what map files store, so never change one once a map uses
    200, 300, 400 and 500 splats with that body, and its attachments unlock with splats or
    challenges (crouching splats, splats from 25 m+, hip-fire splats and aimed splats). Only
    splats in a live match count. Locked parts show what they need and how far along you are.
+7. **Splatted by:** when you're splatted, a card shows who got you (bots too), their gun turning
+   in a 3D preview with every attachment and camo listed, how much health they had left and how
+   far away they were.
+8. **Stats** (main menu): your career record, saved on your computer: splats, times splatted,
+   splat ratio, accuracy (balls that hit an enemy out of balls fired), wins and win rate,
+   headshots, best streak, longest splat, time played, bots splatted, the gun that splats you
+   most, wins per mode, and a line per gun you've used. Only live match play counts.
 
 ### Controls
 
@@ -203,6 +210,8 @@ everything, or `-p ink-map-editor` for the editor.
 | `src/game_mode.rs` | Match rules: phases, clock, scores, rounds, respawns (run by the host) |
 | `src/ranked.rs` | Rank points, tiers and the ranked save file |
 | `src/progression.rs` | Per-body splat records, camo and attachment unlocks, unlock pop-ups |
+| `src/stats.rs` | Career stats, their save file, and the Stats page |
+| `src/splat_card.rs` | The "splatted by" card with the shooter's gun preview |
 | `src/podium.rs` | The end-of-match podium and the trip back to the main menu |
 | `src/world.rs` | Player movement and camera |
 | `src/player_model.rs` | Rigged player models, animations, and the gun in their hands |

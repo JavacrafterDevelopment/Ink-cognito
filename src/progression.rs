@@ -50,6 +50,8 @@ pub struct LocalSplat {
     pub distance: f32,
     pub crouched: bool,
     pub aiming: bool,
+    /// Who we splatted.
+    pub victim: crate::protocol::PlayerId,
 }
 
 /// What an unlock asks for.
@@ -516,11 +518,13 @@ mod tests {
             distance: 30.0,
             crouched: true,
             aiming: true,
+            victim: 1,
         });
         r.add(&LocalSplat {
             distance: 5.0,
             crouched: false,
             aiming: false,
+            victim: 1,
         });
         assert_eq!(
             (r.splats, r.long_range, r.crouched, r.aimed, r.hip_fire),
