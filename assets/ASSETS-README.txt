@@ -7,9 +7,9 @@ preview_textures.png and preview_models.png show everything at a glance.
 
 FOLDER MAP
 assets/models/
-  guns/bodies, guns/attachments/*, guns/factory-builds   modular paintball guns (see LowPoly Armory README for mount points)
+  guns-v2/bodies, guns-v2/attachments/*, guns-v2/factory-builds   modular paintball guns (Armory V2: textured, see-through sights, ads_eye nodes) (see LowPoly Armory README for mount points)
   players/            blue + orange rigged players (Idle + Walk animations)
-  water-guns/         minnow, tidal, monsoon
+  water-guns-v2/      minnow, tidal, monsoon (V2: translucent water with slosh morph targets)
   projectiles/        paintball_{blue,orange,yellow,pink} (real 17.3 mm size), paintball_shell_shards, water_balloon
   bunkers/            inflatable airball set: can, mini_can, cake, dorito, brick, snake, temple, tall_wall, tree
   props/              barrel, crate, sandbag_wall, netting_fence_section, field_cone,

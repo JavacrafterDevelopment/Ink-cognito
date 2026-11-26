@@ -21,37 +21,37 @@ pub const BODIES: &[Part] = &[
     Part {
         name: "Vanta",
         blurb: "All-rounder. Steady rate of fire, easy to aim.",
-        model: "models/guns/bodies/vanta.glb",
+        model: "models/guns-v2/bodies/vanta_v2.glb",
     },
     Part {
         name: "Bulldog",
         blurb: "Heavy hitter. Slow, but every ball counts.",
-        model: "models/guns/bodies/bulldog.glb",
+        model: "models/guns-v2/bodies/bulldog_v2.glb",
     },
     Part {
         name: "Raptor",
         blurb: "Speedball marker. Sprays fast, spreads wide.",
-        model: "models/guns/bodies/raptor.glb",
+        model: "models/guns-v2/bodies/raptor_v2.glb",
     },
     Part {
         name: "Phantom",
         blurb: "Precision marker with a fast, flat shot.",
-        model: "models/guns/bodies/phantom.glb",
+        model: "models/guns-v2/bodies/phantom_v2.glb",
     },
     Part {
         name: "Titan",
         blurb: "Full-auto workhorse. Heavy to carry.",
-        model: "models/guns/bodies/titan.glb",
+        model: "models/guns-v2/bodies/titan_v2.glb",
     },
     Part {
         name: "Breacher",
         blurb: "Paint shotgun: 6 balls x 13 damage a pull. Brutal up close.",
-        model: "models/guns/bodies/shotgun.glb",
+        model: "models/guns-v2/bodies/shotgun_v2.glb",
     },
     Part {
         name: "Longshot",
         blurb: "Bolt-action sniper marker. Two hits splat.",
-        model: "models/guns/bodies/sniper.glb",
+        model: "models/guns-v2/bodies/sniper_v2.glb",
     },
 ];
 
@@ -59,42 +59,42 @@ pub const BARRELS: &[Part] = &[
     Part {
         name: "Stub",
         blurb: "Short and light: move faster, less accurate.",
-        model: "models/guns/attachments/barrels/barrel_stub.glb",
+        model: "models/guns-v2/attachments/barrels/barrel_stub_v2.glb",
     },
     Part {
         name: "Long",
         blurb: "Tighter groups and a faster ball.",
-        model: "models/guns/attachments/barrels/barrel_long.glb",
+        model: "models/guns-v2/attachments/barrels/barrel_long_v2.glb",
     },
     Part {
         name: "Shrouded",
         blurb: "Quieter shots, slightly tighter groups.",
-        model: "models/guns/attachments/barrels/barrel_shrouded.glb",
+        model: "models/guns-v2/attachments/barrels/barrel_shrouded_v2.glb",
     },
     Part {
         name: "Ported",
         blurb: "Ports tame the kick: best accuracy.",
-        model: "models/guns/attachments/barrels/barrel_ported.glb",
+        model: "models/guns-v2/attachments/barrels/barrel_ported_v2.glb",
     },
     Part {
         name: "Bull",
         blurb: "Hits harder, groups wider.",
-        model: "models/guns/attachments/barrels/barrel_bull.glb",
+        model: "models/guns-v2/attachments/barrels/barrel_bull_v2.glb",
     },
     Part {
         name: "Sawed-off",
         blurb: "Short and wide: light, hits a bit harder, sprays.",
-        model: "models/guns/attachments/barrels/barrel_sawed_off.glb",
+        model: "models/guns-v2/attachments/barrels/barrel_sawed_off_v2.glb",
     },
     Part {
         name: "Suppressor",
         blurb: "Near-silent shots, slightly tighter.",
-        model: "models/guns/attachments/barrels/barrel_suppressor.glb",
+        model: "models/guns-v2/attachments/barrels/barrel_suppressor_v2.glb",
     },
     Part {
         name: "Twin",
         blurb: "Two bores: cycles faster, groups wider.",
-        model: "models/guns/attachments/barrels/barrel_twin.glb",
+        model: "models/guns-v2/attachments/barrels/barrel_twin_v2.glb",
     },
 ];
 
@@ -102,42 +102,42 @@ pub const HOPPERS: &[Part] = &[
     Part {
         name: "Gravity",
         blurb: "40 balls, average reload.",
-        model: "models/guns/attachments/hoppers/hopper_gravity.glb",
+        model: "models/guns-v2/attachments/hoppers/hopper_gravity_v2.glb",
     },
     Part {
         name: "Loader",
         blurb: "100 balls, slow reload.",
-        model: "models/guns/attachments/hoppers/hopper_loader.glb",
+        model: "models/guns-v2/attachments/hoppers/hopper_loader_v2.glb",
     },
     Part {
         name: "Low Pro",
         blurb: "60 balls, quick reload.",
-        model: "models/guns/attachments/hoppers/hopper_low_pro.glb",
+        model: "models/guns-v2/attachments/hoppers/hopper_low_pro_v2.glb",
     },
     Part {
         name: "Drum",
         blurb: "150 balls, slowest reload, heavy.",
-        model: "models/guns/attachments/hoppers/hopper_drum.glb",
+        model: "models/guns-v2/attachments/hoppers/hopper_drum_v2.glb",
     },
     Part {
         name: "Pod",
         blurb: "30 balls, fastest reload.",
-        model: "models/guns/attachments/hoppers/hopper_pod.glb",
+        model: "models/guns-v2/attachments/hoppers/hopper_pod_v2.glb",
     },
     Part {
         name: "Box",
         blurb: "80 balls, steady reload.",
-        model: "models/guns/attachments/hoppers/hopper_box.glb",
+        model: "models/guns-v2/attachments/hoppers/hopper_box_v2.glb",
     },
     Part {
         name: "Speedfeed",
         blurb: "50 balls, quick reload.",
-        model: "models/guns/attachments/hoppers/hopper_speedfeed.glb",
+        model: "models/guns-v2/attachments/hoppers/hopper_speedfeed_v2.glb",
     },
     Part {
         name: "Stick Mag",
         blurb: "25 balls, very fast swaps.",
-        model: "models/guns/attachments/hoppers/hopper_stick_mag.glb",
+        model: "models/guns-v2/attachments/hoppers/hopper_stick_mag_v2.glb",
     },
 ];
 
@@ -151,39 +151,113 @@ pub const SIGHTS: &[Part] = &[
     Part {
         name: "Iron",
         blurb: "Simple irons. 1.2x zoom.",
-        model: "models/guns/attachments/sights/sight_iron.glb",
+        model: "models/guns-v2/attachments/sights/sight_iron_v2.glb",
     },
     Part {
         name: "Red Dot",
         blurb: "Clean dot. 1.35x zoom.",
-        model: "models/guns/attachments/sights/sight_red_dot.glb",
+        model: "models/guns-v2/attachments/sights/sight_red_dot_v2.glb",
     },
     Part {
         name: "Holo",
         blurb: "Wide window. 1.5x zoom.",
-        model: "models/guns/attachments/sights/sight_holo.glb",
+        model: "models/guns-v2/attachments/sights/sight_holo_v2.glb",
     },
     Part {
         name: "Scope",
         blurb: "Long range. 2.6x zoom, slower to move.",
-        model: "models/guns/attachments/sights/sight_scope.glb",
+        model: "models/guns-v2/attachments/sights/sight_scope_v2.glb",
     },
     Part {
         name: "Laser",
         blurb: "Tighter from the hip. 1.15x zoom.",
-        model: "models/guns/attachments/sights/sight_laser.glb",
+        model: "models/guns-v2/attachments/sights/sight_laser_v2.glb",
     },
     Part {
         name: "Prism",
         blurb: "Mid-range glass. 1.8x zoom.",
-        model: "models/guns/attachments/sights/sight_prism.glb",
+        model: "models/guns-v2/attachments/sights/sight_prism_v2.glb",
     },
     Part {
         name: "Reflex",
         blurb: "Open and quick. 1.3x zoom.",
-        model: "models/guns/attachments/sights/sight_reflex.glb",
+        model: "models/guns-v2/attachments/sights/sight_reflex_v2.glb",
+    },
+    Part {
+        name: "Canted Iron",
+        blurb: "Irons on a 45° side mount: roll the gun to aim. 1.2x zoom.",
+        model: "models/guns-v2/attachments/sights/sight_iron_canted_v2.glb",
+    },
+    Part {
+        name: "Canted Red Dot",
+        blurb: "Dot on a 45° side mount: roll the gun to aim. 1.35x zoom.",
+        model: "models/guns-v2/attachments/sights/sight_red_dot_canted_v2.glb",
+    },
+    Part {
+        name: "Canted Holo",
+        blurb: "Holo on a 45° side mount: roll the gun to aim. 1.5x zoom.",
+        model: "models/guns-v2/attachments/sights/sight_holo_canted_v2.glb",
+    },
+    Part {
+        name: "Canted Scope",
+        blurb: "Scope on a 45° side mount: roll the gun to aim. 2.6x zoom, slower to move.",
+        model: "models/guns-v2/attachments/sights/sight_scope_canted_v2.glb",
+    },
+    Part {
+        name: "Canted Laser",
+        blurb: "Laser on a 45° side mount. Tighter from the hip. 1.15x zoom.",
+        model: "models/guns-v2/attachments/sights/sight_laser_canted_v2.glb",
+    },
+    Part {
+        name: "Canted Prism",
+        blurb: "Prism on a 45° side mount: roll the gun to aim. 1.8x zoom.",
+        model: "models/guns-v2/attachments/sights/sight_prism_canted_v2.glb",
+    },
+    Part {
+        name: "Canted Reflex",
+        blurb: "Reflex on a 45° side mount: roll the gun to aim. 1.3x zoom.",
+        model: "models/guns-v2/attachments/sights/sight_reflex_canted_v2.glb",
     },
 ];
+
+/// Sights 8.. are the canted (45° offset) versions of sights 1..=7.
+pub const FIRST_CANTED_SIGHT: u8 = 8;
+
+/// The upright sight a (possibly canted) sight index plays like.
+pub fn base_sight(sight: u8) -> u8 {
+    if sight >= FIRST_CANTED_SIGHT {
+        sight - FIRST_CANTED_SIGHT + 1
+    } else {
+        sight
+    }
+}
+
+/// Whether a sight sits on a 45° canted mount (aiming rolls the gun).
+pub fn is_canted_sight(sight: u8) -> bool {
+    sight >= FIRST_CANTED_SIGHT
+}
+
+/// Where to put the eye to look through a sight, in the gun's frame: the
+/// `ads_eye` / `ads_eye_canted` node of each Armory V2 sight (looking down
+/// the node's +X with its +Y up puts the reticle dead centre). Canted eyes
+/// are also rolled 45° about +X. None for no sight and the lasers.
+pub fn sight_eye(sight: u8) -> Option<Vec3> {
+    Some(match sight {
+        1 => Vec3::new(-0.03, 0.1, 0.0),
+        2 => Vec3::new(-0.01, 0.11, 0.0),
+        3 => Vec3::new(0.016, 0.108, 0.0),
+        4 => Vec3::new(-0.07, 0.102, 0.0),
+        6 => Vec3::new(-0.004, 0.106, 0.0),
+        7 => Vec3::new(0.02, 0.106, 0.0),
+        8 => Vec3::new(-0.03, 0.10297, 0.04297),
+        9 => Vec3::new(-0.01, 0.11004, 0.05004),
+        10 => Vec3::new(0.016, 0.10863, 0.04863),
+        11 => Vec3::new(-0.07, 0.10438, 0.04438),
+        13 => Vec3::new(-0.004, 0.10721, 0.04721),
+        14 => Vec3::new(0.02, 0.10721, 0.04721),
+        _ => return None,
+    })
+}
 
 pub const STOCKS: &[Part] = &[
     Part {
@@ -194,32 +268,32 @@ pub const STOCKS: &[Part] = &[
     Part {
         name: "Fixed",
         blurb: "Solid shoulder: steadier aim.",
-        model: "models/guns/attachments/stocks/stock_fixed.glb",
+        model: "models/guns-v2/attachments/stocks/stock_fixed_v2.glb",
     },
     Part {
         name: "Skeleton",
         blurb: "Light frame: a little steadier, still quick.",
-        model: "models/guns/attachments/stocks/stock_skeleton.glb",
+        model: "models/guns-v2/attachments/stocks/stock_skeleton_v2.glb",
     },
     Part {
         name: "Collapsible",
         blurb: "Balanced steadiness and speed.",
-        model: "models/guns/attachments/stocks/stock_collapsible.glb",
+        model: "models/guns-v2/attachments/stocks/stock_collapsible_v2.glb",
     },
     Part {
         name: "Cheek Rise",
         blurb: "Steadiest aim, heaviest stock.",
-        model: "models/guns/attachments/stocks/stock_cheek_rise.glb",
+        model: "models/guns-v2/attachments/stocks/stock_cheek_rise_v2.glb",
     },
     Part {
         name: "Minimal",
         blurb: "A bare brace: quick, a little steadier.",
-        model: "models/guns/attachments/stocks/stock_minimal.glb",
+        model: "models/guns-v2/attachments/stocks/stock_minimal_v2.glb",
     },
     Part {
         name: "Thumbhole",
         blurb: "Locked-in grip: very steady aim.",
-        model: "models/guns/attachments/stocks/stock_thumbhole.glb",
+        model: "models/guns-v2/attachments/stocks/stock_thumbhole_v2.glb",
     },
 ];
 
@@ -227,32 +301,32 @@ pub const TANKS: &[Part] = &[
     Part {
         name: "HPA Small",
         blurb: "Light air tank.",
-        model: "models/guns/attachments/tanks/tank_hpa_small.glb",
+        model: "models/guns-v2/attachments/tanks/tank_hpa_small_v2.glb",
     },
     Part {
         name: "HPA Large",
         blurb: "More pressure: faster balls, heavier.",
-        model: "models/guns/attachments/tanks/tank_hpa_large.glb",
+        model: "models/guns-v2/attachments/tanks/tank_hpa_large_v2.glb",
     },
     Part {
         name: "HPA Carbon",
         blurb: "Fast balls without the weight.",
-        model: "models/guns/attachments/tanks/tank_hpa_carbon.glb",
+        model: "models/guns-v2/attachments/tanks/tank_hpa_carbon_v2.glb",
     },
     Part {
         name: "CO2",
         blurb: "Cheap and cold: slower balls, quicker cycling.",
-        model: "models/guns/attachments/tanks/tank_co2.glb",
+        model: "models/guns-v2/attachments/tanks/tank_co2_v2.glb",
     },
     Part {
         name: "HPA Mini",
         blurb: "Tiny and light: a touch slower balls.",
-        model: "models/guns/attachments/tanks/tank_hpa_mini.glb",
+        model: "models/guns-v2/attachments/tanks/tank_hpa_mini_v2.glb",
     },
     Part {
         name: "Twin Bottle",
         blurb: "Most pressure: fastest balls, heaviest.",
-        model: "models/guns/attachments/tanks/tank_twin_bottle.glb",
+        model: "models/guns-v2/attachments/tanks/tank_twin_bottle_v2.glb",
     },
 ];
 
@@ -265,27 +339,27 @@ pub const FOREGRIPS: &[Part] = &[
     Part {
         name: "Vertical",
         blurb: "Tighter groups while moving.",
-        model: "models/guns/attachments/foregrips/grip_vertical.glb",
+        model: "models/guns-v2/attachments/foregrips/grip_vertical_v2.glb",
     },
     Part {
         name: "Angled",
         blurb: "Faster to aim, slightly tighter.",
-        model: "models/guns/attachments/foregrips/grip_angled.glb",
+        model: "models/guns-v2/attachments/foregrips/grip_angled_v2.glb",
     },
     Part {
         name: "Bipod",
         blurb: "Very tight when still, heavy.",
-        model: "models/guns/attachments/foregrips/grip_bipod.glb",
+        model: "models/guns-v2/attachments/foregrips/grip_bipod_v2.glb",
     },
     Part {
         name: "Handstop",
         blurb: "Slightly tighter, no weight.",
-        model: "models/guns/attachments/foregrips/grip_handstop.glb",
+        model: "models/guns-v2/attachments/foregrips/grip_handstop_v2.glb",
     },
     Part {
         name: "Stubby",
         blurb: "Short grip: tighter while moving.",
-        model: "models/guns/attachments/foregrips/grip_stubby.glb",
+        model: "models/guns-v2/attachments/foregrips/grip_stubby_v2.glb",
     },
 ];
 
@@ -342,17 +416,17 @@ pub const WATER_GUNS: &[Part] = &[
     Part {
         name: "Minnow",
         blurb: "Pocket squirter. Quick and light.",
-        model: "models/water-guns/minnow.glb",
+        model: "models/water-guns-v2/minnow_v2.glb",
     },
     Part {
         name: "Tidal",
         blurb: "Pump-action stream with good reach.",
-        model: "models/water-guns/tidal.glb",
+        model: "models/water-guns-v2/tidal_v2.glb",
     },
     Part {
         name: "Monsoon",
         blurb: "Huge tank, soaks everything in front of it.",
-        model: "models/water-guns/monsoon.glb",
+        model: "models/water-guns-v2/monsoon_v2.glb",
     },
 ];
 
@@ -744,7 +818,7 @@ fn paintball_stats(l: &Loadout) -> WeaponStats {
         6 => (50, 1.4),
         _ => (25, 0.9),
     };
-    s.zoom = match l.sight {
+    s.zoom = match base_sight(l.sight) {
         0 => 1.1,
         1 => 1.2,
         2 => 1.35,
@@ -1223,6 +1297,86 @@ pub fn save_loadout(loadout: &Loadout) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The JSON chunk of a .glb file under `assets/`.
+    fn glb_json(path: &str) -> serde_json::Value {
+        let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join(path);
+        let bytes = std::fs::read(&file).unwrap_or_else(|e| panic!("{path}: {e}"));
+        assert_eq!(&bytes[0..4], b"glTF", "{path} is not a .glb");
+        let len = u32::from_le_bytes(bytes[12..16].try_into().unwrap()) as usize;
+        serde_json::from_slice(&bytes[20..20 + len]).unwrap()
+    }
+
+    #[test]
+    fn every_gun_model_exists() {
+        for table in [
+            BODIES, BARRELS, HOPPERS, SIGHTS, STOCKS, TANKS, FOREGRIPS, WATER_GUNS,
+        ] {
+            for part in table.iter().filter(|p| !p.model.is_empty()) {
+                glb_json(part.model);
+            }
+        }
+    }
+
+    /// `sight_eye` matches each sight model's `ads_eye` node, so aiming
+    /// puts the reticle in the middle of the screen.
+    #[test]
+    fn sight_eyes_match_the_models() {
+        for (i, part) in SIGHTS.iter().enumerate().skip(1) {
+            let json = glb_json(part.model);
+            let eye = json["nodes"].as_array().unwrap().iter().find(|n| {
+                n["name"]
+                    .as_str()
+                    .is_some_and(|name| name.starts_with("ads_eye"))
+            });
+            let ours = sight_eye(i as u8);
+            match (eye, ours) {
+                (None, None) => {}
+                (Some(node), Some(ours)) => {
+                    let t: Vec<f32> = node["translation"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|v| v.as_f64().unwrap() as f32)
+                        .collect();
+                    assert!(
+                        Vec3::from_slice(&t).distance(ours) < 1e-4,
+                        "{}: model eye {t:?}, ours {ours}",
+                        part.name
+                    );
+                    // Canted eyes are rolled 45° about +X; upright ones aren't.
+                    let rolled = node["rotation"].as_array().is_some_and(|r| {
+                        (r[0].as_f64().unwrap() - (std::f64::consts::PI / 8.0).sin()).abs() < 1e-4
+                    });
+                    assert_eq!(rolled, is_canted_sight(i as u8), "{}", part.name);
+                }
+                _ => panic!("{}: ads_eye node and sight_eye disagree", part.name),
+            }
+        }
+    }
+
+    #[test]
+    fn canted_sights_play_like_their_upright_twins() {
+        for i in FIRST_CANTED_SIGHT..SIGHTS.len() as u8 {
+            let base = base_sight(i);
+            assert_eq!(
+                SIGHTS[i as usize].name,
+                format!("Canted {}", SIGHTS[base as usize].name)
+            );
+            let canted = Loadout {
+                sight: i,
+                ..default()
+            };
+            let upright = Loadout {
+                sight: base,
+                ..default()
+            };
+            assert_eq!(canted.stats().zoom, upright.stats().zoom);
+            assert_eq!(Loadout::unpack(canted.pack()), canted);
+        }
+    }
 
     #[test]
     fn loadouts_survive_packing() {

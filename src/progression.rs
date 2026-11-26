@@ -96,8 +96,9 @@ const HOPPER_REQS: [Option<Req>; 8] = [
     req(HipFire, 25),
     req(Crouched, 30),
 ];
-/// Sights: None, Iron, Red Dot, Holo, Scope, Laser, Prism, Reflex.
-const SIGHT_REQS: [Option<Req>; 8] = [
+/// Sights: None, Iron, Red Dot, Holo, Scope, Laser, Prism, Reflex, then the
+/// canted versions of Iron..Reflex (a little more of the same challenge).
+const SIGHT_REQS: [Option<Req>; 15] = [
     None,
     None,
     req(Aimed, 15),
@@ -106,6 +107,13 @@ const SIGHT_REQS: [Option<Req>; 8] = [
     req(HipFire, 20),
     req(Aimed, 40),
     req(Splats, 10),
+    req(Aimed, 10),
+    req(Aimed, 25),
+    req(Aimed, 45),
+    req(LongRange, 30),
+    req(HipFire, 30),
+    req(Aimed, 55),
+    req(Splats, 20),
 ];
 /// Stocks: None, Fixed, Skeleton, Collapsible, Cheek Rise, Minimal, Thumbhole.
 const STOCK_REQS: [Option<Req>; 7] = [

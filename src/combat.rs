@@ -10,7 +10,10 @@ use crate::{
     AppState, Overlay,
     arena::Colliders,
     game_mode::respawn_local,
-    loadout::{GunAssets, GunKind, GunModel, Loadout, WeaponStats, spawn_gun_parts},
+    loadout::{
+        GunAssets, GunKind, GunModel, Loadout, WeaponStats, is_canted_sight, sight_eye,
+        spawn_gun_parts,
+    },
     maps::MapInfo,
     net::NetworkState,
     player_model::{PlayerModelAssets, Rig},
@@ -622,14 +625,32 @@ fn hide_viewmodel(mut vm_q: Query<&mut Visibility, With<ViewModel>>) {
 
 const HIP_POS: Vec3 = Vec3::new(0.24, -0.27, -0.62);
 
+/// How far the gun rolls (about its barrel) when fully aimed: canted sights
+/// sit on a 45° side mount, so aiming through one rolls the gun to bring it on top.
+fn aim_cant(kind: GunKind, sight: u8) -> f32 {
+    if kind == GunKind::Paintball && is_canted_sight(sight) && sight_eye(sight).is_some() {
+        std::f32::consts::FRAC_PI_4
+    } else {
+        0.0
+    }
+}
+
+/// The view model's rotation before sprint / bob / recoil: barrel forward
+/// (gun +X to camera -Z), rolled by `cant` about the barrel.
+fn gun_base_rotation(cant: f32) -> Quat {
+    Quat::from_rotation_y(std::f32::consts::FRAC_PI_2) * Quat::from_rotation_x(-cant)
+}
+
 fn aim_pos(kind: GunKind, sight: u8) -> Vec3 {
     match kind {
         GunKind::Water => Vec3::new(0.06, -0.14, -0.5),
-        // Sight just under the middle of the screen, hopper off to the right.
-        GunKind::Paintball => match sight {
-            0 => Vec3::new(0.1, -0.12, -0.5),
-            4 => Vec3::new(0.09, -0.15, -0.42),
-            _ => Vec3::new(0.1, -0.14, -0.46),
+        // Looking through a sight: its eye point sits on the camera, so the
+        // reticle is dead centre (where the shots go).
+        GunKind::Paintball => match sight_eye(sight) {
+            Some(eye) => -(gun_base_rotation(aim_cant(kind, sight)) * eye),
+            // No sight / laser: gun just under the middle of the screen.
+            None if sight == 0 => Vec3::new(0.1, -0.12, -0.5),
+            None => Vec3::new(0.1, -0.14, -0.46),
         },
     }
 }
@@ -1818,8 +1839,9 @@ fn update_viewmodel(
     let sprint_rot = Quat::from_rotation_y(0.95 * sb + bob_yaw)
         * Quat::from_rotation_x(-0.22 * sb + bob_pitch)
         * Quat::from_rotation_z(0.35 * sb + bob_roll);
+    let cant = aim_cant(combat.kind, loadout.sight) * combat.aim_blend;
     tf.rotation = sprint_rot
-        * Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)
+        * gun_base_rotation(cant)
         * Quat::from_rotation_z(combat.recoil * 0.06 - reload_dip * 0.5);
 }
 
