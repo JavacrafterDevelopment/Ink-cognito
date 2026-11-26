@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.7.0",
-      "published": "2026-11-26T09:11:15Z",
-      "notes": "## What's Changed\n* Fix 3D spatial audio, overhaul Play lobby (COD Private Match style), and add end-of-match map voting by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/27\n* Procedural leg animation and faster projectile collision by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/28\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.9...v0.7.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.7.0",
+      "version": "0.8.0",
+      "published": "2026-11-26T17:42:01Z",
+      "notes": "## What's Changed\n* Add bots that fill matches to 10 players by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/29\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.7.0...v0.8.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.7.0/Ink-cognito-windows-x64.zip",
-        "size": 109804247,
-        "sha256": "55a81d835d9f865622956ca904920d6aec4a30d5e5057de51cf73ba9611079d1"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.0/Ink-cognito-windows-x64.zip",
+        "size": 109858270,
+        "sha256": "c27d0e343c4091596428813bbb0a25d1d698144ddf567a46fe67b27405c904f0"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3125,25 +3125,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 103190528,
-          "sha256": "bf9d48972571dd977208bb35bed37e37d01a592ffda906274052927bd8eb156c"
+          "size": 103318528,
+          "sha256": "880a72d7ad160a8f9019a772ab7ec57ee95dfc06c751f7102b2ad2ec66d03e20"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 98472960,
-          "sha256": "8d653031e86b2aee74696f726155ad55f7c69c179ae37b73fb5d03766a0d7cb8"
+          "sha256": "d82f5a388f1476a63e7f7c5865fc3ad4d2d4e6310b2cdd0cf136e820f0a813ca"
         }
       ]
     },
     "stable": {
-      "version": "0.7.0",
-      "published": "2026-11-26T09:11:15Z",
-      "notes": "## What's Changed\n* Fix 3D spatial audio, overhaul Play lobby (COD Private Match style), and add end-of-match map voting by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/27\n* Procedural leg animation and faster projectile collision by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/28\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.6.9...v0.7.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.7.0",
+      "version": "0.8.0",
+      "published": "2026-11-26T17:42:01Z",
+      "notes": "## What's Changed\n* Add bots that fill matches to 10 players by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/29\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.7.0...v0.8.0",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.0",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.7.0/Ink-cognito-windows-x64.zip",
-        "size": 109804247,
-        "sha256": "55a81d835d9f865622956ca904920d6aec4a30d5e5057de51cf73ba9611079d1"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.0/Ink-cognito-windows-x64.zip",
+        "size": 109858270,
+        "sha256": "c27d0e343c4091596428813bbb0a25d1d698144ddf567a46fe67b27405c904f0"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -6259,13 +6259,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 103190528,
-          "sha256": "bf9d48972571dd977208bb35bed37e37d01a592ffda906274052927bd8eb156c"
+          "size": 103318528,
+          "sha256": "880a72d7ad160a8f9019a772ab7ec57ee95dfc06c751f7102b2ad2ec66d03e20"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 98472960,
-          "sha256": "8d653031e86b2aee74696f726155ad55f7c69c179ae37b73fb5d03766a0d7cb8"
+          "sha256": "d82f5a388f1476a63e7f7c5865fc3ad4d2d4e6310b2cdd0cf136e820f0a813ca"
         }
       ]
     }
