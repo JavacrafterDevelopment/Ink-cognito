@@ -827,6 +827,7 @@ fn fire_local(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut combat: ResMut<Combat>,
     mut local_state: ResMut<LocalState>,
+    mut tally: ResMut<crate::stats::ShotTally>,
     player_q: Query<&LocalPlayer>,
     camera_q: Query<&Transform, With<MainCamera>>,
 ) {
@@ -860,6 +861,7 @@ fn fire_local(
     combat.recoil = (combat.recoil + 0.35).min(1.0);
     local_state.0.shots = local_state.0.shots.wrapping_add(1);
     let shot = local_state.0.shots;
+    tally.fired += stats.pellets;
 
     let moving = player.speed > 0.5;
     let mut spread = stats.spread * if moving { 1.0 } else { 0.6 };
@@ -1307,7 +1309,7 @@ fn move_projectiles(
     mut fx: ResMut<Fx>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut combat: ResMut<Combat>,
-    mut hits: ResMut<HitBookkeeping>,
+    (mut hits, mut tally): (ResMut<HitBookkeeping>, ResMut<crate::stats::ShotTally>),
     local_state: Res<LocalState>,
     camera_q: Query<&GlobalTransform, With<MainCamera>>,
     local_q: Query<(&Transform, &LocalPlayer), Without<Projectile>>,
@@ -1444,6 +1446,10 @@ fn move_projectiles(
                 let normal = -ball.velocity.normalize_or(Vec3::Z);
                 player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
                 if Some(ball.owner) == local_id {
+                    tally.hit += 1;
+                    if headshot {
+                        tally.headshots += 1;
+                    }
                     // A kill marker that is still showing wins over a new hit.
                     if combat.hitmarker_kind != HitmarkerKind::Kill || combat.hitmarker <= 0.0 {
                         combat.hitmarker_kind = if headshot {
@@ -1809,6 +1815,7 @@ fn remote_eliminations(
                             distance: me.translation.distance(transform.translation),
                             crouched: player.crouch > 0.5,
                             aiming: combat.aim_blend > 0.5,
+                            victim: remote.id,
                         });
                     }
                 } else {

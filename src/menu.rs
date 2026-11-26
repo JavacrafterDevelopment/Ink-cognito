@@ -91,6 +91,7 @@ pub enum MenuScreen {
     Join,
     Play,
     Loadout,
+    Stats,
     Options,
 }
 
@@ -164,6 +165,7 @@ enum MenuAction {
     OpenJoin,
     OpenLoadout,
     OpenSettings,
+    OpenStats,
     PasteAddress,
     ClearAddress,
     ConnectJoin,
@@ -553,6 +555,13 @@ fn on_menu_click(
                 net.error_text = None;
                 menu.loadout_from_play = false;
                 menu.screen = MenuScreen::Options;
+            }
+        }
+        MenuAction::OpenStats => {
+            if !net.is_connecting {
+                net.error_text = None;
+                menu.loadout_from_play = false;
+                menu.screen = MenuScreen::Stats;
             }
         }
         MenuAction::OpenJoin => {
@@ -1361,10 +1370,11 @@ fn spawn_top_bar(commands: &mut Commands, assets: &AssetServer, fonts: &UiKit) {
             DespawnOnExit(AppState::MainMenu),
         ))
         .with_children(|bar| {
-            let tabs: [(&str, MenuAction, MenuScreen); 4] = [
+            let tabs: [(&str, MenuAction, MenuScreen); 5] = [
                 ("HOME", MenuAction::BackToHome, MenuScreen::Home),
                 ("PLAY", MenuAction::OpenPlay, MenuScreen::Play),
                 ("LOADOUT", MenuAction::OpenLoadout, MenuScreen::Loadout),
+                ("STATS", MenuAction::OpenStats, MenuScreen::Stats),
                 ("OPTIONS", MenuAction::OpenSettings, MenuScreen::Options),
             ];
             for (label, action, screen) in tabs {
@@ -3667,7 +3677,7 @@ fn menu_escape(
             menu.screen = MenuScreen::Play;
             menu.play_sub = PlaySubScreen::Lobby;
         }
-        MenuScreen::Loadout | MenuScreen::Options => {
+        MenuScreen::Loadout | MenuScreen::Stats | MenuScreen::Options => {
             menu.screen = MenuScreen::Home;
         }
         MenuScreen::Home | MenuScreen::Join => {}

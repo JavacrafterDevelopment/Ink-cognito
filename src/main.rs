@@ -28,6 +28,8 @@ mod protocol;
 mod ragdoll;
 mod ranked;
 mod settings;
+mod splat_card;
+mod stats;
 mod ui_kit;
 mod world;
 
@@ -148,6 +150,8 @@ fn main() {
             HubPlugin,
             podium::PodiumPlugin,
             progression::ProgressionPlugin,
+            stats::StatsPlugin,
+            splat_card::SplatCardPlugin,
         ))
         .add_plugins((
             PlayerModelPlugin,
