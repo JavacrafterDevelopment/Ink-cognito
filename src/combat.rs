@@ -9,6 +9,7 @@
 use crate::{
     AppState, Overlay,
     arena::Colliders,
+    armory_v2_fx::Hopper,
     game_mode::respawn_local,
     loadout::{
         GunAssets, GunKind, GunModel, Loadout, WeaponStats, is_canted_sight, sight_eye,
@@ -70,7 +71,13 @@ impl Plugin for CombatPlugin {
             .init_resource::<BakedPaint>()
             .add_systems(OnExit(AppState::InGame), clear_baked_paint)
             .add_systems(Update, update_particles)
-            .add_systems(Update, bake_decals.run_if(in_state(AppState::InGame)));
+            .add_systems(Update, bake_decals.run_if(in_state(AppState::InGame)))
+            .add_systems(
+                Update,
+                sync_hopper_balls
+                    .after(CombatSystems)
+                    .run_if(in_state(AppState::InGame)),
+            );
     }
 }
 
@@ -652,6 +659,27 @@ fn aim_pos(kind: GunKind, sight: u8) -> Vec3 {
             None if sight == 0 => Vec3::new(0.1, -0.12, -0.5),
             None => Vec3::new(0.1, -0.14, -0.46),
         },
+    }
+}
+
+/// The balls in our own hopper (first person) follow the ammo count: they
+/// drain as we shoot and drop back in on a reload.
+fn sync_hopper_balls(
+    combat: Res<Combat>,
+    vm_q: Query<(), With<ViewModel>>,
+    parents: Query<&ChildOf>,
+    mut hoppers: Query<(Entity, &mut Hopper)>,
+) {
+    let capacity = combat.stats.capacity.max(1);
+    for (entity, mut hopper) in &mut hoppers {
+        if !parents.iter_ancestors(entity).any(|e| vm_q.contains(e)) {
+            continue;
+        }
+        let total = hopper.ball_count();
+        let n = (total * combat.ammo.min(capacity) as usize).div_ceil(capacity as usize);
+        if n != hopper.visible_balls {
+            hopper.set_fill(n);
+        }
     }
 }
 
