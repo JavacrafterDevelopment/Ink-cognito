@@ -2,26 +2,26 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.8.0",
-      "published": "2026-11-26T17:42:01Z",
-      "notes": "## What's Changed\n* Add bots that fill matches to 10 players by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/29\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.7.0...v0.8.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.0",
+      "version": "0.8.1",
+      "published": "2026-11-26T18:46:29Z",
+      "notes": "## What's Changed\n* Add a splatted-by card with the shooter's loadout, and a Stats page by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/30\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.0...v0.8.1",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.1",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.0/Ink-cognito-macos.zip",
-        "size": 118257536,
-        "sha256": "638f41f8f323e5b8d93b1a6ae17896a4d4b9f5ff5ec4fe4bdc60e76e52b20098"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.1/Ink-cognito-macos.zip",
+        "size": 118361536,
+        "sha256": "cb58825207d49412364991194a8fc8acd7f5a7e571a66dd88e82a118f4d1c027"
       },
       "exe": "Ink-cognito.app/Contents/MacOS/ink-cognito",
       "files": [
         {
           "path": "Ink-cognito.app/Contents/Info.plist",
           "size": 1140,
-          "sha256": "85d1fc1aeed4252df4be669be7c4f64c1e9c3270b287276a276ac6339cb0cc0a"
+          "sha256": "40a209588355aa79319c24c2fc812be5604ba0c76e862f05f6f3a27210b3e74a"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-cognito",
-          "size": 150009984,
-          "sha256": "c32873de3193e4d008a3ee696b561f9893270e2b81de81ef73ef81962529b429"
+          "size": 150452272,
+          "sha256": "ab29212be20bb39e2df4508c6aa3d2f66c0504faffdaf72fee9524ad123ca196"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-map-editor",
@@ -3146,26 +3146,26 @@
       ]
     },
     "stable": {
-      "version": "0.8.0",
-      "published": "2026-11-26T17:42:01Z",
-      "notes": "## What's Changed\n* Add bots that fill matches to 10 players by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/29\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.7.0...v0.8.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.0",
+      "version": "0.8.1",
+      "published": "2026-11-26T18:46:29Z",
+      "notes": "## What's Changed\n* Add a splatted-by card with the shooter's loadout, and a Stats page by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/30\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.0...v0.8.1",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.1",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.0/Ink-cognito-macos.zip",
-        "size": 118257536,
-        "sha256": "638f41f8f323e5b8d93b1a6ae17896a4d4b9f5ff5ec4fe4bdc60e76e52b20098"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.1/Ink-cognito-macos.zip",
+        "size": 118361536,
+        "sha256": "cb58825207d49412364991194a8fc8acd7f5a7e571a66dd88e82a118f4d1c027"
       },
       "exe": "Ink-cognito.app/Contents/MacOS/ink-cognito",
       "files": [
         {
           "path": "Ink-cognito.app/Contents/Info.plist",
           "size": 1140,
-          "sha256": "85d1fc1aeed4252df4be669be7c4f64c1e9c3270b287276a276ac6339cb0cc0a"
+          "sha256": "40a209588355aa79319c24c2fc812be5604ba0c76e862f05f6f3a27210b3e74a"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-cognito",
-          "size": 150009984,
-          "sha256": "c32873de3193e4d008a3ee696b561f9893270e2b81de81ef73ef81962529b429"
+          "size": 150452272,
+          "sha256": "ab29212be20bb39e2df4508c6aa3d2f66c0504faffdaf72fee9524ad123ca196"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-map-editor",

@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.8.0",
-      "published": "2026-11-26T17:42:01Z",
-      "notes": "## What's Changed\n* Add bots that fill matches to 10 players by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/29\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.7.0...v0.8.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.0",
+      "version": "0.8.1",
+      "published": "2026-11-26T18:46:29Z",
+      "notes": "## What's Changed\n* Add a splatted-by card with the shooter's loadout, and a Stats page by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/30\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.0...v0.8.1",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.1",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.0/Ink-cognito-windows-x64.zip",
-        "size": 109858270,
-        "sha256": "c27d0e343c4091596428813bbb0a25d1d698144ddf567a46fe67b27405c904f0"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.1/Ink-cognito-windows-x64.zip",
+        "size": 109940147,
+        "sha256": "7a0e01750c31b36791e86f2a1200dcfba30ae8622d9a7383d7aae42ed0a98b71"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3125,25 +3125,25 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 103318528,
-          "sha256": "880a72d7ad160a8f9019a772ab7ec57ee95dfc06c751f7102b2ad2ec66d03e20"
+          "size": 103588352,
+          "sha256": "1fc69de5b46395436fa1939f5e6ca21f3670b451622aef57defa3b16a4faed63"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 98472960,
-          "sha256": "d82f5a388f1476a63e7f7c5865fc3ad4d2d4e6310b2cdd0cf136e820f0a813ca"
+          "sha256": "6790e3e7fc50154d38cfd9b877ef7419f7003d6427ddacf47019ab1c85543812"
         }
       ]
     },
     "stable": {
-      "version": "0.8.0",
-      "published": "2026-11-26T17:42:01Z",
-      "notes": "## What's Changed\n* Add bots that fill matches to 10 players by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/29\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.7.0...v0.8.0",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.0",
+      "version": "0.8.1",
+      "published": "2026-11-26T18:46:29Z",
+      "notes": "## What's Changed\n* Add a splatted-by card with the shooter's loadout, and a Stats page by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/30\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.0...v0.8.1",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.1",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.0/Ink-cognito-windows-x64.zip",
-        "size": 109858270,
-        "sha256": "c27d0e343c4091596428813bbb0a25d1d698144ddf567a46fe67b27405c904f0"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.1/Ink-cognito-windows-x64.zip",
+        "size": 109940147,
+        "sha256": "7a0e01750c31b36791e86f2a1200dcfba30ae8622d9a7383d7aae42ed0a98b71"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -6259,13 +6259,13 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 103318528,
-          "sha256": "880a72d7ad160a8f9019a772ab7ec57ee95dfc06c751f7102b2ad2ec66d03e20"
+          "size": 103588352,
+          "sha256": "1fc69de5b46395436fa1939f5e6ca21f3670b451622aef57defa3b16a4faed63"
         },
         {
           "path": "ink-map-editor.exe",
           "size": 98472960,
-          "sha256": "d82f5a388f1476a63e7f7c5865fc3ad4d2d4e6310b2cdd0cf136e820f0a813ca"
+          "sha256": "6790e3e7fc50154d38cfd9b877ef7419f7003d6427ddacf47019ab1c85543812"
         }
       ]
     }
