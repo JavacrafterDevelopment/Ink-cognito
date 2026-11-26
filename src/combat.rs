@@ -10,6 +10,7 @@ use crate::{
     AppState, Overlay,
     arena::Colliders,
     armory_v2_fx::Hopper,
+    audio::{SoundProfile, spawn_local_sfx, spawn_spatial_sfx},
     game_mode::respawn_local,
     loadout::{
         GunAssets, GunKind, GunModel, Loadout, WeaponStats, is_canted_sight, sight_eye,
@@ -18,7 +19,7 @@ use crate::{
     maps::MapInfo,
     net::NetworkState,
     player_model::{PlayerModelAssets, Rig},
-    protocol::{FLAG_CROUCH, HitEvent, MAX_HEALTH, PlayerId, PlayerState, Team, enemies},
+    protocol::{FLAG_CROUCH, HitEvent, MAX_HEALTH, Phase, PlayerId, PlayerState, Team, enemies},
     ragdoll::{BodyHit, Ragdoll, RagdollStart, spawn_ragdoll},
     settings::{AudioSettings, SfxAudio},
     world::{
@@ -51,6 +52,7 @@ impl Plugin for CombatPlugin {
             .add_systems(
                 Update,
                 (
+                    clear_match_arena_fx,
                     apply_loadout,
                     aim_and_reload,
                     fire_local,
@@ -62,6 +64,7 @@ impl Plugin for CombatPlugin {
                     update_viewmodel,
                     footsteps,
                     remote_footsteps,
+                    match_phase_audio,
                 )
                     .chain()
                     .in_set(CombatSystems)
@@ -88,8 +91,9 @@ pub struct CombatSystems;
 pub const REGEN_DELAY: f32 = 7.0;
 /// Health per second while regenerating.
 pub const REGEN_RATE: f32 = 14.0;
-/// Seconds from elimination to respawn.
-pub const RESPAWN_TIME: f32 = 5.0;
+/// Default seconds from elimination to respawn.
+#[allow(dead_code)]
+pub const RESPAWN_TIME: f32 = crate::protocol::DEFAULT_RESPAWN_SECONDS;
 const PLAYER_HIT_RADIUS: f32 = 0.44;
 /// The top of the body capsule that counts as the head.
 const HEAD_ZONE: f32 = 0.35;
@@ -231,9 +235,9 @@ impl Combat {
         };
     }
 
-    pub fn respawn_in(&self) -> Option<f32> {
+    pub fn respawn_in(&self, respawn_time: f32) -> Option<f32> {
         self.death_cam
-            .map(|_| (RESPAWN_TIME - self.dead_for).max(0.0))
+            .map(|_| (respawn_time - self.dead_for).max(0.0))
     }
 }
 
@@ -302,10 +306,16 @@ pub struct Fx {
     rng: u32,
     /// The footstep sound played last, so the next step picks another one.
     last_step: usize,
+    /// Alternates left/right ear slightly for local footsteps.
+    step_right: bool,
+    /// Last time a near-miss flyby whiz played (rate limiter).
+    last_whiz: f32,
 }
 
 pub struct Sounds {
     pub shots: Vec<Handle<AudioSource>>,
+    /// Tighter pneumatic marker pops for suppressed barrels.
+    pub marker_shots: Vec<Handle<AudioSource>>,
     pub splats: Vec<Handle<AudioSource>>,
     pub player_hit: Handle<AudioSource>,
     pub hit_tick: Handle<AudioSource>,
@@ -319,6 +329,10 @@ pub struct Sounds {
     pub eliminated: Handle<AudioSource>,
     pub confirm: Handle<AudioSource>,
     pub round_start: Handle<AudioSource>,
+    pub countdown_beep: Handle<AudioSource>,
+    pub countdown_go: Handle<AudioSource>,
+    pub whistle: Handle<AudioSource>,
+    pub whiz: Handle<AudioSource>,
     pub steps: Vec<Handle<AudioSource>>,
     pub bunker_hit: Handle<AudioSource>,
 }
@@ -441,6 +455,9 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
         mats: HashMap::new(),
         sounds: Sounds {
             shots: vec![assets.load("audio/weapons/basicshot.flac")],
+            marker_shots: (1..=3)
+                .map(|i| ogg(&format!("weapons/marker_shot_{i:02}")))
+                .collect(),
             splats: (1..=3)
                 .map(|i| ogg(&format!("impacts/splat_surface_{i:02}")))
                 .collect(),
@@ -455,6 +472,10 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
             eliminated: assets.load("audio/game/elimination.flac"),
             confirm: ogg("game/flag_captured"),
             round_start: ogg("game/round_start_horn"),
+            countdown_beep: ogg("game/countdown_beep"),
+            countdown_go: ogg("game/countdown_go"),
+            whistle: ogg("game/whistle"),
+            whiz: ogg("weapons/tank_hiss"),
             steps: (1..=4)
                 .map(|i| assets.load(format!("audio/footsteps/footstep_{i:02}.flac")))
                 .collect(),
@@ -462,6 +483,8 @@ fn load_fx(mut commands: Commands, assets: Res<AssetServer>, mut meshes: ResMut<
         },
         rng: 0x9E37_79B9,
         last_step: usize::MAX,
+        step_right: false,
+        last_whiz: -10.0,
     });
 }
 
@@ -482,39 +505,18 @@ pub fn play_sfx(
     ));
 }
 
-/// Spatial sounds use inverse-square falloff on positions scaled by this, so
-/// they are at full volume within `1 / SPATIAL_SCALE` meters (4 m) and fade
-/// out over the next couple dozen.
-const SPATIAL_SCALE: f32 = 0.25;
-
-/// Plays a sound at a point in the world: panned left/right and quieter with
-/// distance, relative to the camera's `SpatialListener`.
+/// Plays a 3D spatialized sound at a point in the world using our custom
+/// binaural-inspired stereo spatializer (correct left/right ear panning, ITD,
+/// head shadowing, rear cue, distance rolloff, and bunker/wall occlusion).
 pub fn play_sfx_at(
     commands: &mut Commands,
     sound: &Handle<AudioSource>,
     base_volume: f32,
     at: Vec3,
-    settings: &AudioSettings,
+    profile: SoundProfile,
+    pitch: f32,
 ) {
-    let volume = base_volume * settings.effective_sfx();
-    if volume <= 0.005 {
-        return;
-    }
-    commands.spawn((
-        AudioPlayer::new(sound.clone()),
-        PlaybackSettings {
-            spatial: true,
-            spatial_scale: Some(bevy::audio::SpatialScale::new(SPATIAL_SCALE)),
-            ..PlaybackSettings::DESPAWN.with_volume(bevy::audio::Volume::Linear(volume))
-        },
-        Transform::from_translation(at),
-        DespawnOnExit(AppState::InGame),
-    ));
-}
-
-/// Quieter the further it is from the listener.
-fn falloff(listener: Vec3, at: Vec3) -> f32 {
-    (1.0 - listener.distance(at) / 70.0).clamp(0.08, 1.0)
+    spawn_spatial_sfx(commands, sound.clone(), base_volume, at, profile, pitch);
 }
 
 #[derive(Component)]
@@ -532,6 +534,8 @@ struct Projectile {
     /// splat with full effects and sound, and their hits on a player are
     /// summed into one `HitEvent` per frame instead of one each.
     shrapnel: bool,
+    /// True once this enemy projectile has played a near-miss flyby whiz.
+    whizzed: bool,
 }
 
 #[derive(Component)]
@@ -799,7 +803,6 @@ fn look_rotation(yaw: f32, pitch: f32) -> Quat {
 #[allow(clippy::too_many_arguments)]
 fn fire_local(
     mut commands: Commands,
-    time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     keybinds: Res<crate::settings::KeybindSettings>,
@@ -883,33 +886,85 @@ fn fire_local(
         team,
         stats.water,
     );
-    shot_sound(
-        &mut commands,
-        &mut fx,
-        &settings,
-        &stats,
-        1.0,
-        time.elapsed_secs(),
-    );
+    let local_loadout = Loadout::unpack(local_state.0.loadout);
+    let hip_pan = 0.08 * (1.0 - combat.aim_blend);
+    local_shot_sound(&mut commands, &mut fx, &local_loadout, &stats, hip_pan);
 }
 
-fn shot_sound(
+/// Picks the clip, base volume, pitch and spatial profile for a weapon shot so
+/// every gun body and suppressor has its own distinct acoustic character.
+fn weapon_shot_audio(
+    fx: &mut Fx,
+    loadout: &Loadout,
+    stats: &WeaponStats,
+) -> (Handle<AudioSource>, f32, f32, SoundProfile) {
+    if stats.water {
+        let pitch = fx.range(0.95, 1.06);
+        return (
+            fx.sounds.water_squirt.clone(),
+            0.42 * stats.loudness,
+            pitch,
+            SoundProfile::WaterShot,
+        );
+    }
+    let suppressed = stats.loudness <= 0.5;
+    let body_pitch = match loadout.body {
+        0 => 1.00, // Vanta
+        1 => 0.88, // Bulldog
+        2 => 1.13, // Raptor
+        3 => 1.05, // Phantom
+        4 => 0.92, // Titan
+        5 => 0.76, // Breacher shotgun
+        _ => 0.82, // Longshot sniper
+    };
+    let body_gain = match loadout.body {
+        5 => 1.08, // Breacher punch
+        6 => 1.12, // Longshot crack
+        _ => 1.0,
+    };
+    let jitter = fx.range(0.97, 1.03);
+    if suppressed && !fx.sounds.marker_shots.is_empty() {
+        let i = fx.pick(fx.sounds.marker_shots.len());
+        let s = fx.sounds.marker_shots[i].clone();
+        (
+            s,
+            0.65 * stats.loudness * body_gain,
+            (body_pitch * 1.15 * jitter).clamp(0.65, 1.5),
+            SoundProfile::SuppressedShot,
+        )
+    } else {
+        let i = fx.pick(fx.sounds.shots.len());
+        let s = fx.sounds.shots[i].clone();
+        (
+            s,
+            0.82 * stats.loudness * body_gain,
+            (body_pitch * jitter).clamp(0.6, 1.4),
+            SoundProfile::Gunshot,
+        )
+    }
+}
+
+fn local_shot_sound(
     commands: &mut Commands,
     fx: &mut Fx,
-    settings: &AudioSettings,
+    loadout: &Loadout,
     stats: &WeaponStats,
-    volume: f32,
-    _now: f32,
+    pan: f32,
 ) {
-    if stats.water {
-        let s = fx.sounds.water_squirt.clone();
-        play_sfx(commands, &s, 0.35 * volume * stats.loudness, settings);
-    } else {
-        let n = fx.sounds.shots.len();
-        let i = fx.pick(n);
-        let s = fx.sounds.shots[i].clone();
-        play_sfx(commands, &s, 0.8 * volume * stats.loudness, settings);
-    }
+    let (sound, volume, pitch, _) = weapon_shot_audio(fx, loadout, stats);
+    spawn_local_sfx(commands, sound, volume, pan, pitch);
+}
+
+fn remote_shot_sound(
+    commands: &mut Commands,
+    fx: &mut Fx,
+    loadout: &Loadout,
+    stats: &WeaponStats,
+    origin: Vec3,
+) {
+    let (sound, volume, pitch, profile) = weapon_shot_audio(fx, loadout, stats);
+    // Remote shots carry punch cleanly across the field through our 3D spatializer.
+    play_sfx_at(commands, &sound, volume * 1.08, origin, profile, pitch);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -933,6 +988,7 @@ fn spawn_projectile(
         age: 0.0,
         max_age: 3.0,
         shrapnel: false,
+        whizzed: false,
     };
     if stats.water {
         let mat = fx.material(Paint::Water, DROPLET, materials);
@@ -984,6 +1040,7 @@ pub(crate) fn spawn_paintball(
             age: 0.0,
             max_age,
             shrapnel: true,
+            whizzed: true,
         },
         DespawnOnExit(AppState::InGame),
     ));
@@ -1090,17 +1147,10 @@ fn spawn_particle(
 /// Other players' new shots, fired from where they stand and look.
 fn fire_remote(
     mut commands: Commands,
-    time: Res<Time>,
-    settings: Res<AudioSettings>,
     mut fx: ResMut<Fx>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    camera_q: Query<&GlobalTransform, With<MainCamera>>,
     mut remote_q: Query<(&Transform, &mut RemotePlayer)>,
 ) {
-    let listener = camera_q
-        .single()
-        .map(|g| g.translation())
-        .unwrap_or_default();
     for (_transform, mut remote) in &mut remote_q {
         let shots = remote.state.shots;
         let new = shots.wrapping_sub(remote.seen_shots);
@@ -1114,7 +1164,8 @@ fn fire_remote(
         if !remote.alive() {
             continue;
         }
-        let stats = Loadout::unpack(remote.state.loadout).stats();
+        let loadout = Loadout::unpack(remote.state.loadout);
+        let stats = loadout.stats();
         let rot = look_rotation(remote.target_yaw, remote.state.pitch);
         let forward = rot * Vec3::NEG_Z;
         let crouched = remote.state.flags & FLAG_CROUCH != 0;
@@ -1152,15 +1203,7 @@ fn fire_remote(
             team,
             stats.water,
         );
-        let volume = falloff(listener, origin);
-        shot_sound(
-            &mut commands,
-            &mut fx,
-            &settings,
-            &stats,
-            volume,
-            time.elapsed_secs(),
-        );
+        remote_shot_sound(&mut commands, &mut fx, &loadout, &stats, origin);
     }
 }
 
@@ -1395,7 +1438,8 @@ fn move_projectiles(
                     });
                 }
                 let s = fx.sounds.player_hit.clone();
-                play_sfx(&mut commands, &s, 0.6 * falloff(listener, point), &settings);
+                let pitch = fx.range(0.92, 1.08);
+                play_sfx_at(&mut commands, &s, 0.7, point, SoundProfile::Impact, pitch);
                 commands.entity(entity).despawn();
             }
             Some(Target::Body(body, hit)) => {
@@ -1412,12 +1456,8 @@ fn move_projectiles(
                 }
                 if full {
                     let s = fx.sounds.player_hit.clone();
-                    play_sfx(
-                        &mut commands,
-                        &s,
-                        0.45 * falloff(listener, point),
-                        &settings,
-                    );
+                    let pitch = fx.range(0.90, 1.06);
+                    play_sfx_at(&mut commands, &s, 0.55, point, SoundProfile::Impact, pitch);
                 }
                 commands.entity(entity).despawn();
             }
@@ -1443,7 +1483,7 @@ fn move_projectiles(
                         );
                     }
                     if full {
-                        let mut volume = falloff(listener, hit.point);
+                        let mut volume = 1.0;
                         if ball.shrapnel {
                             if shrapnel_sounds < SHRAPNEL_SOUNDS_PER_FRAME {
                                 shrapnel_sounds += 1;
@@ -1455,7 +1495,6 @@ fn move_projectiles(
                             &mut commands,
                             &mut fx,
                             &mut materials,
-                            &settings,
                             now,
                             hit.point,
                             hit.normal,
@@ -1466,6 +1505,34 @@ fn move_projectiles(
                     }
                     commands.entity(entity).despawn();
                 } else {
+                    // Subtle spatial flyby whiz when an enemy ball zips right past our head.
+                    if !ball.whizzed
+                        && !ball.water
+                        && local_id.is_some_and(|me| ball.owner != me && enemies(ball.owner, me))
+                        && now - fx.last_whiz >= 0.14
+                    {
+                        let seg = to - from;
+                        let seg_len_sq = seg.length_squared();
+                        if seg_len_sq > 1e-4 {
+                            let t = ((listener - from).dot(seg) / seg_len_sq).clamp(0.0, 1.0);
+                            let closest = from + seg * t;
+                            let d = closest.distance(listener);
+                            if (0.35..=2.2).contains(&d) {
+                                ball.whizzed = true;
+                                fx.last_whiz = now;
+                                let s = fx.sounds.whiz.clone();
+                                let pitch = fx.range(1.45, 1.75);
+                                play_sfx_at(
+                                    &mut commands,
+                                    &s,
+                                    0.32,
+                                    closest,
+                                    SoundProfile::Flyby,
+                                    pitch,
+                                );
+                            }
+                        }
+                    }
                     tf.translation = to;
                 }
             }
@@ -1479,7 +1546,8 @@ fn move_projectiles(
         let paint = Paint::Team(Team::of(owner));
         player_hit_fx(&mut commands, &mut fx, &mut materials, point, normal, paint);
         let s = fx.sounds.player_hit.clone();
-        play_sfx(&mut commands, &s, 0.6 * falloff(listener, point), &settings);
+        let pitch = fx.range(0.92, 1.08);
+        play_sfx_at(&mut commands, &s, 0.7, point, SoundProfile::Impact, pitch);
         if damage <= 0.0 {
             continue;
         }
@@ -1687,6 +1755,16 @@ fn remote_eliminations(
                             aiming: combat.aim_blend > 0.5,
                         });
                     }
+                } else {
+                    // Spatial splat pop where another player went down.
+                    play_sfx_at(
+                        &mut commands,
+                        &fx.sounds.player_hit,
+                        0.75,
+                        transform.translation,
+                        SoundProfile::Impact,
+                        0.82,
+                    );
                 }
                 let start = match rig {
                     Some(rig) => RagdollStart::from_rig(rig, model_tf, &bones),
@@ -1750,8 +1828,9 @@ fn regen_and_respawn(
         return;
     }
     combat.dead_for += dt;
+    let respawn_time = net.match_state.settings.effective_respawn_seconds();
     // Elimination: out until the next round.
-    if combat.dead_for < RESPAWN_TIME || !net.match_state.respawns() {
+    if combat.dead_for < respawn_time || !net.match_state.respawns() {
         return;
     }
     // Back in: full health and paint, at a spawn away from enemies.
@@ -1873,18 +1952,22 @@ fn update_viewmodel(
         * Quat::from_rotation_z(combat.recoil * 0.06 - reload_dip * 0.5);
 }
 
-/// How loud a footstep is: crouched steps are softer. The footstep files
-/// are normalized to about -1 dB peak, and this sits a bit above 1.0 so
-/// steps cut through gunfire (others' steps also fade with distance).
-fn step_volume(crouched: bool) -> f32 {
-    if crouched { 0.6 } else { 1.3 }
+/// Footstep loudness by posture and pace: crouched steps are subtle, sprinting
+/// steps carry clearly through firefights.
+fn step_volume(crouched: bool, speed: f32) -> f32 {
+    if crouched {
+        0.48
+    } else if speed > 7.5 {
+        1.12
+    } else {
+        0.88
+    }
 }
 
 /// Our own footsteps, and the step counter others use to hear them.
 fn footsteps(
     mut commands: Commands,
     time: Res<Time>,
-    settings: Res<AudioSettings>,
     mut fx: ResMut<Fx>,
     mut combat: ResMut<Combat>,
     mut local_state: ResMut<LocalState>,
@@ -1911,15 +1994,25 @@ fn footsteps(
         combat.step_timer = combat.step_timer.max(0.1);
         local_state.0.steps = local_state.0.steps.wrapping_add(1);
         let s = fx.step_sound();
-        play_sfx(&mut commands, &s, step_volume(crouched), &settings);
+        fx.step_right = !fx.step_right;
+        let pan = if fx.step_right { 0.07 } else { -0.07 };
+        let pitch = fx.range(0.94, 1.06);
+        // Own steps sit slightly quieter than enemy steps so threats read clearly.
+        spawn_local_sfx(
+            &mut commands,
+            s,
+            step_volume(crouched, player.speed) * 0.72,
+            pan,
+            pitch,
+        );
     }
 }
 
 /// Other players' footsteps, heard from where they walk: their step counter
-/// went up, so play one step at their feet (panned and faded by distance).
+/// went up, so play one step at their feet (panned, ITD-delayed, occluded and
+/// faded by distance).
 fn remote_footsteps(
     mut commands: Commands,
-    settings: Res<AudioSettings>,
     mut fx: ResMut<Fx>,
     mut remote_q: Query<(&Transform, &mut RemotePlayer)>,
 ) {
@@ -1934,8 +2027,92 @@ fn remote_footsteps(
         let crouched = remote.state.flags & FLAG_CROUCH != 0;
         let feet = transform.translation - Vec3::Y * PLAYER_GROUND_Y;
         let s = fx.step_sound();
+        let pitch = fx.range(0.92, 1.08);
         // Several steps can arrive in one snapshot; one sound is enough.
-        play_sfx_at(&mut commands, &s, step_volume(crouched), feet, &settings);
+        play_sfx_at(
+            &mut commands,
+            &s,
+            step_volume(crouched, remote.speed),
+            feet,
+            SoundProfile::Footstep,
+            pitch,
+        );
+    }
+}
+
+/// Countdown 3-2-1 beeps, GO horn, and round/match end whistles.
+fn match_phase_audio(
+    mut commands: Commands,
+    net: Res<NetworkState>,
+    fx: Res<Fx>,
+    settings: Res<AudioSettings>,
+    mut last_phase: Local<Option<(u32, Phase)>>,
+    mut last_beep_sec: Local<Option<u32>>,
+) {
+    let ms = &net.match_state;
+    let prev = *last_phase;
+    *last_phase = Some((ms.match_id, ms.phase));
+
+    if ms.phase == Phase::Countdown {
+        let sec = ms.time_left.ceil() as u32;
+        if (1..=3).contains(&sec) && *last_beep_sec != Some(sec) {
+            *last_beep_sec = Some(sec);
+            play_sfx(&mut commands, &fx.sounds.countdown_beep, 0.55, &settings);
+        }
+    } else {
+        *last_beep_sec = None;
+    }
+
+    let same_match = prev.is_some_and(|(id, _)| id == ms.match_id);
+    if same_match && prev.map(|(_, p)| p) == Some(Phase::Countdown) && ms.phase == Phase::Live {
+        play_sfx(&mut commands, &fx.sounds.countdown_go, 0.65, &settings);
+    } else if same_match
+        && prev.map(|(_, p)| p) == Some(Phase::Live)
+        && matches!(ms.phase, Phase::RoundOver | Phase::MatchOver)
+    {
+        play_sfx(&mut commands, &fx.sounds.whistle, 0.55, &settings);
+    }
+}
+
+/// Clears baked paint, fresh decals, projectiles, particles and killfeed when
+/// map voting loads a new map (or starts a new match) inside the same session.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn clear_match_arena_fx(
+    mut commands: Commands,
+    net: Res<NetworkState>,
+    mut baked: ResMut<BakedPaint>,
+    mut feed: ResMut<Killfeed>,
+    decals: Query<Entity, With<PaintDecal>>,
+    projectiles: Query<Entity, With<Projectile>>,
+    particles: Query<Entity, With<Particle>>,
+    mut last: Local<Option<(u32, crate::protocol::MapId)>>,
+) {
+    let key = (net.match_state.match_id, net.match_state.settings.map);
+    let Some(prev) = *last else {
+        *last = Some(key);
+        return;
+    };
+    if prev == key {
+        return;
+    }
+    *last = Some(key);
+    for batches in baked.batches.values() {
+        for batch in batches {
+            if batch.entity != Entity::PLACEHOLDER {
+                commands.entity(batch.entity).try_despawn();
+            }
+        }
+    }
+    baked.batches.clear();
+    feed.entries.clear();
+    for e in &decals {
+        commands.entity(e).try_despawn();
+    }
+    for e in &projectiles {
+        commands.entity(e).try_despawn();
+    }
+    for e in &particles {
+        commands.entity(e).try_despawn();
     }
 }
 
@@ -2024,7 +2201,6 @@ fn impact_fx(
     commands: &mut Commands,
     fx: &mut Fx,
     materials: &mut Assets<StandardMaterial>,
-    settings: &AudioSettings,
     now: f32,
     point: Vec3,
     normal: Vec3,
@@ -2072,17 +2248,43 @@ fn impact_fx(
         0.0,
     );
 
+    if volume <= 0.005 {
+        return;
+    }
+    let pitch = fx.range(0.88, 1.12);
     if water {
         let s = fx.sounds.water_splash.clone();
-        play_sfx(commands, &s, 0.25 * volume, settings);
+        play_sfx_at(
+            commands,
+            &s,
+            0.35 * volume,
+            point,
+            SoundProfile::Impact,
+            pitch,
+        );
     } else {
         let count = fx.sounds.splats.len();
         let i = fx.pick(count);
         let s = fx.sounds.splats[i].clone();
-        play_sfx(commands, &s, 0.5 * volume, settings);
+        play_sfx_at(
+            commands,
+            &s,
+            0.62 * volume,
+            point,
+            SoundProfile::Impact,
+            pitch,
+        );
         if decal && n.y.abs() < 0.9 && fx.rand() < 0.5 {
             let s = fx.sounds.bunker_hit.clone();
-            play_sfx(commands, &s, 0.3 * volume, settings);
+            let bpitch = fx.range(0.90, 1.10);
+            play_sfx_at(
+                commands,
+                &s,
+                0.42 * volume,
+                point,
+                SoundProfile::Impact,
+                bpitch,
+            );
         }
     }
 }

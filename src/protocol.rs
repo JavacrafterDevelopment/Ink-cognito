@@ -288,6 +288,7 @@ impl MovementSpeed {
         }
     }
 
+    #[allow(dead_code)]
     pub fn blurb(self) -> &'static str {
         match self {
             MovementSpeed::Normal => "Grounded pace. No steering mid-air",
@@ -296,16 +297,113 @@ impl MovementSpeed {
     }
 }
 
-/// What the host picked: mode, map, movement, and whether it counts for ranked.
+/// What the host picked: mode, map, movement, custom private-match rules,
+/// and whether it counts for ranked.
+///
+/// Numeric rule fields use `0` to mean "standard default", keeping wire
+/// compatibility with older clients and `Default::default()`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct MatchSettings {
     pub mode: GameMode,
     pub map: MapId,
-    /// Ranked (Elimination only).
+    /// Ranked (Elimination only; locks rules to official competitive defaults).
     pub ranked: bool,
     /// How fast players move and jump.
     pub movement: MovementSpeed,
+    /// Team Splat / Free-for-All time limit in minutes (0 = default 10 min).
+    pub match_minutes: u16,
+    /// Team Splat / Free-for-All splat score limit (0 = unlimited).
+    pub score_limit: u32,
+    /// Elimination rounds required to win (0 = default 5).
+    pub rounds_to_win: u32,
+    /// Elimination round length in seconds (0 = default 120 s).
+    pub round_seconds: u16,
+    /// Team Splat / Free-for-All respawn delay in seconds (0 = default 5 s).
+    pub respawn_seconds: u8,
+}
+
+impl MatchSettings {
+    pub const MATCH_MINUTE_OPTIONS: [u16; 5] = [3, 5, 10, 15, 20];
+    pub const SCORE_LIMIT_OPTIONS: [u32; 6] = [0, 15, 25, 50, 75, 100];
+    pub const ROUNDS_TO_WIN_OPTIONS: [u32; 4] = [3, 5, 7, 9];
+    pub const ROUND_SECONDS_OPTIONS: [u16; 4] = [60, 90, 120, 180];
+    pub const RESPAWN_SECONDS_OPTIONS: [u8; 3] = [1, 3, 5];
+
+    pub fn effective_match_minutes(&self) -> u16 {
+        if self.ranked || self.match_minutes == 0 {
+            (MATCH_SECONDS / 60.0) as u16
+        } else {
+            self.match_minutes.clamp(1, 60)
+        }
+    }
+
+    pub fn effective_match_seconds(&self) -> f32 {
+        self.effective_match_minutes() as f32 * 60.0
+    }
+
+    pub fn effective_score_limit(&self) -> Option<u32> {
+        if self.ranked || self.mode == GameMode::Elimination || self.score_limit == 0 {
+            None
+        } else {
+            Some(self.score_limit)
+        }
+    }
+
+    pub fn effective_rounds_to_win(&self) -> u32 {
+        if self.ranked || self.rounds_to_win == 0 {
+            ROUNDS_TO_WIN
+        } else {
+            self.rounds_to_win.clamp(1, MAX_ROUNDS_TO_WIN)
+        }
+    }
+
+    pub fn effective_round_seconds(&self) -> f32 {
+        if self.ranked || self.round_seconds == 0 {
+            DEFAULT_ROUND_SECONDS
+        } else {
+            self.round_seconds.clamp(30, 600) as f32
+        }
+    }
+
+    pub fn effective_respawn_seconds(&self) -> f32 {
+        if self.ranked || self.respawn_seconds == 0 {
+            DEFAULT_RESPAWN_SECONDS
+        } else {
+            self.respawn_seconds.clamp(1, 15) as f32
+        }
+    }
+
+    /// Resets customizable match rules to standard defaults (keeping mode & map).
+    pub fn reset_rules(&mut self) {
+        self.movement = MovementSpeed::Normal;
+        self.match_minutes = 0;
+        self.score_limit = 0;
+        self.rounds_to_win = 0;
+        self.round_seconds = 0;
+        self.respawn_seconds = 0;
+    }
+}
+
+/// End-of-match map vote: 3 random maps shown on the podium.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MapVote {
+    /// The three random candidate maps for the next match.
+    pub options: Vec<MapId>,
+    /// Live vote count for each option (same length as `options`).
+    pub counts: Vec<u16>,
+    /// Once voting locks: winning index into `options`.
+    pub winner: Option<u8>,
+    /// True if the winner was chosen randomly out of a tie.
+    pub tiebreak: bool,
+}
+
+impl MapVote {
+    pub fn winning_map(&self) -> Option<MapId> {
+        let idx = self.winner? as usize;
+        self.options.get(idx).copied()
+    }
 }
 
 /// Where a match is at.
@@ -319,7 +417,7 @@ pub enum Phase {
     Live,
     /// Elimination: a round just ended.
     RoundOver,
-    /// The match is decided; results are up until the next one starts.
+    /// The match is decided; results and map voting are up until the next one starts.
     MatchOver,
 }
 
@@ -353,6 +451,8 @@ pub struct MatchState {
     pub board: Vec<[u32; 3]>,
     /// Bumped whenever everyone goes back to their spawn (a countdown starts).
     pub resets: u32,
+    /// End-of-match map voting state (populated during `Phase::MatchOver`).
+    pub vote: MapVote,
 }
 
 impl MatchState {
@@ -395,10 +495,16 @@ impl MatchState {
     }
 }
 
-/// Elimination: rounds needed to win the match.
+/// Elimination: default rounds needed to win the match.
 pub const ROUNDS_TO_WIN: u32 = 5;
-/// Team Splat and Free-for-All length.
+/// Elimination: highest configurable rounds-to-win in private matches.
+pub const MAX_ROUNDS_TO_WIN: u32 = 9;
+/// Elimination: default round length in seconds.
+pub const DEFAULT_ROUND_SECONDS: f32 = 120.0;
+/// Team Splat and Free-for-All default length.
 pub const MATCH_SECONDS: f32 = 600.0;
+/// Default respawn time in seconds.
+pub const DEFAULT_RESPAWN_SECONDS: f32 = 5.0;
 
 /// A confirmed paintball/water hit reported by the shooter and relayed to the victim.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -443,6 +549,8 @@ pub enum ClientMessage {
     /// A chat line. `seq` counts this player's lines so a resent datagram
     /// is only shown once.
     Chat { seq: u32, text: String },
+    /// End-of-match map vote: index `0..3` into `MatchState::vote.options`.
+    VoteMap { match_id: u32, choice: u8 },
 }
 
 /// Messages sent from the host to connected clients.
@@ -837,5 +945,40 @@ mod tests {
             }
         }
         assert_eq!(seen, 40);
+    }
+
+    #[test]
+    fn match_state_with_map_vote_fits_datagram() {
+        let ms = MatchState {
+            settings: MatchSettings {
+                mode: GameMode::TeamSplat,
+                map: MapId::PINE_HOLLOW,
+                ranked: false,
+                movement: MovementSpeed::SuperDuper,
+                match_minutes: 15,
+                score_limit: 50,
+                rounds_to_win: 7,
+                round_seconds: 120,
+                respawn_seconds: 3,
+            },
+            phase: Phase::MatchOver,
+            time_left: 18.5,
+            match_id: 42,
+            round: 9,
+            score: [50, 48],
+            round_winner: WIN_BLUE,
+            winner: WIN_BLUE,
+            board: (0..24).map(|i| [100 + i, 50, 49]).collect(),
+            resets: 12,
+            vote: MapVote {
+                options: vec![MapId::SPLAT_PARK, MapId::THREE_LANES, MapId::RING_ROAD],
+                counts: vec![10, 8, 6],
+                winner: Some(0),
+                tiebreak: false,
+            },
+        };
+        for d in encode_server_datagrams(&ServerMessage::Match(ms)) {
+            assert!(d.len() <= MAX_DATAGRAM, "datagram of {} bytes", d.len());
+        }
     }
 }

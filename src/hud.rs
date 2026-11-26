@@ -16,8 +16,8 @@ use crate::{
     maps::MapInfo,
     net::NetworkState,
     protocol::{
-        GameMode, MAX_HEALTH, MatchState, Phase, PlayerId, ROUNDS_TO_WIN, Team, WIN_BLUE, WIN_DRAW,
-        WIN_ORANGE, WIN_PLAYER,
+        GameMode, MAX_HEALTH, MAX_ROUNDS_TO_WIN, MatchState, Phase, PlayerId, Team, WIN_BLUE,
+        WIN_DRAW, WIN_ORANGE, WIN_PLAYER,
     },
     ranked::{self, RankResult, Tier},
     ui_kit::{KIT_YELLOW, UiKit, kit, sliced, sliced_rect},
@@ -315,12 +315,12 @@ fn spawn_hud(
                         Pickable::IGNORE,
                     ))
                     .with_children(|pips| {
-                        for i in 0..ROUNDS_TO_WIN as usize {
+                        for i in 0..MAX_ROUNDS_TO_WIN as usize {
                             pips.spawn((
                                 ImageNode::new(k("controls/pip_empty.png")),
                                 Node {
-                                    width: Val::Px(16.0),
-                                    height: Val::Px(16.0),
+                                    width: Val::Px(14.0),
+                                    height: Val::Px(14.0),
                                     ..default()
                                 },
                                 Pickable::IGNORE,
@@ -1008,8 +1008,8 @@ fn update_score_header(
     assets: Res<AssetServer>,
     net: Res<NetworkState>,
     mut texts: Query<(&HeaderText, &mut Text)>,
-    mut pips_q: Query<&mut Node, With<RoundPips>>,
-    mut pips: Query<(&Pip, &mut ImageNode)>,
+    mut pips_q: Query<&mut Node, (With<RoundPips>, Without<Pip>)>,
+    mut pips: Query<(&Pip, &mut ImageNode, &mut Node), Without<RoundPips>>,
 ) {
     let ms = &net.match_state;
     let me = net.local_player_id.unwrap_or(0);
@@ -1046,10 +1046,20 @@ fn update_score_header(
                 alive(Team::Orange)
             )
         }
-        Phase::Live => format!(
-            "{}  |  MOST SPLATS WINS",
-            ms.settings.mode.name().to_uppercase()
-        ),
+        Phase::Live => {
+            if let Some(limit) = ms.settings.effective_score_limit() {
+                format!(
+                    "{}  |  FIRST TO {} SPLATS",
+                    ms.settings.mode.name().to_uppercase(),
+                    limit
+                )
+            } else {
+                format!(
+                    "{}  |  MOST SPLATS WINS",
+                    ms.settings.mode.name().to_uppercase()
+                )
+            }
+        }
         Phase::RoundOver => format!("ROUND {} OVER", ms.round),
         Phase::MatchOver => "MATCH OVER".to_string(),
     };
@@ -1081,7 +1091,19 @@ fn update_score_header(
         }
     }
     if elim && net.is_changed() {
-        for (pip, mut img) in &mut pips {
+        let target_rounds = ms.settings.effective_rounds_to_win() as usize;
+        for (pip, mut img, mut node) in &mut pips {
+            let show = if pip.1 < target_rounds {
+                Display::Flex
+            } else {
+                Display::None
+            };
+            if node.display != show {
+                node.display = show;
+            }
+            if pip.1 >= target_rounds {
+                continue;
+            }
             let won = ms.score[pip.0] as usize > pip.1;
             let file = match (won, pip.0) {
                 (false, _) => "pip_empty",
@@ -1111,10 +1133,12 @@ fn banner_for(
         WIN_ORANGE => Some(Team::Orange),
         _ => None,
     };
+    let rounds_to_win = ms.settings.effective_rounds_to_win();
+    let minutes = ms.settings.effective_match_minutes();
     match ms.phase {
         Phase::Countdown => {
             let point = ms.settings.mode == GameMode::Elimination
-                && ms.score.iter().any(|&s| s + 1 == ROUNDS_TO_WIN);
+                && ms.score.iter().any(|&s| s + 1 == rounds_to_win);
             let img = if point {
                 "banners/banner_match_point.png"
             } else {
@@ -1122,10 +1146,19 @@ fn banner_for(
             };
             let line = match ms.settings.mode {
                 GameMode::Elimination => {
-                    format!("Round {}  |  one life, last team standing", ms.round)
+                    format!(
+                        "Round {}  |  first to {} rounds  |  one life",
+                        ms.round, rounds_to_win
+                    )
                 }
-                GameMode::TeamSplat => "Most splats in 10 minutes wins".to_string(),
-                GameMode::FreeForAll => "Everyone is an enemy  |  10 minutes".to_string(),
+                GameMode::TeamSplat => match ms.settings.effective_score_limit() {
+                    Some(limit) => format!("First to {limit} splats  |  {minutes} min limit"),
+                    None => format!("Most splats in {minutes} minutes wins"),
+                },
+                GameMode::FreeForAll => match ms.settings.effective_score_limit() {
+                    Some(limit) => format!("Everyone is an enemy  |  first to {limit} splats"),
+                    None => format!("Everyone is an enemy  |  {minutes} minutes"),
+                },
             };
             Some((
                 img,
@@ -1141,7 +1174,7 @@ fn banner_for(
             };
             let line = format!(
                 "Blue {}  -  {} Orange  |  first to {}",
-                ms.score[0], ms.score[1], ROUNDS_TO_WIN
+                ms.score[0], ms.score[1], rounds_to_win
             );
             Some((img, String::new(), line))
         }
@@ -1157,7 +1190,7 @@ fn banner_for(
                 Some(false) => "banners/banner_defeat.png",
                 None => "banners/banner_draw.png",
             };
-            let mut line = format!("Main menu in {}", ms.time_left.ceil() as u32);
+            let mut line = format!("Next match in {}", ms.time_left.ceil() as u32);
             if ms.settings.ranked && rank.match_id == Some(ms.match_id) {
                 let after = (rank.before as i32 + rank.delta).max(0) as u32;
                 line = format!(
@@ -1170,7 +1203,7 @@ fn banner_for(
             Some((img, String::new(), line))
         }
         _ => {
-            let left = combat.respawn_in()?;
+            let left = combat.respawn_in(ms.settings.effective_respawn_seconds())?;
             let killer = local_state.0.killer;
             let by = if killer == me {
                 "You're out".to_string()

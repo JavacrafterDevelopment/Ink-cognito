@@ -67,6 +67,8 @@ enum OutboundCommand {
     SetName(String),
     /// A chat line the local player typed.
     Chat(String),
+    /// End-of-match map vote from the local player.
+    VoteMap { match_id: u32, choice: u8 },
 }
 
 /// Events produced by the background Tailcat networking tasks for Bevy to process.
@@ -110,6 +112,12 @@ pub enum NetEvent {
         from: PlayerId,
         text: String,
     },
+    /// Host only: a player's end-of-match map vote.
+    MapVote {
+        from: PlayerId,
+        match_id: u32,
+        choice: u8,
+    },
     Error(String),
     Disconnected(String),
 }
@@ -152,6 +160,8 @@ pub struct NetworkState {
     name_sent: Option<String>,
     /// Chat lines heard, queued for the chat box (`chat.rs`).
     pub pending_chat: Vec<(PlayerId, String)>,
+    /// Host only: end-of-match map votes queued for `game_mode.rs`: (from, match_id, choice).
+    pub pending_votes: Vec<(PlayerId, u32, u8)>,
 }
 
 impl Default for NetworkState {
@@ -182,6 +192,7 @@ impl Default for NetworkState {
             names_version: 0,
             name_sent: None,
             pending_chat: Vec::new(),
+            pending_votes: Vec::new(),
         }
     }
 }
@@ -387,6 +398,15 @@ impl NetworkState {
         }
     }
 
+    /// Sends the local player's end-of-match map vote (`0..3`) to the host.
+    pub fn send_map_vote(&self, match_id: u32, choice: u8) {
+        if let Some(session) = &self.session {
+            let _ = session
+                .tx_out
+                .send(OutboundCommand::VoteMap { match_id, choice });
+        }
+    }
+
     /// Drains all pending network events produced by background tasks without blocking.
     pub fn poll_events(&self) -> Vec<NetEvent> {
         let Some(session) = &self.session else {
@@ -421,6 +441,7 @@ impl NetworkState {
         self.names_version = self.names_version.wrapping_add(1);
         self.name_sent = None;
         self.pending_chat.clear();
+        self.pending_votes.clear();
         self.match_state = MatchState::default();
         crate::protocol::set_free_for_all(false);
     }
@@ -704,6 +725,13 @@ async fn run_host_session(
                     host_chat_seq = host_chat_seq.wrapping_add(1);
                     relay_chat(0, host_chat_seq, &text, &shared, &tx_in).await;
                 }
+                Some(OutboundCommand::VoteMap { match_id, choice }) => {
+                    let _ = tx_in.send(NetEvent::MapVote {
+                        from: 0,
+                        match_id,
+                        choice,
+                    });
+                }
                 None => {
                     host_goodbye(&shared, &shutdown, udp_task).await;
                     return;
@@ -763,6 +791,13 @@ async fn run_host_session(
                     Some(OutboundCommand::Chat(text)) => {
                         host_chat_seq = host_chat_seq.wrapping_add(1);
                         relay_chat(0, host_chat_seq, &text, &shared, &tx_in).await;
+                    }
+                    Some(OutboundCommand::VoteMap { match_id, choice }) => {
+                        let _ = tx_in.send(NetEvent::MapVote {
+                            from: 0,
+                            match_id,
+                            choice,
+                        });
                     }
                     None => break,
                 }
@@ -970,6 +1005,15 @@ async fn run_udp_host(
                             relay_chat(peer.id, seq, &text, &shared, &tx_in).await;
                         }
                     }
+                    ClientDatagram::Msg(ClientMessage::VoteMap { match_id, choice }) => {
+                        if let Some(peer) = peers.get(&from) {
+                            let _ = tx_in.send(NetEvent::MapVote {
+                                from: peer.id,
+                                match_id,
+                                choice,
+                            });
+                        }
+                    }
                     ClientDatagram::Msg(ClientMessage::Ping) => {}
                     ClientDatagram::Msg(ClientMessage::SetName(name)) => {
                         if let Some(peer) = peers.get(&from) {
@@ -1096,6 +1140,13 @@ async fn handle_host_client(
                     }
                     Some(ClientMessage::Chat { seq, text }) => {
                         relay_chat(player_id, seq, &text, &shared, &tx_in).await;
+                    }
+                    Some(ClientMessage::VoteMap { match_id, choice }) => {
+                        let _ = tx_in.send(NetEvent::MapVote {
+                            from: player_id,
+                            match_id,
+                            choice,
+                        });
                     }
                     Some(ClientMessage::Ping) => {}
                     Some(ClientMessage::SetName(name)) => {
@@ -1277,6 +1328,14 @@ async fn run_client_session(
                     Some(OutboundCommand::Chat(text)) => {
                         chat_seq = chat_seq.wrapping_add(1);
                         if write_frame(&mut writer, &ClientMessage::Chat { seq: chat_seq, text })
+                            .await
+                            .is_err()
+                        {
+                            break Some("Lost connection to host.".to_string());
+                        }
+                    }
+                    Some(OutboundCommand::VoteMap { match_id, choice }) => {
+                        if write_frame(&mut writer, &ClientMessage::VoteMap { match_id, choice })
                             .await
                             .is_err()
                         {
@@ -1489,6 +1548,17 @@ async fn run_udp_client_session(
                 Some(OutboundCommand::Chat(text)) => {
                     chat_seq = chat_seq.wrapping_add(1);
                     let packet = send(&ClientDatagram::Msg(ClientMessage::Chat { seq: chat_seq, text }));
+                    let _ = sock.send(&packet).await;
+                    let sock_retry = sock.clone();
+                    tokio::spawn(async move {
+                        for delay_ms in [35u64, 40] {
+                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                            let _ = sock_retry.send(&packet).await;
+                        }
+                    });
+                }
+                Some(OutboundCommand::VoteMap { match_id, choice }) => {
+                    let packet = send(&ClientDatagram::Msg(ClientMessage::VoteMap { match_id, choice }));
                     let _ = sock.send(&packet).await;
                     let sock_retry = sock.clone();
                     tokio::spawn(async move {
@@ -2086,6 +2156,48 @@ mod tests {
                 NetEvent::HitReceived(h) if h.attacker == 0 && h.victim == 1 && (h.damage - 45.0).abs() < 0.01
             )),
             "client should receive the host's hit"
+        );
+
+        client.disconnect();
+        host.disconnect();
+    }
+
+    #[test]
+    fn udp_map_vote_reaches_host() {
+        let mut host = NetworkState::default();
+        host.start_host_with_region(None);
+        let mut port = None;
+        for _ in 0..100 {
+            for ev in host.poll_events() {
+                if let NetEvent::HostingStarted { udp_port, .. } = ev {
+                    port = Some(udp_port);
+                }
+            }
+            if port.is_some() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let port = port.expect("host did not start");
+
+        let mut client = NetworkState::default();
+        client.join_udp(port, "test");
+        assert!(wait_for(&client, Duration::from_secs(5), |e| matches!(
+            e,
+            NetEvent::Connected { your_id: 1, .. }
+        )));
+
+        client.send_map_vote(7, 2);
+        assert!(
+            wait_for(&host, Duration::from_secs(3), |e| matches!(
+                e,
+                NetEvent::MapVote {
+                    from: 1,
+                    match_id: 7,
+                    choice: 2
+                }
+            )),
+            "host should receive the client's map vote over UDP"
         );
 
         client.disconnect();

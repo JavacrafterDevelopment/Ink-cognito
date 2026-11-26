@@ -28,6 +28,7 @@
 use crate::{
     AppState, Overlay,
     arena::Colliders,
+    audio::{SoundProfile, spawn_following_sfx},
     combat::{
         CombatSystems, Fx, LocalState, paint_burst_fx, play_sfx, play_sfx_at, spawn_paintball,
     },
@@ -112,6 +113,7 @@ impl Plugin for GrenadesPlugin {
             .add_systems(
                 Update,
                 (
+                    clear_grenades_on_new_match,
                     throw_local,
                     throw_remote,
                     move_grenades,
@@ -473,10 +475,42 @@ fn throw_local(
     play_sfx(&mut commands, &assets.throw, 0.5, &settings);
 }
 
+/// Clears active grenades, flash overlays and throwable cooldowns when map
+/// voting loads a new map / starts a new match inside the same session.
+fn clear_grenades_on_new_match(
+    mut commands: Commands,
+    net: Res<NetworkState>,
+    mut throwables: ResMut<Throwables>,
+    mut flash_overlay: ResMut<FlashOverlay>,
+    grenades: Query<Entity, With<Grenade>>,
+    mut last: Local<Option<(u32, crate::protocol::MapId)>>,
+) {
+    let key = (net.match_state.match_id, net.match_state.settings.map);
+    let Some(prev) = *last else {
+        *last = Some(key);
+        return;
+    };
+    if prev == key {
+        return;
+    }
+    *last = Some(key);
+    *throwables = Throwables::default();
+    for layer in flash_overlay.layers.drain(..) {
+        if let Some(root) = layer.root {
+            commands.entity(root).try_despawn();
+        }
+    }
+    if let Some(ring) = flash_overlay.ring.take() {
+        commands.entity(ring).try_despawn();
+    }
+    for e in &grenades {
+        commands.entity(e).try_despawn();
+    }
+}
+
 /// Others' throws: their counter went up, so throw one from where they look.
 fn throw_remote(
     mut commands: Commands,
-    settings: Res<AudioSettings>,
     assets: Option<Res<GrenadeAssets>>,
     remote_q: Query<&RemotePlayer>,
     mut seen: Local<HashMap<PlayerId, (u8, u8)>>,
@@ -516,7 +550,14 @@ fn throw_remote(
                 origin,
                 throw_velocity(forward),
             );
-            play_sfx_at(&mut commands, &assets.throw, 0.5, origin, &settings);
+            play_sfx_at(
+                &mut commands,
+                &assets.throw,
+                0.55,
+                origin,
+                SoundProfile::GrenadeBounce,
+                1.0,
+            );
         }
     }
 }
@@ -539,7 +580,6 @@ fn move_grenades(
     time: Res<Time>,
     colliders: Res<Colliders>,
     net: Res<NetworkState>,
-    settings: Res<AudioSettings>,
     assets: Option<Res<GrenadeAssets>>,
     mut fx: ResMut<Fx>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -589,7 +629,15 @@ fn move_grenades(
                 };
                 tf.translation = hit.point + n * (GRENADE_RADIUS + 0.01);
                 if speed > 2.5 {
-                    play_sfx_at(&mut commands, &assets.bounce, 0.4, hit.point, &settings);
+                    let pitch = (0.88 + (speed / 25.0).min(0.28)).clamp(0.85, 1.2);
+                    play_sfx_at(
+                        &mut commands,
+                        &assets.bounce,
+                        0.48,
+                        hit.point,
+                        SoundProfile::GrenadeBounce,
+                        pitch,
+                    );
                 }
                 let rest_below = if ultra { 0.15 } else { 1.2 };
                 if n.y > 0.7 && g.velocity.length() < rest_below {
@@ -609,7 +657,15 @@ fn move_grenades(
         let point = tf.translation + Vec3::Y * 0.15;
         let (total, interval) = g.kind.bursts();
         if g.kind == Kind::UltraBang && g.bursts_left == total {
-            play_sfx_at(&mut commands, &assets.ultra, 1.0, point, &settings);
+            spawn_following_sfx(
+                &mut commands,
+                assets.ultra.clone(),
+                1.05,
+                entity,
+                point,
+                SoundProfile::Explosion,
+                1.0,
+            );
         }
         g.bursts_left = g.bursts_left.saturating_sub(1);
         if g.bursts_left > 0 {
@@ -620,7 +676,14 @@ fn move_grenades(
         match g.kind {
             Kind::Bomb | Kind::UltraBang => {
                 paint_burst_fx(&mut commands, &mut fx, &mut materials, point, g.team, 1.0);
-                play_sfx_at(&mut commands, &assets.nade, 1.0, point, &settings);
+                play_sfx_at(
+                    &mut commands,
+                    &assets.nade,
+                    1.05,
+                    point,
+                    SoundProfile::Explosion,
+                    1.0,
+                );
                 let balls = if g.kind == Kind::UltraBang {
                     ULTRA_BALLS
                 } else {
@@ -645,7 +708,14 @@ fn move_grenades(
             }
             Kind::Flash | Kind::NineBang => {
                 paint_burst_fx(&mut commands, &mut fx, &mut materials, point, g.team, 2.0);
-                play_sfx_at(&mut commands, &assets.flash_bang, 1.0, point, &settings);
+                play_sfx_at(
+                    &mut commands,
+                    &assets.flash_bang,
+                    1.05,
+                    point,
+                    SoundProfile::Explosion,
+                    1.0,
+                );
                 // Only the thrower's screen decides who got painted.
                 if Some(g.owner) != local_id {
                     continue;

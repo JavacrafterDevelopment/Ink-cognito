@@ -1,6 +1,6 @@
 use crate::{
     AppState, Overlay,
-    game_mode::MatchSetup,
+    game_mode::{MatchSetup, pick_random_map, random_seed},
     hub::{self, HubPlay},
     maps::{CurrentMap, MapLibrary},
     net::{NetRole, NetworkState, Transport},
@@ -67,8 +67,8 @@ impl Plugin for MenuPlugin {
                     show_menu_screens,
                     update_menu_ui,
                     update_hub_menu,
-                    update_play_screen,
-                    update_movement_tiles,
+                    update_play_lobby,
+                    update_match_options_ui,
                     update_rank_card,
                     style_tiles_and_tabs,
                     fit_cover_images,
@@ -94,9 +94,35 @@ pub enum MenuScreen {
     Options,
 }
 
+/// Sub-screens inside `MenuScreen::Play`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlaySubScreen {
+    /// Step 1: pick a game mode (Team Splat, Free-for-All, Elimination, Ranked).
+    #[default]
+    ModeSelect,
+    /// Step 2: Call-of-Duty-style Private Match lobby (or Ranked lobby with random map).
+    Lobby,
+    /// Step 3 (Private Match): Match Options panel for Map, Mode & Game Rules.
+    MatchOptions,
+}
+
+/// Tabs inside the Match Options panel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MatchOptionsTab {
+    #[default]
+    Map,
+    Rules,
+}
+
 #[derive(Resource, Default)]
 pub struct MenuState {
     pub screen: MenuScreen,
+    pub play_sub: PlaySubScreen,
+    pub options_tab: MatchOptionsTab,
+    /// If true, Loadout was opened from the Play lobby so Back/PLAY returns there.
+    pub loadout_from_play: bool,
+    /// If true in a private match, rolls a random map when the match starts.
+    pub random_map: bool,
     join_address: String,
 }
 
@@ -109,9 +135,29 @@ struct HudState {
 enum MenuAction {
     OpenPlay,
     PlayRanked,
-    PickMode(usize),
+    /// Mode select card: picks mode and enters the Play Lobby (Ranked rolls random map).
+    ChooseMode(usize),
+    /// Inside Match Options: switches non-ranked mode without leaving options.
+    SetPrivateMode(GameMode),
+    /// Returns from Lobby to Mode Select.
+    BackToModeSelect,
+    /// Opens Match Options drawer on a specific tab (`Map` or `Rules`).
+    OpenMatchOptions(MatchOptionsTab),
+    /// Switches tab inside Match Options.
+    SwitchOptionsTab(MatchOptionsTab),
+    /// Closes Match Options and returns to Play Lobby.
+    CloseMatchOptions,
+    /// Opens Loadout from inside the Play Lobby.
+    OpenLoadoutFromPlay,
     PickMap(MapId),
+    PickRandomMap,
     PickMovement(MovementSpeed),
+    PickMatchMinutes(u16),
+    PickScoreLimit(u32),
+    PickRoundsToWin(u32),
+    PickRoundSeconds(u16),
+    PickRespawnSeconds(u8),
+    ResetMatchRules,
     Quit,
     CreateGame,
     OpenJoin,
@@ -303,6 +349,7 @@ fn on_menu_click(
     mut menu: ResMut<MenuState>,
     mut net: ResMut<NetworkState>,
     portside: Res<Portside>,
+    library: Res<MapLibrary>,
     mut setup: ResMut<MatchSetup>,
     mut current_map: ResMut<CurrentMap>,
     mut exit: MessageWriter<AppExit>,
@@ -318,11 +365,23 @@ fn on_menu_click(
         return;
     };
 
+    let click_sfx = |commands: &mut Commands| {
+        if let Some(sounds) = &sounds {
+            ui_sound(commands, &sounds.click, 0.6, settings.as_deref());
+        }
+    };
+
     match *action {
         MenuAction::OpenPlay => {
             if !net.is_connecting {
                 net.error_text = None;
+                let return_to_lobby =
+                    menu.screen == MenuScreen::Loadout && menu.loadout_from_play;
+                menu.loadout_from_play = false;
                 menu.screen = MenuScreen::Play;
+                if !return_to_lobby {
+                    menu.play_sub = PlaySubScreen::ModeSelect;
+                }
                 current_map.0 = setup.0.map;
             }
         }
@@ -331,36 +390,127 @@ fn on_menu_click(
                 net.error_text = None;
                 setup.0.mode = GameMode::Elimination;
                 setup.0.ranked = true;
-                setup.0.movement = MovementSpeed::Normal;
+                setup.0.reset_rules();
+                // Ranked always selects a random official map.
+                let rolled = pick_random_map(&MapId::BUILT_IN, Some(setup.0.map), random_seed());
+                setup.0.map = rolled;
+                current_map.0 = rolled;
+                menu.random_map = true;
+                menu.loadout_from_play = false;
                 menu.screen = MenuScreen::Play;
-                current_map.0 = setup.0.map;
+                menu.play_sub = PlaySubScreen::Lobby;
+                click_sfx(&mut commands);
             }
         }
-        MenuAction::PickMode(i) => {
+        MenuAction::ChooseMode(i) => {
             let choice = &MODE_CHOICES[i.min(MODE_CHOICES.len() - 1)];
             setup.0.mode = choice.mode;
             setup.0.ranked = choice.ranked;
             if choice.ranked {
-                // Ranked always plays at the default pace.
-                setup.0.movement = MovementSpeed::Normal;
+                setup.0.reset_rules();
+                let rolled = pick_random_map(&MapId::BUILT_IN, Some(setup.0.map), random_seed());
+                setup.0.map = rolled;
+                current_map.0 = rolled;
+                menu.random_map = true;
+            } else {
+                menu.random_map = false;
+                current_map.0 = setup.0.map;
             }
-            if let Some(sounds) = &sounds {
-                ui_sound(&mut commands, &sounds.click, 0.6, settings.as_deref());
+            menu.play_sub = PlaySubScreen::Lobby;
+            click_sfx(&mut commands);
+        }
+        MenuAction::SetPrivateMode(mode) => {
+            if !setup.0.ranked {
+                setup.0.mode = mode;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::BackToModeSelect => {
+            if !net.is_connecting {
+                menu.play_sub = PlaySubScreen::ModeSelect;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::OpenMatchOptions(tab) => {
+            if !setup.0.ranked && !net.is_connecting {
+                menu.options_tab = tab;
+                menu.play_sub = PlaySubScreen::MatchOptions;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::SwitchOptionsTab(tab) => {
+            menu.options_tab = tab;
+            click_sfx(&mut commands);
+        }
+        MenuAction::CloseMatchOptions => {
+            menu.play_sub = PlaySubScreen::Lobby;
+            click_sfx(&mut commands);
+        }
+        MenuAction::OpenLoadoutFromPlay => {
+            if !net.is_connecting {
+                net.error_text = None;
+                menu.loadout_from_play = true;
+                menu.screen = MenuScreen::Loadout;
             }
         }
         MenuAction::PickMap(id) => {
-            setup.0.map = id;
-            current_map.0 = id;
-            if let Some(sounds) = &sounds {
-                ui_sound(&mut commands, &sounds.click, 0.6, settings.as_deref());
+            if !setup.0.ranked {
+                setup.0.map = id;
+                current_map.0 = id;
+                menu.random_map = false;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::PickRandomMap => {
+            if !setup.0.ranked {
+                let pool: Vec<MapId> = library.ids().collect();
+                let rolled = pick_random_map(&pool, Some(setup.0.map), random_seed());
+                setup.0.map = rolled;
+                current_map.0 = rolled;
+                menu.random_map = true;
+                click_sfx(&mut commands);
             }
         }
         MenuAction::PickMovement(movement) => {
             if !setup.0.ranked {
                 setup.0.movement = movement;
-                if let Some(sounds) = &sounds {
-                    ui_sound(&mut commands, &sounds.click, 0.6, settings.as_deref());
-                }
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::PickMatchMinutes(mins) => {
+            if !setup.0.ranked {
+                setup.0.match_minutes = mins;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::PickScoreLimit(limit) => {
+            if !setup.0.ranked {
+                setup.0.score_limit = limit;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::PickRoundsToWin(rounds) => {
+            if !setup.0.ranked {
+                setup.0.rounds_to_win = rounds;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::PickRoundSeconds(secs) => {
+            if !setup.0.ranked {
+                setup.0.round_seconds = secs;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::PickRespawnSeconds(secs) => {
+            if !setup.0.ranked {
+                setup.0.respawn_seconds = secs;
+                click_sfx(&mut commands);
+            }
+        }
+        MenuAction::ResetMatchRules => {
+            if !setup.0.ranked {
+                setup.0.reset_rules();
+                click_sfx(&mut commands);
             }
         }
         MenuAction::Quit => {
@@ -368,6 +518,17 @@ fn on_menu_click(
         }
         MenuAction::CreateGame => {
             if !net.is_connecting {
+                if setup.0.ranked {
+                    setup.0.reset_rules();
+                    let rolled = pick_random_map(&MapId::BUILT_IN, None, random_seed());
+                    setup.0.map = rolled;
+                    current_map.0 = rolled;
+                } else if menu.random_map {
+                    let pool: Vec<MapId> = library.ids().collect();
+                    let rolled = pick_random_map(&pool, None, random_seed());
+                    setup.0.map = rolled;
+                    current_map.0 = rolled;
+                }
                 if let Some(sounds) = sounds {
                     ui_sound(&mut commands, &sounds.confirm, 0.7, settings.as_deref());
                 }
@@ -377,18 +538,21 @@ fn on_menu_click(
         MenuAction::OpenLoadout => {
             if !net.is_connecting {
                 net.error_text = None;
+                menu.loadout_from_play = false;
                 menu.screen = MenuScreen::Loadout;
             }
         }
         MenuAction::OpenSettings => {
             if !net.is_connecting {
                 net.error_text = None;
+                menu.loadout_from_play = false;
                 menu.screen = MenuScreen::Options;
             }
         }
         MenuAction::OpenJoin => {
             if !net.is_connecting {
                 net.error_text = None;
+                menu.loadout_from_play = false;
                 menu.screen = MenuScreen::Join;
             }
         }
@@ -416,6 +580,7 @@ fn on_menu_click(
         MenuAction::BackToHome => {
             if !net.is_connecting {
                 net.error_text = None;
+                menu.loadout_from_play = false;
                 menu.screen = MenuScreen::Home;
             }
         }
@@ -533,8 +698,8 @@ pub const MODE_CHOICES: [ModeChoice; 4] = [
         mode: GameMode::Elimination,
         ranked: true,
         title: "RANKED",
-        blurb: "Elimination for rank points. Win to climb; quitting counts as a loss.",
-        tag: "RANKED  |  FIRST TO 5",
+        blurb: "Competitive Elimination on a random official map. Win to climb; quitting counts as a loss.",
+        tag: "FIRST TO 5  |  RANDOM MAP",
         icon: "icons/trophy.png",
     },
 ];
@@ -551,27 +716,80 @@ fn mode_index(settings: &MatchSettings) -> usize {
 enum ShowOn {
     Home,
     Join,
-    Play,
+    PlayModeSelect,
+    PlayLobby,
+    PlayMatchOptions,
     /// The solid backdrop (not on the play screen: the map shows there).
     Backdrop,
 }
 
 impl ShowOn {
-    fn visible(self, screen: MenuScreen) -> bool {
+    fn visible(self, menu: &MenuState) -> bool {
         match self {
-            ShowOn::Home => screen == MenuScreen::Home,
-            ShowOn::Join => screen == MenuScreen::Join,
-            ShowOn::Play => screen == MenuScreen::Play,
-            ShowOn::Backdrop => screen != MenuScreen::Play,
+            ShowOn::Home => menu.screen == MenuScreen::Home,
+            ShowOn::Join => menu.screen == MenuScreen::Join,
+            ShowOn::PlayModeSelect => {
+                menu.screen == MenuScreen::Play && menu.play_sub == PlaySubScreen::ModeSelect
+            }
+            ShowOn::PlayLobby => {
+                menu.screen == MenuScreen::Play && menu.play_sub == PlaySubScreen::Lobby
+            }
+            ShowOn::PlayMatchOptions => {
+                menu.screen == MenuScreen::Play && menu.play_sub == PlaySubScreen::MatchOptions
+            }
+            ShowOn::Backdrop => menu.screen != MenuScreen::Play,
         }
     }
 }
 
+/// Elements in the Play Lobby visible only for Private Match (hidden in Ranked).
 #[derive(Component)]
-struct ModeCard(usize);
+struct PrivateOnly;
+
+/// Elements in the Play Lobby visible only for Ranked (hidden in Private Match).
+#[derive(Component)]
+struct RankedOnly;
 
 #[derive(Component)]
-struct ModeCardTitle(usize);
+enum LobbyPart {
+    Eyebrow,
+    ModeIcon,
+    ModeTitle,
+    ModeTag,
+    StartBtnText,
+    MapEyebrow,
+    MapCue,
+    MapName,
+    MapStyle,
+    MapBlurb,
+    SummaryHeading,
+    SummaryMode,
+    SummaryMap,
+    SummaryMovement,
+    SummaryRuleALabel,
+    SummaryRuleAVal,
+    SummaryRuleBLabel,
+    SummaryRuleBVal,
+    SummaryRuleCLabel,
+    SummaryRuleCVal,
+}
+
+#[derive(Component)]
+struct OptionsTabBtn(MatchOptionsTab);
+
+#[derive(Component)]
+struct OptionsTabText(MatchOptionsTab);
+
+#[derive(Component)]
+struct OptionsTabPane(MatchOptionsTab);
+
+/// Shows only when the selected private mode is Team Splat or Free-for-All.
+#[derive(Component)]
+struct TimedModeRuleRow;
+
+/// Shows only when the selected private mode is Elimination.
+#[derive(Component)]
+struct ElimModeRuleRow;
 
 #[derive(Component)]
 struct MapTile(MapId);
@@ -580,20 +798,49 @@ struct MapTile(MapId);
 struct MapTileText(MapId);
 
 #[derive(Component)]
-struct MovementTile(MovementSpeed);
+struct RandomMapTile;
 
 #[derive(Component)]
-struct MovementTileText(MovementSpeed);
+struct RandomMapTileText;
 
 #[derive(Component)]
-enum MapInfoText {
+enum OptionsMapPreview {
     Name,
     Style,
     Blurb,
 }
 
 #[derive(Component)]
-struct ModeSummaryText;
+struct OptionsRuleMapValue;
+
+/// Selectable pill button inside Match Options -> Game Rules.
+#[derive(Component, Clone, Copy)]
+enum RuleOption {
+    Mode(GameMode),
+    Movement(MovementSpeed),
+    MatchMinutes(u16),
+    ScoreLimit(u32),
+    RoundsToWin(u32),
+    RoundSeconds(u16),
+    RespawnSeconds(u8),
+}
+
+impl RuleOption {
+    fn selected(self, s: &MatchSettings) -> bool {
+        match self {
+            RuleOption::Mode(m) => s.mode == m,
+            RuleOption::Movement(mv) => s.movement == mv,
+            RuleOption::MatchMinutes(m) => s.effective_match_minutes() == m,
+            RuleOption::ScoreLimit(l) => s.score_limit == l,
+            RuleOption::RoundsToWin(r) => s.effective_rounds_to_win() == r,
+            RuleOption::RoundSeconds(sec) => s.effective_round_seconds().round() as u16 == sec,
+            RuleOption::RespawnSeconds(sec) => s.effective_respawn_seconds().round() as u8 == sec,
+        }
+    }
+}
+
+#[derive(Component)]
+struct RuleOptionText(RuleOption);
 
 #[derive(Component)]
 enum RankCardPart {
@@ -653,9 +900,12 @@ fn spawn_main_menu(
     library: Res<MapLibrary>,
 ) {
     menu.screen = MenuScreen::Home;
+    menu.play_sub = PlaySubScreen::ModeSelect;
+    menu.loadout_from_play = false;
     *overlay = Overlay::default();
     let k = |p: &str| kit(&assets, p);
     let fonts = &*kit_fonts;
+    let map_count = library.ids().count();
 
     // A solid backdrop: nothing of the 3D world shows through, at any size.
     commands.spawn((
@@ -770,13 +1020,15 @@ fn spawn_main_menu(
                         Pickable::IGNORE,
                     ));
                     text.spawn((
-                        Text::new("TEAM SPLAT  |  FREE-FOR-ALL  |  ELIMINATION  |  5 MAPS"),
+                        Text::new(format!(
+                            "TEAM SPLAT  |  FREE-FOR-ALL  |  ELIMINATION  |  {map_count} MAPS"
+                        )),
                         TextFont::from_font_size(15.0),
                         TextColor(KIT_YELLOW),
                         Pickable::IGNORE,
                     ));
                     text.spawn((
-                        Text::new("Host a match and pick the mode and map. Friends join from your hub or your address."),
+                        Text::new("Pick a mode, configure match options & map, or queue Ranked on a random map."),
                         TextFont::from_font_size(13.0),
                         TextColor(TEXT_MUTED),
                         Pickable::IGNORE,
@@ -1476,8 +1728,844 @@ fn fit_cover_images(
     }
 }
 
-/// The play screen: mode cards and the map picker over a live view of the map.
+/// The play screen: 1) Mode Select, 2) COD-style Private Match / Ranked Lobby,
+/// 3) Match Options drawer (Map + Game Rules), all over a live 3D view of the map.
 fn spawn_play_screen(
+    commands: &mut Commands,
+    assets: &AssetServer,
+    fonts: &UiKit,
+    library: &MapLibrary,
+) {
+    spawn_play_mode_select(commands, assets, fonts);
+    spawn_play_lobby(commands, assets, fonts);
+    spawn_play_match_options(commands, assets, fonts, library);
+}
+
+/// Step 1 of Play: clean 4-card game mode selector over the live 3D map.
+fn spawn_play_mode_select(commands: &mut Commands, assets: &AssetServer, fonts: &UiKit) {
+    let k = |p: &str| kit(assets, p);
+
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(TOP_BAR_HEIGHT),
+                bottom: Val::Px(0.0),
+                padding: UiRect {
+                    left: Val::Px(48.0),
+                    right: Val::Px(48.0),
+                    top: Val::Px(28.0),
+                    bottom: Val::Px(32.0),
+                },
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceBetween,
+                ..default()
+            },
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                ColorStop::auto(Color::srgba(0.02, 0.03, 0.05, 0.62)),
+                ColorStop::percent(Color::srgba(0.02, 0.03, 0.05, 0.25), 35.0),
+                ColorStop::auto(Color::srgba(0.02, 0.03, 0.05, 0.78)),
+            ])),
+            Pickable::IGNORE,
+            ShowOn::PlayModeSelect,
+            DespawnOnExit(AppState::MainMenu),
+        ))
+        .with_children(|root| {
+            // Header block.
+            root.spawn((
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(4.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|hdr| {
+                hdr.spawn((
+                    Text::new("PLAY  /  SELECT MODE"),
+                    TextFont::from_font_size(13.0),
+                    TextColor(KIT_YELLOW),
+                    Pickable::IGNORE,
+                ));
+                hdr.spawn((
+                    Text::new("CHOOSE YOUR MODE"),
+                    fonts.heading(52.0),
+                    TextColor(TEXT_PRIMARY),
+                    Pickable::IGNORE,
+                ));
+                hdr.spawn((
+                    Text::new("Pick a mode to enter the match lobby. Ranked plays Elimination on a random official map."),
+                    TextFont::from_font_size(14.0),
+                    TextColor(TEXT_MUTED),
+                    Pickable::IGNORE,
+                ));
+            });
+
+            // 4 vertical mode cards.
+            root.spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(18.0),
+                    align_items: AlignItems::Stretch,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|row| {
+                for (i, choice) in MODE_CHOICES.iter().enumerate() {
+                    let accent_grad = if choice.ranked {
+                        LinearGradient::to_bottom(vec![
+                            ColorStop::auto(Color::srgba(0.96, 0.77, 0.17, 0.16)),
+                            ColorStop::auto(Color::srgba(0.05, 0.07, 0.10, 0.94)),
+                        ])
+                    } else {
+                        LinearGradient::to_bottom(vec![
+                            ColorStop::auto(Color::srgba(0.09, 0.12, 0.18, 0.90)),
+                            ColorStop::auto(Color::srgba(0.04, 0.06, 0.09, 0.94)),
+                        ])
+                    };
+
+                    row.spawn((
+                        tile_node(Node {
+                            flex_grow: 1.0,
+                            flex_basis: Val::Px(0.0),
+                            min_height: Val::Px(270.0),
+                            padding: UiRect::all(Val::Px(22.0)),
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::SpaceBetween,
+                            row_gap: Val::Px(14.0),
+                            ..default()
+                        }),
+                        BackgroundColor(Color::srgba(0.05, 0.07, 0.11, 0.92)),
+                        BackgroundGradient::from(accent_grad),
+                        BorderColor::all(TILE_BORDER),
+                        Tile,
+                        Hover::default(),
+                        MenuAction::ChooseMode(i),
+                    ))
+                    .with_children(|card| {
+                        card.spawn((
+                            Node {
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(10.0),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|top| {
+                            top.spawn((
+                                Node {
+                                    flex_direction: FlexDirection::Row,
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::SpaceBetween,
+                                    ..default()
+                                },
+                                Pickable::IGNORE,
+                            ))
+                            .with_children(|icon_row| {
+                                icon_row.spawn((
+                                    ImageNode::new(k(choice.icon)),
+                                    Node {
+                                        width: Val::Px(46.0),
+                                        height: Val::Px(46.0),
+                                        ..default()
+                                    },
+                                    Pickable::IGNORE,
+                                ));
+                                icon_row
+                                    .spawn((
+                                        Node {
+                                            padding: UiRect::axes(Val::Px(10.0), Val::Px(4.0)),
+                                            border_radius: BorderRadius::all(Val::Px(4.0)),
+                                            ..default()
+                                        },
+                                        BackgroundColor(if choice.ranked {
+                                            Color::srgba(0.96, 0.77, 0.17, 0.22)
+                                        } else {
+                                            Color::srgba(0.24, 0.60, 0.98, 0.18)
+                                        }),
+                                        Pickable::IGNORE,
+                                    ))
+                                    .with_children(|pill| {
+                                        pill.spawn((
+                                            Text::new(if choice.ranked {
+                                                "RANDOM MAP"
+                                            } else {
+                                                "PRIVATE MATCH"
+                                            }),
+                                            TextFont::from_font_size(10.0),
+                                            TextColor(if choice.ranked {
+                                                KIT_YELLOW
+                                            } else {
+                                                TEXT_STATUS
+                                            }),
+                                            Pickable::IGNORE,
+                                        ));
+                                    });
+                            });
+
+                            top.spawn((
+                                Text::new(choice.title),
+                                fonts.heading(36.0),
+                                TextColor(TEXT_PRIMARY),
+                                Pickable::IGNORE,
+                            ));
+                            top.spawn((
+                                Text::new(choice.tag),
+                                TextFont::from_font_size(12.0),
+                                TextColor(KIT_YELLOW),
+                                Pickable::IGNORE,
+                            ));
+                            top.spawn((
+                                Text::new(choice.blurb),
+                                TextFont::from_font_size(13.0),
+                                TextColor(TEXT_MUTED),
+                                Pickable::IGNORE,
+                            ));
+                        });
+
+                        // Bottom footer on each mode card.
+                        if choice.ranked {
+                            card.spawn((
+                                Node {
+                                    flex_direction: FlexDirection::Row,
+                                    align_items: AlignItems::Center,
+                                    column_gap: Val::Px(10.0),
+                                    padding: UiRect::top(Val::Px(10.0)),
+                                    border: UiRect::top(Val::Px(1.0)),
+                                    ..default()
+                                },
+                                BorderColor::all(TILE_BORDER),
+                                Pickable::IGNORE,
+                            ))
+                            .with_children(|r| {
+                                r.spawn((
+                                    ImageNode::new(k("badges/rank_bronze.png")),
+                                    Node {
+                                        width: Val::Px(34.0),
+                                        height: Val::Px(34.0),
+                                        ..default()
+                                    },
+                                    Pickable::IGNORE,
+                                    RankCardPart::Badge,
+                                ));
+                                r.spawn((
+                                    Node {
+                                        flex_direction: FlexDirection::Column,
+                                        ..default()
+                                    },
+                                    Pickable::IGNORE,
+                                ))
+                                .with_children(|rc| {
+                                    rc.spawn((
+                                        Text::new(""),
+                                        fonts.heading(18.0),
+                                        TextColor(TEXT_PRIMARY),
+                                        Pickable::IGNORE,
+                                        RankCardPart::Name,
+                                    ));
+                                    rc.spawn((
+                                        Text::new(""),
+                                        TextFont::from_font_size(11.0),
+                                        TextColor(KIT_YELLOW),
+                                        Pickable::IGNORE,
+                                        RankCardPart::Points,
+                                    ));
+                                });
+                            });
+                        } else {
+                            card.spawn((
+                                Node {
+                                    padding: UiRect::top(Val::Px(10.0)),
+                                    border: UiRect::top(Val::Px(1.0)),
+                                    flex_direction: FlexDirection::Row,
+                                    justify_content: JustifyContent::SpaceBetween,
+                                    align_items: AlignItems::Center,
+                                    ..default()
+                                },
+                                BorderColor::all(TILE_BORDER),
+                                Pickable::IGNORE,
+                            ))
+                            .with_children(|ft| {
+                                ft.spawn((
+                                    Text::new("CONFIGURE & PLAY"),
+                                    TextFont::from_font_size(12.0),
+                                    TextColor(KIT_YELLOW),
+                                    Pickable::IGNORE,
+                                ));
+                                ft.spawn((
+                                    ImageNode::new(k("icons/forward.png")),
+                                    Node {
+                                        width: Val::Px(18.0),
+                                        height: Val::Px(18.0),
+                                        ..default()
+                                    },
+                                    Pickable::IGNORE,
+                                ));
+                            });
+                        }
+                    });
+                }
+            });
+
+            // Bottom back button.
+            root.spawn((
+                Node {
+                    width: Val::Px(190.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|w| {
+                spawn_menu_button(
+                    w,
+                    "BACK TO HOME",
+                    MenuAction::BackToHome,
+                    ButtonStyle::SECONDARY,
+                    46.0,
+                    15.0,
+                    false,
+                );
+            });
+        });
+}
+
+/// Step 2 of Play: Call-of-Duty-style Private Match Lobby (or Ranked Lobby).
+/// Left column has the stacked match controls + bottom-left map preview card;
+/// center stays open for the live orbiting 3D map; right side shows match rules.
+fn spawn_play_lobby(commands: &mut Commands, assets: &AssetServer, fonts: &UiKit) {
+    let k = |p: &str| kit(assets, p);
+
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(TOP_BAR_HEIGHT),
+                bottom: Val::Px(0.0),
+                padding: UiRect {
+                    left: Val::Px(36.0),
+                    right: Val::Px(36.0),
+                    top: Val::Px(24.0),
+                    bottom: Val::Px(26.0),
+                },
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Stretch,
+                ..default()
+            },
+            // Subtle side vignettes so the left stack and right card read crisply
+            // while keeping the live 3D arena clear in the middle.
+            BackgroundGradient::from(LinearGradient::to_right(vec![
+                ColorStop::auto(Color::srgba(0.02, 0.03, 0.05, 0.72)),
+                ColorStop::percent(Color::NONE, 36.0),
+                ColorStop::percent(Color::NONE, 68.0),
+                ColorStop::auto(Color::srgba(0.02, 0.03, 0.05, 0.65)),
+            ])),
+            Pickable::IGNORE,
+            ShowOn::PlayLobby,
+            DespawnOnExit(AppState::MainMenu),
+        ))
+        .with_children(|root| {
+            // === LEFT COLUMN: COD Private Match Action Stack + Map Card ===
+            root.spawn((
+                Node {
+                    width: Val::Px(380.0),
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::SpaceBetween,
+                    row_gap: Val::Px(16.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|left| {
+                // Top: Mode Header + Vertical COD Button Stack.
+                left.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(10.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|top| {
+                    top.spawn((
+                        Text::new("PRIVATE MATCH  /  LOBBY"),
+                        TextFont::from_font_size(12.0),
+                        TextColor(KIT_YELLOW),
+                        Pickable::IGNORE,
+                        LobbyPart::Eyebrow,
+                    ));
+                    top.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            column_gap: Val::Px(12.0),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|title_row| {
+                        title_row.spawn((
+                            ImageNode::new(k("icons/team.png")),
+                            Node {
+                                width: Val::Px(42.0),
+                                height: Val::Px(42.0),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                            LobbyPart::ModeIcon,
+                        ));
+                        title_row.spawn((
+                            Text::new("TEAM SPLAT"),
+                            fonts.heading(44.0),
+                            TextColor(TEXT_PRIMARY),
+                            Pickable::IGNORE,
+                            LobbyPart::ModeTitle,
+                        ));
+                    });
+                    top.spawn((
+                        Text::new(""),
+                        TextFont::from_font_size(12.0),
+                        TextColor(TEXT_MUTED),
+                        Node {
+                            margin: UiRect::bottom(Val::Px(8.0)),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                        LobbyPart::ModeTag,
+                    ));
+
+                    // Primary COD START MATCH button.
+                    top.spawn((
+                        Node {
+                            height: Val::Px(58.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border_radius: BorderRadius::all(Val::Px(10.0)),
+                            ..default()
+                        },
+                        BackgroundColor(ButtonStyle::PRIMARY.normal),
+                        ButtonStyle::PRIMARY,
+                        MenuAction::CreateGame,
+                    ))
+                    .with_children(|btn| {
+                        btn.spawn((
+                            Text::new("START MATCH"),
+                            fonts.heading(24.0),
+                            TextColor(TEXT_PRIMARY),
+                            Pickable::IGNORE,
+                            LobbyPart::StartBtnText,
+                        ));
+                    });
+
+                    // Private Match options stack (hidden in Ranked).
+                    top.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(10.0),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                        PrivateOnly,
+                    ))
+                    .with_children(|priv_btns| {
+                        spawn_menu_button(
+                            priv_btns,
+                            "MATCH OPTIONS",
+                            MenuAction::OpenMatchOptions(MatchOptionsTab::Rules),
+                            ButtonStyle::SECONDARY,
+                            48.0,
+                            16.0,
+                            false,
+                        );
+                        spawn_menu_button(
+                            priv_btns,
+                            "CHANGE MAP",
+                            MenuAction::OpenMatchOptions(MatchOptionsTab::Map),
+                            ButtonStyle::SECONDARY,
+                            48.0,
+                            16.0,
+                            false,
+                        );
+                    });
+
+                    spawn_menu_button(
+                        top,
+                        "EDIT LOADOUT",
+                        MenuAction::OpenLoadoutFromPlay,
+                        ButtonStyle::SECONDARY,
+                        46.0,
+                        15.0,
+                        false,
+                    );
+                    spawn_menu_button(
+                        top,
+                        "CHANGE MODE",
+                        MenuAction::BackToModeSelect,
+                        ButtonStyle::SECONDARY,
+                        44.0,
+                        14.0,
+                        false,
+                    );
+                });
+
+                // Bottom-Left: Signature COD Map Preview Card.
+                left.spawn((
+                    tile_node(Node {
+                        padding: UiRect::axes(Val::Px(18.0), Val::Px(14.0)),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(4.0),
+                        ..default()
+                    }),
+                    BackgroundColor(Color::srgba(0.05, 0.07, 0.11, 0.92)),
+                    BorderColor::all(TILE_BORDER),
+                    Tile,
+                    Hover::default(),
+                    MenuAction::OpenMatchOptions(MatchOptionsTab::Map),
+                ))
+                .with_children(|card| {
+                    card.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceBetween,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|hdr| {
+                        hdr.spawn((
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                align_items: AlignItems::Center,
+                                column_gap: Val::Px(8.0),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|l| {
+                            l.spawn((
+                                ImageNode::new(k("icons/map.png")),
+                                Node {
+                                    width: Val::Px(18.0),
+                                    height: Val::Px(18.0),
+                                    ..default()
+                                },
+                                Pickable::IGNORE,
+                            ));
+                            l.spawn((
+                                Text::new("SELECTED MAP"),
+                                TextFont::from_font_size(11.0),
+                                TextColor(KIT_YELLOW),
+                                Pickable::IGNORE,
+                                LobbyPart::MapEyebrow,
+                            ));
+                        });
+                        hdr.spawn((
+                            Text::new("CLICK TO CHANGE >"),
+                            TextFont::from_font_size(10.0),
+                            TextColor(TEXT_STATUS),
+                            Pickable::IGNORE,
+                            LobbyPart::MapCue,
+                        ));
+                    });
+
+                    card.spawn((
+                        Text::new("SPLAT PARK"),
+                        fonts.heading(34.0),
+                        TextColor(TEXT_PRIMARY),
+                        Pickable::IGNORE,
+                        LobbyPart::MapName,
+                    ));
+                    card.spawn((
+                        Text::new(""),
+                        TextFont::from_font_size(12.0),
+                        TextColor(KIT_YELLOW),
+                        Pickable::IGNORE,
+                        LobbyPart::MapStyle,
+                    ));
+                    card.spawn((
+                        Text::new(""),
+                        TextFont::from_font_size(12.0),
+                        TextColor(TEXT_MUTED),
+                        Pickable::IGNORE,
+                        LobbyPart::MapBlurb,
+                    ));
+                });
+            });
+
+            // === RIGHT COLUMN: Clean Floating Match Summary / Rules Card ===
+            root.spawn((
+                Node {
+                    width: Val::Px(350.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(14.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|right| {
+                // Active Rules Summary Panel.
+                right
+                    .spawn((
+                        tile_node(Node {
+                            padding: UiRect::all(Val::Px(20.0)),
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(10.0),
+                            ..default()
+                        }),
+                        BackgroundColor(Color::srgba(0.05, 0.07, 0.11, 0.90)),
+                        BorderColor::all(TILE_BORDER),
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|panel| {
+                        panel.spawn((
+                            Text::new("MATCH RULES"),
+                            fonts.heading(24.0),
+                            TextColor(TEXT_PRIMARY),
+                            Pickable::IGNORE,
+                            LobbyPart::SummaryHeading,
+                        ));
+
+                        spawn_summary_row(panel, "MODE", LobbyPart::SummaryMode);
+                        spawn_summary_row(panel, "MAP", LobbyPart::SummaryMap);
+                        spawn_summary_row(panel, "MOVEMENT", LobbyPart::SummaryMovement);
+                        spawn_dynamic_summary_row(
+                            panel,
+                            LobbyPart::SummaryRuleALabel,
+                            LobbyPart::SummaryRuleAVal,
+                        );
+                        spawn_dynamic_summary_row(
+                            panel,
+                            LobbyPart::SummaryRuleBLabel,
+                            LobbyPart::SummaryRuleBVal,
+                        );
+                        spawn_dynamic_summary_row(
+                            panel,
+                            LobbyPart::SummaryRuleCLabel,
+                            LobbyPart::SummaryRuleCVal,
+                        );
+                        spawn_static_summary_row(panel, "END OF MATCH", "3-Map Vote");
+                    });
+
+                // Ranked standing card (shown only in Ranked Lobby).
+                right
+                    .spawn((
+                        tile_node(Node {
+                            padding: UiRect::all(Val::Px(18.0)),
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            column_gap: Val::Px(14.0),
+                            ..default()
+                        }),
+                        BackgroundColor(Color::srgba(0.06, 0.08, 0.12, 0.92)),
+                        BorderColor::all(Color::srgba(0.96, 0.77, 0.17, 0.45)),
+                        Pickable::IGNORE,
+                        RankedOnly,
+                    ))
+                    .with_children(|rc| {
+                        rc.spawn((
+                            ImageNode::new(k("badges/rank_bronze.png")),
+                            Node {
+                                width: Val::Px(64.0),
+                                height: Val::Px(64.0),
+                                flex_shrink: 0.0,
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                            RankCardPart::Badge,
+                        ));
+                        rc.spawn((
+                            Node {
+                                flex_grow: 1.0,
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(3.0),
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|c| {
+                            c.spawn((
+                                Text::new(""),
+                                fonts.heading(22.0),
+                                TextColor(TEXT_PRIMARY),
+                                Pickable::IGNORE,
+                                RankCardPart::Name,
+                            ));
+                            c.spawn((
+                                Text::new(""),
+                                TextFont::from_font_size(12.0),
+                                TextColor(KIT_YELLOW),
+                                Pickable::IGNORE,
+                                RankCardPart::Points,
+                            ));
+                            c.spawn((
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Px(12.0),
+                                    padding: UiRect::all(Val::Px(2.0)),
+                                    margin: UiRect::vertical(Val::Px(2.0)),
+                                    ..default()
+                                },
+                                sliced(k("controls/progress_frame.png"), 6.0),
+                                Pickable::IGNORE,
+                            ))
+                            .with_children(|bar| {
+                                bar.spawn((
+                                    Node {
+                                        width: Val::Percent(0.0),
+                                        height: Val::Percent(100.0),
+                                        ..default()
+                                    },
+                                    sliced(k("controls/progress_fill_yellow.png"), 4.0),
+                                    Pickable::IGNORE,
+                                    RankCardPart::Fill,
+                                ));
+                            });
+                            c.spawn((
+                                Text::new(""),
+                                TextFont::from_font_size(11.0),
+                                TextColor(TEXT_MUTED),
+                                Pickable::IGNORE,
+                                RankCardPart::Record,
+                            ));
+                        });
+                    });
+
+                // Invite / Lobby info tip.
+                right
+                    .spawn((
+                        tile_node(Node {
+                            padding: UiRect::axes(Val::Px(16.0), Val::Px(12.0)),
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(4.0),
+                            ..default()
+                        }),
+                        BackgroundColor(Color::srgba(0.04, 0.06, 0.09, 0.85)),
+                        BorderColor::all(TILE_BORDER),
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|tip| {
+                        tip.spawn((
+                            Text::new("MULTIPLAYER HOSTING"),
+                            TextFont::from_font_size(11.0),
+                            TextColor(TEXT_STATUS),
+                            Pickable::IGNORE,
+                        ));
+                        tip.spawn((
+                            Text::new("Press Start Match to open the arena. Friends join directly from your Portside Hub or with your Tailcat address."),
+                            TextFont::from_font_size(12.0),
+                            TextColor(TEXT_MUTED),
+                            Pickable::IGNORE,
+                        ));
+                    });
+            });
+        });
+}
+
+fn spawn_summary_row(parent: &mut ChildSpawnerCommands, label: &str, value_part: LobbyPart) {
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::bottom(Val::Px(6.0)),
+                border: UiRect::bottom(Val::Px(1.0)),
+                ..default()
+            },
+            BorderColor::all(Color::srgba(0.4, 0.5, 0.65, 0.18)),
+            Pickable::IGNORE,
+        ))
+        .with_children(|row| {
+            row.spawn((
+                Text::new(label),
+                TextFont::from_font_size(12.0),
+                TextColor(TEXT_MUTED),
+                Pickable::IGNORE,
+            ));
+            row.spawn((
+                Text::new(""),
+                TextFont::from_font_size(13.0),
+                TextColor(TEXT_PRIMARY),
+                Pickable::IGNORE,
+                value_part,
+            ));
+        });
+}
+
+fn spawn_dynamic_summary_row(
+    parent: &mut ChildSpawnerCommands,
+    label_part: LobbyPart,
+    value_part: LobbyPart,
+) {
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::bottom(Val::Px(6.0)),
+                border: UiRect::bottom(Val::Px(1.0)),
+                ..default()
+            },
+            BorderColor::all(Color::srgba(0.4, 0.5, 0.65, 0.18)),
+            Pickable::IGNORE,
+        ))
+        .with_children(|row| {
+            row.spawn((
+                Text::new(""),
+                TextFont::from_font_size(12.0),
+                TextColor(TEXT_MUTED),
+                Pickable::IGNORE,
+                label_part,
+            ));
+            row.spawn((
+                Text::new(""),
+                TextFont::from_font_size(13.0),
+                TextColor(TEXT_PRIMARY),
+                Pickable::IGNORE,
+                value_part,
+            ));
+        });
+}
+
+fn spawn_static_summary_row(parent: &mut ChildSpawnerCommands, label: &str, value: &str) {
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|row| {
+            row.spawn((
+                Text::new(label),
+                TextFont::from_font_size(12.0),
+                TextColor(TEXT_MUTED),
+                Pickable::IGNORE,
+            ));
+            row.spawn((
+                Text::new(value),
+                TextFont::from_font_size(13.0),
+                TextColor(KIT_YELLOW),
+                Pickable::IGNORE,
+            ));
+        });
+}
+
+/// Step 3 of Play (Private Match): COD-style Match Options drawer on the left
+/// with `MAP` and `GAME RULES` tabs, leaving the right side open so you see the
+/// live 3D map change as you pick it.
+fn spawn_play_match_options(
     commands: &mut Commands,
     assets: &AssetServer,
     fonts: &UiKit,
@@ -1485,58 +2573,22 @@ fn spawn_play_screen(
 ) {
     let k = |p: &str| kit(assets, p);
 
-    // The picked map's name over the 3D preview.
     commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Px(36.0),
-                top: Val::Px(TOP_BAR_HEIGHT + 20.0),
-                max_width: Val::Px(520.0),
-                padding: UiRect::axes(Val::Px(24.0), Val::Px(16.0)),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(2.0),
-                ..default()
-            },
-            sliced(k("panels/panel_glass.png"), 28.0),
-            ShowOn::Play,
-            DespawnOnExit(AppState::MainMenu),
-        ))
-        .with_children(|p| {
-            p.spawn((
-                Text::new(""),
-                TextFont::from_font_size(14.0),
-                TextColor(KIT_YELLOW),
-                MapInfoText::Style,
-            ));
-            p.spawn((
-                Text::new(""),
-                fonts.heading(52.0),
-                TextColor(TEXT_PRIMARY),
-                MapInfoText::Name,
-            ));
-            p.spawn((
-                Text::new(""),
-                TextFont::from_font_size(14.0),
-                TextColor(TEXT_MUTED),
-                MapInfoText::Blurb,
-            ));
-        });
-
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(24.0),
-                right: Val::Px(24.0),
-                bottom: Val::Px(20.0),
+                top: Val::Px(TOP_BAR_HEIGHT + 22.0),
+                bottom: Val::Px(24.0),
+                width: Val::Px(640.0),
                 padding: UiRect {
-                    left: Val::Px(28.0),
-                    right: Val::Px(28.0),
+                    left: Val::Px(26.0),
+                    right: Val::Px(26.0),
                     top: Val::Px(14.0),
-                    bottom: Val::Px(22.0),
+                    bottom: Val::Px(20.0),
                 },
                 flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceBetween,
                 row_gap: Val::Px(12.0),
                 ..default()
             },
@@ -1547,235 +2599,472 @@ fn spawn_play_screen(
                     max_inset: Vec2::new(28.0, 28.0),
                 },
             ),
-            ShowOn::Play,
+            ShowOn::PlayMatchOptions,
             DespawnOnExit(AppState::MainMenu),
         ))
         .with_children(|panel| {
-            // Header strip.
+            // Top section: Title + Tab Bar + Active Tab Body.
             panel
-                .spawn(Node {
-                    height: Val::Px(44.0),
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceBetween,
-                    ..default()
-                })
-                .with_children(|h| {
-                    h.spawn((
-                        Text::new("CHOOSE A MODE"),
-                        fonts.heading(28.0),
-                        TextColor(TEXT_PRIMARY),
-                    ));
-                    h.spawn((
-                        Text::new(""),
-                        TextFont::from_font_size(13.0),
-                        TextColor(TEXT_MUTED),
-                        ModeSummaryText,
-                    ));
-                });
+                .spawn((
+                    Node {
+                        flex_grow: 1.0,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(12.0),
+                        overflow: Overflow::clip_y(),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|top| {
+                    // Header bar.
+                    top.spawn((
+                        Node {
+                            height: Val::Px(42.0),
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceBetween,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|hdr| {
+                        hdr.spawn((
+                            Text::new("MATCH OPTIONS"),
+                            fonts.heading(30.0),
+                            TextColor(TEXT_PRIMARY),
+                            Pickable::IGNORE,
+                        ));
+                        hdr.spawn((
+                            Text::new("PRIVATE MATCH SETUP"),
+                            TextFont::from_font_size(12.0),
+                            TextColor(KIT_YELLOW),
+                            Pickable::IGNORE,
+                        ));
+                    });
 
-            // Mode cards.
-            panel
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(12.0),
-                    margin: UiRect::top(Val::Px(6.0)),
-                    ..default()
-                })
-                .with_children(|row| {
-                    for (i, choice) in MODE_CHOICES.iter().enumerate() {
-                        row.spawn((
+                    // Tabs: MAP | GAME RULES.
+                    top.spawn((
+                        Node {
+                            flex_direction: FlexDirection::Row,
+                            column_gap: Val::Px(10.0),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|tabs| {
+                        for (tab, label) in [
+                            (MatchOptionsTab::Map, "MAP SELECT"),
+                            (MatchOptionsTab::Rules, "GAME RULES"),
+                        ] {
+                            tabs.spawn((
+                                Node {
+                                    flex_grow: 1.0,
+                                    flex_basis: Val::Px(0.0),
+                                    height: Val::Px(42.0),
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
+                                    border: UiRect::all(Val::Px(2.0)),
+                                    border_radius: BorderRadius::all(Val::Px(6.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(TILE_BG),
+                                BorderColor::all(TILE_BORDER),
+                                OptionsTabBtn(tab),
+                                MenuAction::SwitchOptionsTab(tab),
+                            ))
+                            .with_children(|t| {
+                                t.spawn((
+                                    Text::new(label),
+                                    fonts.heading(20.0),
+                                    TextColor(TEXT_PRIMARY),
+                                    Pickable::IGNORE,
+                                    OptionsTabText(tab),
+                                ));
+                            });
+                        }
+                    });
+
+                    // === TAB 1: MAP SELECT ===
+                    top.spawn((
+                        Node {
+                            flex_grow: 1.0,
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::SpaceBetween,
+                            row_gap: Val::Px(10.0),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                        OptionsTabPane(MatchOptionsTab::Map),
+                    ))
+                    .with_children(|pane| {
+                        pane.spawn((
                             Node {
-                                flex_grow: 1.0,
-                                flex_basis: Val::Px(0.0),
-                                min_height: Val::Px(138.0),
-                                padding: UiRect::axes(Val::Px(16.0), Val::Px(14.0)),
                                 flex_direction: FlexDirection::Column,
-                                row_gap: Val::Px(6.0),
+                                row_gap: Val::Px(8.0),
                                 ..default()
                             },
-                            sliced(k("panels/panel.png"), 28.0),
-                            MenuAction::PickMode(i),
-                            ModeCard(i),
+                            Pickable::IGNORE,
                         ))
-                        .with_children(|card| {
-                            card.spawn((
+                        .with_children(|list| {
+                            // Random Map tile.
+                            list.spawn((
                                 Node {
+                                    height: Val::Px(48.0),
+                                    padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
                                     flex_direction: FlexDirection::Row,
                                     align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::SpaceBetween,
+                                    ..default()
+                                },
+                                sliced(k("rows/list_row.png"), 14.0),
+                                MenuAction::PickRandomMap,
+                                RandomMapTile,
+                            ))
+                            .with_children(|t| {
+                                t.spawn((
+                                    Text::new("RANDOM MAP"),
+                                    TextFont::from_font_size(15.0),
+                                    TextColor(TEXT_PRIMARY),
+                                    Pickable::IGNORE,
+                                    RandomMapTileText,
+                                ));
+                                t.spawn((
+                                    Text::new("ROLLS A RANDOM MAP WHEN THE MATCH STARTS"),
+                                    TextFont::from_font_size(11.0),
+                                    TextColor(TEXT_MUTED),
+                                    Pickable::IGNORE,
+                                ));
+                            });
+
+                            // 2-column wrapping map grid (built-in + custom).
+                            list.spawn((
+                                Node {
+                                    flex_direction: FlexDirection::Row,
+                                    flex_wrap: FlexWrap::Wrap,
                                     column_gap: Val::Px(10.0),
+                                    row_gap: Val::Px(8.0),
                                     ..default()
                                 },
                                 Pickable::IGNORE,
                             ))
-                            .with_children(|top| {
-                                top.spawn((
-                                    ImageNode::new(k(choice.icon)),
+                            .with_children(|grid| {
+                                for id in library.ids() {
+                                    let m = library.meta(id);
+                                    grid.spawn((
+                                        Node {
+                                            width: Val::Percent(48.5),
+                                            height: Val::Px(56.0),
+                                            padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
+                                            flex_direction: FlexDirection::Column,
+                                            justify_content: JustifyContent::Center,
+                                            ..default()
+                                        },
+                                        sliced(k("rows/list_row.png"), 14.0),
+                                        MenuAction::PickMap(id),
+                                        MapTile(id),
+                                    ))
+                                    .with_children(|t| {
+                                        t.spawn((
+                                            Text::new(m.name.to_uppercase()),
+                                            TextFont::from_font_size(15.0),
+                                            TextColor(TEXT_PRIMARY),
+                                            Pickable::IGNORE,
+                                            MapTileText(id),
+                                        ));
+                                        t.spawn((
+                                            Text::new(format!("{}  |  {}", m.style, m.size)),
+                                            TextFont::from_font_size(11.0),
+                                            TextColor(TEXT_MUTED),
+                                            Pickable::IGNORE,
+                                        ));
+                                    });
+                                }
+                            });
+                        });
+
+                        // Selected map details card.
+                        pane.spawn((
+                            tile_node(Node {
+                                padding: UiRect::axes(Val::Px(16.0), Val::Px(12.0)),
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(2.0),
+                                ..default()
+                            }),
+                            BackgroundColor(Color::srgba(0.03, 0.05, 0.08, 0.85)),
+                            BorderColor::all(TILE_BORDER),
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|info| {
+                            info.spawn((
+                                Text::new(""),
+                                TextFont::from_font_size(11.0),
+                                TextColor(KIT_YELLOW),
+                                Pickable::IGNORE,
+                                OptionsMapPreview::Style,
+                            ));
+                            info.spawn((
+                                Text::new(""),
+                                fonts.heading(26.0),
+                                TextColor(TEXT_PRIMARY),
+                                Pickable::IGNORE,
+                                OptionsMapPreview::Name,
+                            ));
+                            info.spawn((
+                                Text::new(""),
+                                TextFont::from_font_size(12.0),
+                                TextColor(TEXT_MUTED),
+                                Pickable::IGNORE,
+                                OptionsMapPreview::Blurb,
+                            ));
+                        });
+                    });
+
+                    // === TAB 2: GAME RULES ===
+                    top.spawn((
+                        Node {
+                            flex_grow: 1.0,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(10.0),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                        OptionsTabPane(MatchOptionsTab::Rules),
+                    ))
+                    .with_children(|rules| {
+                        // Quick Map row inside Game Rules -> jumps right to Map Select tab!
+                        rules
+                            .spawn((
+                                Node {
+                                    flex_direction: FlexDirection::Row,
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::SpaceBetween,
+                                    padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
+                                    border: UiRect::all(Val::Px(1.0)),
+                                    border_radius: BorderRadius::all(Val::Px(6.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(Color::srgba(0.05, 0.08, 0.12, 0.9)),
+                                BorderColor::all(TILE_BORDER),
+                                Pickable::IGNORE,
+                            ))
+                            .with_children(|row| {
+                                row.spawn((
                                     Node {
-                                        width: Val::Px(34.0),
-                                        height: Val::Px(34.0),
+                                        flex_direction: FlexDirection::Column,
+                                        row_gap: Val::Px(2.0),
                                         ..default()
                                     },
                                     Pickable::IGNORE,
-                                ));
-                                top.spawn((
-                                    Text::new(choice.title),
-                                    fonts.heading(26.0),
-                                    TextColor(TEXT_PRIMARY),
-                                    Pickable::IGNORE,
-                                    ModeCardTitle(i),
-                                ));
+                                ))
+                                .with_children(|c| {
+                                    c.spawn((
+                                        Text::new("MAP"),
+                                        TextFont::from_font_size(11.0),
+                                        TextColor(TEXT_MUTED),
+                                        Pickable::IGNORE,
+                                    ));
+                                    c.spawn((
+                                        Text::new("SPLAT PARK"),
+                                        fonts.heading(22.0),
+                                        TextColor(KIT_YELLOW),
+                                        Pickable::IGNORE,
+                                        OptionsRuleMapValue,
+                                    ));
+                                });
+                                row.spawn(Node {
+                                    width: Val::Px(170.0),
+                                    flex_direction: FlexDirection::Column,
+                                    ..default()
+                                })
+                                .with_children(|w| {
+                                    spawn_menu_button(
+                                        w,
+                                        "CHANGE MAP >",
+                                        MenuAction::SwitchOptionsTab(MatchOptionsTab::Map),
+                                        ButtonStyle::SECONDARY,
+                                        38.0,
+                                        13.0,
+                                        false,
+                                    );
+                                });
                             });
-                            card.spawn((
-                                Text::new(choice.tag),
-                                TextFont::from_font_size(12.0),
-                                TextColor(KIT_YELLOW),
+
+                        // Game Mode pills.
+                        spawn_rule_row(
+                            rules,
+                            assets,
+                            "GAME MODE",
+                            &[
+                                (
+                                    "TEAM SPLAT",
+                                    MenuAction::SetPrivateMode(GameMode::TeamSplat),
+                                    RuleOption::Mode(GameMode::TeamSplat),
+                                ),
+                                (
+                                    "FREE-FOR-ALL",
+                                    MenuAction::SetPrivateMode(GameMode::FreeForAll),
+                                    RuleOption::Mode(GameMode::FreeForAll),
+                                ),
+                                (
+                                    "ELIMINATION",
+                                    MenuAction::SetPrivateMode(GameMode::Elimination),
+                                    RuleOption::Mode(GameMode::Elimination),
+                                ),
+                            ],
+                        );
+
+                        // Movement speed pills.
+                        let move_items: Vec<(String, MenuAction, RuleOption)> = MovementSpeed::ALL
+                            .iter()
+                            .map(|&mv| {
+                                (
+                                    mv.name().to_uppercase(),
+                                    MenuAction::PickMovement(mv),
+                                    RuleOption::Movement(mv),
+                                )
+                            })
+                            .collect();
+                        spawn_rule_row_owned(rules, assets, "MOVEMENT PACE", &move_items);
+
+                        // Timed-mode rules (Team Splat / Free-for-All).
+                        rules
+                            .spawn((
+                                Node {
+                                    flex_direction: FlexDirection::Column,
+                                    row_gap: Val::Px(10.0),
+                                    ..default()
+                                },
                                 Pickable::IGNORE,
-                            ));
-                            card.spawn((
-                                Text::new(choice.blurb),
-                                TextFont::from_font_size(12.0),
-                                TextColor(TEXT_MUTED),
+                                TimedModeRuleRow,
+                            ))
+                            .with_children(|timed| {
+                                let time_items: Vec<(String, MenuAction, RuleOption)> =
+                                    MatchSettings::MATCH_MINUTE_OPTIONS
+                                        .iter()
+                                        .map(|&m| {
+                                            (
+                                                format!("{m} MIN"),
+                                                MenuAction::PickMatchMinutes(m),
+                                                RuleOption::MatchMinutes(m),
+                                            )
+                                        })
+                                        .collect();
+                                spawn_rule_row_owned(timed, assets, "TIME LIMIT", &time_items);
+
+                                let score_items: Vec<(String, MenuAction, RuleOption)> =
+                                    MatchSettings::SCORE_LIMIT_OPTIONS
+                                        .iter()
+                                        .map(|&l| {
+                                            (
+                                                if l == 0 {
+                                                    "NONE".to_string()
+                                                } else {
+                                                    format!("{l}")
+                                                },
+                                                MenuAction::PickScoreLimit(l),
+                                                RuleOption::ScoreLimit(l),
+                                            )
+                                        })
+                                        .collect();
+                                spawn_rule_row_owned(timed, assets, "SCORE LIMIT (SPLATS)", &score_items);
+
+                                let respawn_items: Vec<(String, MenuAction, RuleOption)> =
+                                    MatchSettings::RESPAWN_SECONDS_OPTIONS
+                                        .iter()
+                                        .map(|&s| {
+                                            (
+                                                format!("{s}s"),
+                                                MenuAction::PickRespawnSeconds(s),
+                                                RuleOption::RespawnSeconds(s),
+                                            )
+                                        })
+                                        .collect();
+                                spawn_rule_row_owned(timed, assets, "RESPAWN DELAY", &respawn_items);
+                            });
+
+                        // Elimination-specific rules.
+                        rules
+                            .spawn((
+                                Node {
+                                    flex_direction: FlexDirection::Column,
+                                    row_gap: Val::Px(10.0),
+                                    ..default()
+                                },
                                 Pickable::IGNORE,
-                            ));
-                        });
-                    }
+                                ElimModeRuleRow,
+                            ))
+                            .with_children(|elim| {
+                                let rounds_items: Vec<(String, MenuAction, RuleOption)> =
+                                    MatchSettings::ROUNDS_TO_WIN_OPTIONS
+                                        .iter()
+                                        .map(|&r| {
+                                            (
+                                                format!("FIRST TO {r}"),
+                                                MenuAction::PickRoundsToWin(r),
+                                                RuleOption::RoundsToWin(r),
+                                            )
+                                        })
+                                        .collect();
+                                spawn_rule_row_owned(elim, assets, "ROUNDS TO WIN", &rounds_items);
+
+                                let round_len_items: Vec<(String, MenuAction, RuleOption)> =
+                                    MatchSettings::ROUND_SECONDS_OPTIONS
+                                        .iter()
+                                        .map(|&s| {
+                                            (
+                                                format!("{}:{:02}", s / 60, s % 60),
+                                                MenuAction::PickRoundSeconds(s),
+                                                RuleOption::RoundSeconds(s),
+                                            )
+                                        })
+                                        .collect();
+                                spawn_rule_row_owned(elim, assets, "ROUND LENGTH", &round_len_items);
+                            });
+                    });
                 });
 
-            panel.spawn((
-                Text::new("MAP"),
-                TextFont::from_font_size(13.0),
-                TextColor(TEXT_MUTED),
-            ));
+            // Footer: Reset Defaults + Done (Back to Lobby).
             panel
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    flex_wrap: FlexWrap::Wrap,
-                    column_gap: Val::Px(10.0),
-                    row_gap: Val::Px(8.0),
-                    ..default()
-                })
-                .with_children(|row| {
-                    // The built-in maps, then any custom maps (they wrap onto more rows).
-                    for id in library.ids() {
-                        let m = library.meta(id);
-                        row.spawn((
-                            Node {
-                                flex_grow: 1.0,
-                                flex_basis: Val::Px(0.0),
-                                min_width: Val::Px(150.0),
-                                height: Val::Px(52.0),
-                                padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                ..default()
-                            },
-                            sliced(k("rows/list_row.png"), 14.0),
-                            MenuAction::PickMap(id),
-                            MapTile(id),
-                        ))
-                        .with_children(|t| {
-                            t.spawn((
-                                Text::new(m.name.to_uppercase()),
-                                TextFont::from_font_size(15.0),
-                                TextColor(TEXT_PRIMARY),
-                                Pickable::IGNORE,
-                                MapTileText(id),
-                            ));
-                            t.spawn((
-                                Text::new(format!("{}  |  {}", m.style, m.size)),
-                                TextFont::from_font_size(11.0),
-                                TextColor(TEXT_MUTED),
-                                Pickable::IGNORE,
-                            ));
-                        });
-                    }
-                });
-
-            panel.spawn((
-                Text::new("MOVEMENT"),
-                TextFont::from_font_size(13.0),
-                TextColor(TEXT_MUTED),
-            ));
-            panel
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(10.0),
-                    ..default()
-                })
-                .with_children(|row| {
-                    for movement in MovementSpeed::ALL {
-                        row.spawn((
-                            Node {
-                                flex_grow: 1.0,
-                                flex_basis: Val::Px(0.0),
-                                min_width: Val::Px(150.0),
-                                height: Val::Px(52.0),
-                                padding: UiRect::axes(Val::Px(16.0), Val::Px(6.0)),
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                ..default()
-                            },
-                            sliced(k("rows/list_row.png"), 14.0),
-                            MenuAction::PickMovement(movement),
-                            MovementTile(movement),
-                        ))
-                        .with_children(|t| {
-                            t.spawn((
-                                Text::new(movement.name().to_uppercase()),
-                                TextFont::from_font_size(15.0),
-                                TextColor(TEXT_PRIMARY),
-                                Pickable::IGNORE,
-                                MovementTileText(movement),
-                            ));
-                            t.spawn((
-                                Text::new(movement.blurb()),
-                                TextFont::from_font_size(11.0),
-                                TextColor(TEXT_MUTED),
-                                Pickable::IGNORE,
-                            ));
-                        });
-                    }
-                });
-
-            panel
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(12.0),
-                    justify_content: JustifyContent::SpaceBetween,
-                    margin: UiRect::top(Val::Px(6.0)),
-                    ..default()
-                })
-                .with_children(|row| {
-                    row.spawn(Node {
-                        width: Val::Px(180.0),
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        justify_content: JustifyContent::SpaceBetween,
+                        column_gap: Val::Px(12.0),
+                        padding: UiRect::top(Val::Px(8.0)),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|ft| {
+                    ft.spawn(Node {
+                        width: Val::Px(200.0),
                         flex_direction: FlexDirection::Column,
                         ..default()
                     })
                     .with_children(|w| {
                         spawn_menu_button(
                             w,
-                            "BACK",
-                            MenuAction::BackToHome,
+                            "RESET DEFAULTS",
+                            MenuAction::ResetMatchRules,
                             ButtonStyle::SECONDARY,
-                            50.0,
-                            18.0,
+                            46.0,
+                            14.0,
                             false,
                         );
                     });
-                    row.spawn(Node {
-                        width: Val::Px(280.0),
+                    ft.spawn(Node {
+                        width: Val::Px(220.0),
                         flex_direction: FlexDirection::Column,
                         ..default()
                     })
                     .with_children(|w| {
                         spawn_menu_button(
                             w,
-                            "CREATE MATCH",
-                            MenuAction::CreateGame,
+                            "DONE",
+                            MenuAction::CloseMatchOptions,
                             ButtonStyle::PRIMARY,
-                            50.0,
-                            20.0,
+                            46.0,
+                            17.0,
                             false,
                         );
                     });
@@ -1783,10 +3072,83 @@ fn spawn_play_screen(
         });
 }
 
-/// Shows the parts of the menu for the current screen.
+fn spawn_rule_row(
+    parent: &mut ChildSpawnerCommands,
+    assets: &AssetServer,
+    label: &str,
+    items: &[(&str, MenuAction, RuleOption)],
+) {
+    let owned: Vec<(String, MenuAction, RuleOption)> = items
+        .iter()
+        .map(|(l, a, o)| ((*l).to_string(), *a, *o))
+        .collect();
+    spawn_rule_row_owned(parent, assets, label, &owned);
+}
+
+fn spawn_rule_row_owned(
+    parent: &mut ChildSpawnerCommands,
+    assets: &AssetServer,
+    label: &str,
+    items: &[(String, MenuAction, RuleOption)],
+) {
+    parent
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(5.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|col| {
+            col.spawn((
+                Text::new(label),
+                TextFont::from_font_size(11.0),
+                TextColor(TEXT_MUTED),
+                Pickable::IGNORE,
+            ));
+            col.spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(8.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|row| {
+                for (text, action, opt) in items {
+                    row.spawn((
+                        Node {
+                            flex_grow: 1.0,
+                            flex_basis: Val::Px(0.0),
+                            height: Val::Px(38.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
+                            ..default()
+                        },
+                        sliced(kit(assets, "rows/list_row.png"), 12.0),
+                        *action,
+                        *opt,
+                    ))
+                    .with_children(|btn| {
+                        btn.spawn((
+                            Text::new(text.clone()),
+                            TextFont::from_font_size(13.0),
+                            TextColor(TEXT_PRIMARY),
+                            Pickable::IGNORE,
+                            RuleOptionText(*opt),
+                        ));
+                    });
+                }
+            });
+        });
+}
+
+/// Shows the parts of the menu for the current screen & Play sub-screen.
 fn show_menu_screens(menu: Res<MenuState>, mut q: Query<(&ShowOn, &mut Node)>) {
     for (show, mut node) in &mut q {
-        let want = if show.visible(menu.screen) {
+        let want = if show.visible(&menu) {
             Display::Flex
         } else {
             Display::None
@@ -1797,123 +3159,374 @@ fn show_menu_screens(menu: Res<MenuState>, mut q: Query<(&ShowOn, &mut Node)>) {
     }
 }
 
-/// Highlights the picked movement speed (ranked is locked to Normal).
-fn update_movement_tiles(
+/// Keeps the COD Private Match / Ranked Lobby labels, buttons and summary card synced.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn update_play_lobby(
     assets: Res<AssetServer>,
+    library: Res<MapLibrary>,
+    menu: Res<MenuState>,
     setup: Res<MatchSetup>,
-    mut tiles: Query<(&MovementTile, &mut ImageNode)>,
-    mut texts: Query<(&MovementTileText, &mut TextColor)>,
+    added: Query<(), Added<LobbyPart>>,
+    mut parts: Query<(&LobbyPart, Option<&mut Text>, Option<&mut ImageNode>)>,
+    mut private_nodes: Query<&mut Node, (With<PrivateOnly>, Without<RankedOnly>)>,
+    mut ranked_nodes: Query<&mut Node, (With<RankedOnly>, Without<PrivateOnly>)>,
 ) {
-    if !setup.is_changed() {
+    if added.is_empty() && !setup.is_changed() && !menu.is_changed() {
         return;
     }
-    for (tile, mut img) in &mut tiles {
-        let sel = tile.0 == setup.0.movement;
-        img.image = kit(
-            &assets,
-            if sel {
-                "rows/list_row_selected.png"
-            } else {
-                "rows/list_row.png"
-            },
-        );
-        img.color = if setup.0.ranked && !sel {
-            Color::srgba(1.0, 1.0, 1.0, 0.4)
-        } else {
-            Color::WHITE
-        };
+    let s = &setup.0;
+    let choice = &MODE_CHOICES[mode_index(s)];
+    let ranked = s.ranked;
+    let map_meta = library.meta(s.map);
+
+    let show_private = if ranked { Display::None } else { Display::Flex };
+    for mut node in &mut private_nodes {
+        if node.display != show_private {
+            node.display = show_private;
+        }
     }
-    for (t, mut c) in &mut texts {
-        c.0 = if t.0 == setup.0.movement {
-            KIT_YELLOW
-        } else {
-            TEXT_PRIMARY
-        };
+    let show_ranked = if ranked { Display::Flex } else { Display::None };
+    for mut node in &mut ranked_nodes {
+        if node.display != show_ranked {
+            node.display = show_ranked;
+        }
+    }
+
+    let is_elim = s.mode == GameMode::Elimination;
+    let round_sec = s.effective_round_seconds().round() as u32;
+    let (rule_a_lbl, rule_a_val, rule_b_lbl, rule_b_val, rule_c_lbl, rule_c_val) = if is_elim {
+        (
+            "ROUNDS TO WIN",
+            format!("First to {}", s.effective_rounds_to_win()),
+            "ROUND LENGTH",
+            format!("{}:{:02}", round_sec / 60, round_sec % 60),
+            "LIVES",
+            "1 Life / Round".to_string(),
+        )
+    } else {
+        (
+            "TIME LIMIT",
+            format!("{} min", s.effective_match_minutes()),
+            "SCORE LIMIT",
+            match s.effective_score_limit() {
+                Some(l) => format!("{l} Splats"),
+                None => "Unlimited".to_string(),
+            },
+            "RESPAWN DELAY",
+            format!("{}s", s.effective_respawn_seconds().round() as u32),
+        )
+    };
+
+    let map_display = if ranked {
+        "Random (Official Pool)".to_string()
+    } else if menu.random_map {
+        "Random Map".to_string()
+    } else {
+        map_meta.name.clone()
+    };
+
+    for (part, text, img) in &mut parts {
+        match part {
+            LobbyPart::ModeIcon => {
+                if let Some(mut img) = img {
+                    img.image = kit(&assets, choice.icon);
+                }
+            }
+            LobbyPart::Eyebrow => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked {
+                        "RANKED PLAY  /  COMPETITIVE".to_string()
+                    } else {
+                        "PRIVATE MATCH  /  CUSTOM LOBBY".to_string()
+                    };
+                }
+            }
+            LobbyPart::ModeTitle => {
+                if let Some(mut t) = text {
+                    t.0 = choice.title.to_string();
+                }
+            }
+            LobbyPart::ModeTag => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked {
+                        "FIRST TO 5 ROUNDS  |  RANDOM MAP  |  RANK POINTS".to_string()
+                    } else {
+                        choice.blurb.to_string()
+                    };
+                }
+            }
+            LobbyPart::StartBtnText => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked {
+                        "START RANKED MATCH".to_string()
+                    } else {
+                        "START MATCH".to_string()
+                    };
+                }
+            }
+            LobbyPart::MapEyebrow => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked || menu.random_map {
+                        "RANDOM MAP".to_string()
+                    } else {
+                        "SELECTED MAP".to_string()
+                    };
+                }
+            }
+            LobbyPart::MapCue => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked {
+                        "LOCKED  |  RANKED".to_string()
+                    } else {
+                        "CLICK TO CHANGE >".to_string()
+                    };
+                }
+            }
+            LobbyPart::MapName => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked || menu.random_map {
+                        "RANDOM MAP".to_string()
+                    } else {
+                        map_meta.name.to_uppercase()
+                    };
+                }
+            }
+            LobbyPart::MapStyle => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked {
+                        format!("{} OFFICIAL MAPS  |  AUTO-SELECTED", MapId::BUILT_IN.len())
+                    } else if menu.random_map {
+                        format!("{} MAPS AVAILABLE  |  ROLLED ON START", library.ids().count())
+                    } else {
+                        format!(
+                            "{}  |  {} MAP",
+                            map_meta.style.to_uppercase(),
+                            map_meta.size.to_uppercase()
+                        )
+                    };
+                }
+            }
+            LobbyPart::MapBlurb => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked {
+                        "A random official map is chosen automatically whenever a Ranked match starts.".to_string()
+                    } else if menu.random_map {
+                        "A random map from your map library will load when the match starts.".to_string()
+                    } else {
+                        map_meta.blurb.clone()
+                    };
+                }
+            }
+            LobbyPart::SummaryHeading => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked {
+                        "COMPETITIVE RULESET".to_string()
+                    } else {
+                        "MATCH RULES".to_string()
+                    };
+                }
+            }
+            LobbyPart::SummaryMode => {
+                if let Some(mut t) = text {
+                    t.0 = if ranked {
+                        "Ranked Elimination".to_string()
+                    } else {
+                        s.mode.name().to_string()
+                    };
+                }
+            }
+            LobbyPart::SummaryMap => {
+                if let Some(mut t) = text {
+                    t.0 = map_display.clone();
+                }
+            }
+            LobbyPart::SummaryMovement => {
+                if let Some(mut t) = text {
+                    t.0 = s.movement.name().to_string();
+                }
+            }
+            LobbyPart::SummaryRuleALabel => {
+                if let Some(mut t) = text {
+                    t.0 = rule_a_lbl.to_string();
+                }
+            }
+            LobbyPart::SummaryRuleAVal => {
+                if let Some(mut t) = text {
+                    t.0 = rule_a_val.clone();
+                }
+            }
+            LobbyPart::SummaryRuleBLabel => {
+                if let Some(mut t) = text {
+                    t.0 = rule_b_lbl.to_string();
+                }
+            }
+            LobbyPart::SummaryRuleBVal => {
+                if let Some(mut t) = text {
+                    t.0 = rule_b_val.clone();
+                }
+            }
+            LobbyPart::SummaryRuleCLabel => {
+                if let Some(mut t) = text {
+                    t.0 = rule_c_lbl.to_string();
+                }
+            }
+            LobbyPart::SummaryRuleCVal => {
+                if let Some(mut t) = text {
+                    t.0 = rule_c_val.clone();
+                }
+            }
+        }
     }
 }
 
-/// Highlights the picked mode and map, and shows the map's details.
+/// Keeps the Match Options tabs, map selection highlights, and rule pills synced.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-fn update_play_screen(
+fn update_match_options_ui(
     assets: Res<AssetServer>,
     library: Res<MapLibrary>,
+    menu: Res<MenuState>,
     setup: Res<MatchSetup>,
-    rank: Res<Rank>,
-    mut cards: Query<(&ModeCard, &mut ImageNode), Without<MapTile>>,
-    mut tiles: Query<(&MapTile, &mut ImageNode), Without<ModeCard>>,
-    mut titles: Query<(&ModeCardTitle, &mut TextColor), Without<MapTileText>>,
-    mut tile_texts: Query<(&MapTileText, &mut TextColor), Without<ModeCardTitle>>,
-    mut info: Query<(&MapInfoText, &mut Text), Without<ModeSummaryText>>,
-    mut summary: Query<&mut Text, With<ModeSummaryText>>,
+    added: Query<(), Added<OptionsTabBtn>>,
+    mut tab_btns: Query<(&OptionsTabBtn, &mut BackgroundColor, &mut BorderColor)>,
+    mut nodes: Query<(
+        &mut Node,
+        Option<&OptionsTabPane>,
+        Has<TimedModeRuleRow>,
+        Has<ElimModeRuleRow>,
+    )>,
+    mut imgs: Query<(
+        &mut ImageNode,
+        Option<&MapTile>,
+        Has<RandomMapTile>,
+        Option<&RuleOption>,
+    )>,
+    mut colors: Query<(
+        &mut TextColor,
+        Option<&OptionsTabText>,
+        Option<&MapTileText>,
+        Has<RandomMapTileText>,
+        Option<&RuleOptionText>,
+    )>,
+    mut texts: Query<(
+        &mut Text,
+        Option<&OptionsMapPreview>,
+        Has<OptionsRuleMapValue>,
+    )>,
 ) {
-    if !setup.is_changed() && !rank.is_changed() {
+    if added.is_empty() && !setup.is_changed() && !menu.is_changed() {
         return;
     }
-    let picked = mode_index(&setup.0);
-    for (card, mut img) in &mut cards {
-        let sel = card.0 == picked;
-        img.image = kit(
-            &assets,
-            if sel {
-                "panels/card_neutral.png"
+
+    let s = &setup.0;
+    let is_elim = s.mode == GameMode::Elimination;
+
+    for (tab, mut bg, mut border) in &mut tab_btns {
+        let active = tab.0 == menu.options_tab;
+        *bg = BackgroundColor(if active {
+            Color::srgba(0.96, 0.77, 0.17, 0.16)
+        } else {
+            TILE_BG
+        });
+        *border = BorderColor::all(if active { KIT_YELLOW } else { TILE_BORDER });
+    }
+
+    for (mut node, pane, is_timed, is_elim_row) in &mut nodes {
+        let want = if let Some(pane) = pane {
+            if pane.0 == menu.options_tab {
+                Display::Flex
             } else {
-                "panels/panel.png"
-            },
-        );
-        img.color = if sel {
-            Color::WHITE
-        } else {
-            Color::srgb(0.8, 0.8, 0.85)
-        };
-    }
-    for (t, mut c) in &mut titles {
-        c.0 = if t.0 == picked {
-            KIT_YELLOW
-        } else {
-            TEXT_PRIMARY
-        };
-    }
-    for (tile, mut img) in &mut tiles {
-        let sel = tile.0 == setup.0.map;
-        img.image = kit(
-            &assets,
-            if sel {
-                "rows/list_row_selected.png"
+                Display::None
+            }
+        } else if is_timed {
+            if !is_elim {
+                Display::Flex
             } else {
-                "rows/list_row.png"
-            },
-        );
-    }
-    for (t, mut c) in &mut tile_texts {
-        c.0 = if t.0 == setup.0.map {
-            KIT_YELLOW
+                Display::None
+            }
+        } else if is_elim_row {
+            if is_elim {
+                Display::Flex
+            } else {
+                Display::None
+            }
         } else {
-            TEXT_PRIMARY
+            continue;
         };
+        if node.display != want {
+            node.display = want;
+        }
     }
-    let m = library.meta(setup.0.map);
-    for (part, mut text) in &mut info {
-        text.0 = match part {
-            MapInfoText::Name => m.name.to_uppercase(),
-            MapInfoText::Style => format!(
-                "{}  |  {} MAP",
-                m.style.to_uppercase(),
-                m.size.to_uppercase()
-            ),
-            MapInfoText::Blurb => m.blurb.clone(),
-        };
-    }
-    if let Ok(mut text) = summary.single_mut() {
-        let choice = &MODE_CHOICES[picked];
-        text.0 = if choice.ranked {
-            format!(
-                "Your rank: {}  ({} RP)",
-                ranked::rank_name(rank.points),
-                rank.points
-            )
+
+    let sel_row = kit(&assets, "rows/list_row_selected.png");
+    let idle_row = kit(&assets, "rows/list_row.png");
+
+    for (mut img, map_tile, is_rand, rule_opt) in &mut imgs {
+        let selected = if let Some(tile) = map_tile {
+            !menu.random_map && tile.0 == s.map
+        } else if is_rand {
+            menu.random_map
+        } else if let Some(opt) = rule_opt {
+            opt.selected(s)
         } else {
-            "Your friends join from the hub or with your Tailcat address".to_string()
+            continue;
         };
+        let want = if selected {
+            sel_row.clone()
+        } else {
+            idle_row.clone()
+        };
+        if img.image != want {
+            img.image = want;
+        }
+    }
+
+    for (mut color, tab_txt, map_txt, is_rand_txt, rule_txt) in &mut colors {
+        let active = if let Some(t) = tab_txt {
+            t.0 == menu.options_tab
+        } else if let Some(m) = map_txt {
+            !menu.random_map && m.0 == s.map
+        } else if is_rand_txt {
+            menu.random_map
+        } else if let Some(r) = rule_txt {
+            r.0.selected(s)
+        } else {
+            continue;
+        };
+        color.0 = if active { KIT_YELLOW } else { TEXT_PRIMARY };
+    }
+
+    let m = library.meta(s.map);
+    for (mut text, preview, is_rule_map) in &mut texts {
+        if let Some(part) = preview {
+            text.0 = if menu.random_map {
+                match part {
+                    OptionsMapPreview::Name => "RANDOM MAP".to_string(),
+                    OptionsMapPreview::Style => {
+                        format!("PREVIEWING {}  |  RANDOM ON START", m.name.to_uppercase())
+                    }
+                    OptionsMapPreview::Blurb => {
+                        "A random map will be selected automatically when you launch the match."
+                            .to_string()
+                    }
+                }
+            } else {
+                match part {
+                    OptionsMapPreview::Name => m.name.to_uppercase(),
+                    OptionsMapPreview::Style => format!(
+                        "{}  |  {} MAP",
+                        m.style.to_uppercase(),
+                        m.size.to_uppercase()
+                    ),
+                    OptionsMapPreview::Blurb => m.blurb.clone(),
+                }
+            };
+        } else if is_rule_map {
+            text.0 = if menu.random_map {
+                "RANDOM MAP".to_string()
+            } else {
+                m.name.to_uppercase()
+            };
+        }
     }
 }
 
@@ -1922,6 +3535,7 @@ fn update_play_screen(
 fn update_rank_card(
     assets: Res<AssetServer>,
     rank: Res<Rank>,
+    added: Query<(), Added<RankCardPart>>,
     mut parts: Query<(
         &RankCardPart,
         Option<&mut Text>,
@@ -1929,12 +3543,10 @@ fn update_rank_card(
         Option<&mut ImageNode>,
         &mut Node,
     )>,
-    mut done: Local<bool>,
 ) {
-    if *done && !rank.is_changed() {
+    if added.is_empty() && !rank.is_changed() {
         return;
     }
-    *done = true;
     let tier = Tier::of(rank.points);
     let (progress, next) = ranked::division_progress(rank.points);
     for (part, text, color, image, mut node) in &mut parts {
@@ -1973,7 +3585,8 @@ fn update_rank_card(
     }
 }
 
-/// Escape steps back out of the play, loadout and options screens.
+/// Escape steps back through Play sub-screens (MatchOptions -> Lobby -> ModeSelect -> Home)
+/// and returns from Loadout to Play Lobby if opened from there.
 fn menu_escape(
     keys: Res<ButtonInput<KeyCode>>,
     mut menu: ResMut<MenuState>,
@@ -1981,16 +3594,28 @@ fn menu_escape(
     settings_ui: Res<crate::settings::SettingsUiState>,
     loadout_screen: Option<Res<crate::loadout_ui::LoadoutScreen>>,
 ) {
-    if keys.just_pressed(KeyCode::Escape)
-        && matches!(
-            menu.screen,
-            MenuScreen::Play | MenuScreen::Loadout | MenuScreen::Options
-        )
-        && !overlay.blocks_input()
-        && !settings_ui.is_listening()
-        && !loadout_screen.is_some_and(|s| s.is_renaming())
+    if !keys.just_pressed(KeyCode::Escape)
+        || overlay.blocks_input()
+        || settings_ui.is_listening()
+        || loadout_screen.is_some_and(|s| s.is_renaming())
     {
-        menu.screen = MenuScreen::Home;
+        return;
+    }
+    match menu.screen {
+        MenuScreen::Play => match menu.play_sub {
+            PlaySubScreen::MatchOptions => menu.play_sub = PlaySubScreen::Lobby,
+            PlaySubScreen::Lobby => menu.play_sub = PlaySubScreen::ModeSelect,
+            PlaySubScreen::ModeSelect => menu.screen = MenuScreen::Home,
+        },
+        MenuScreen::Loadout if menu.loadout_from_play => {
+            menu.loadout_from_play = false;
+            menu.screen = MenuScreen::Play;
+            menu.play_sub = PlaySubScreen::Lobby;
+        }
+        MenuScreen::Loadout | MenuScreen::Options => {
+            menu.screen = MenuScreen::Home;
+        }
+        MenuScreen::Home | MenuScreen::Join => {}
     }
 }
 
