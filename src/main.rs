@@ -13,6 +13,7 @@ mod hub;
 mod hud;
 mod loadout;
 mod loadout_ui;
+mod locomotion;
 mod maps;
 mod menu;
 mod music;
