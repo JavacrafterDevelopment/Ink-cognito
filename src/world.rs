@@ -190,6 +190,8 @@ fn setup_world(mut commands: Commands) {
     ));
 
     // Main 3D camera (orbits the field on the menu, first person in game).
+    // 3D audio spatialization reads this camera's GlobalTransform directly in
+    // `crate::audio` (bypassing rodio's inverted-ear SpatialListener).
     commands.spawn((
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection {
@@ -200,8 +202,6 @@ fn setup_world(mut commands: Commands) {
         Transform::from_xyz(0.0, 14.0, 24.0).looking_at(Vec3::ZERO, Vec3::Y),
         MainCamera,
         CameraRig::default(),
-        // Ears for spatial sounds (other players' footsteps), about a head apart.
-        SpatialListener::new(0.4),
     ));
 }
 
@@ -214,13 +214,12 @@ fn animate_menu_camera(
         return;
     };
     let angle = time.elapsed_secs() * 0.08;
-    // Orbit just outside the field, whatever its size.
-    let radius = map.half.max_element().clamp(14.0, 34.0) * 1.1;
+    // Orbit just outside the field, whatever its size, framing the arena
+    // cleanly in the open center of the Play lobby.
+    let radius = map.half.max_element().clamp(14.0, 34.0) * 1.12;
     let dir = Vec3::new(angle.cos(), 0.0, angle.sin());
-    let pos = dir * radius + Vec3::Y * radius * 0.6;
-    // Look a little short of the middle, so the field sits high on screen
-    // above the play screen's panel.
-    let target = dir * radius * 0.45;
+    let pos = dir * radius + Vec3::Y * radius * 0.56;
+    let target = dir * radius * 0.18 + Vec3::Y * 1.2;
     *transform = Transform::from_translation(pos).looking_at(target, Vec3::Y);
 }
 
@@ -352,6 +351,7 @@ pub fn poll_network_events(
                 net.players.clear();
                 net.pending_hits.clear();
                 net.pending_ragdolls.clear();
+                net.pending_votes.clear();
                 net.players.insert(local_player.id, local_player);
                 net.match_state = MatchState {
                     settings: setup.0,
@@ -380,6 +380,7 @@ pub fn poll_network_events(
                 net.players.clear();
                 net.pending_hits.clear();
                 net.pending_ragdolls.clear();
+                net.pending_votes.clear();
                 for player in players {
                     net.players.insert(player.id, player);
                 }
@@ -435,6 +436,13 @@ pub fn poll_network_events(
             }
             NetEvent::Chat { from, text } => {
                 net.pending_chat.push((from, text));
+            }
+            NetEvent::MapVote {
+                from,
+                match_id,
+                choice,
+            } => {
+                net.pending_votes.push((from, match_id, choice));
             }
             NetEvent::Error(err) => {
                 net.disconnect();

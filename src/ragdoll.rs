@@ -28,7 +28,12 @@ impl Plugin for RagdollPlugin {
             .add_systems(OnExit(AppState::InGame), reset_sync)
             .add_systems(
                 Update,
-                (receive_host_ragdolls, simulate_ragdolls, host_ragdolls)
+                (
+                    clear_ragdolls_on_new_match,
+                    receive_host_ragdolls,
+                    simulate_ragdolls,
+                    host_ragdolls,
+                )
                     .chain()
                     .run_if(in_state(AppState::InGame)),
             )
@@ -393,6 +398,28 @@ struct RagdollSync {
 
 fn reset_sync(mut sync: ResMut<RagdollSync>) {
     *sync = RagdollSync::default();
+}
+
+fn clear_ragdolls_on_new_match(
+    mut commands: Commands,
+    net: Res<NetworkState>,
+    mut sync: ResMut<RagdollSync>,
+    bodies: Query<Entity, With<Ragdoll>>,
+    mut last: Local<Option<(u32, crate::protocol::MapId)>>,
+) {
+    let key = (net.match_state.match_id, net.match_state.settings.map);
+    let Some(prev) = *last else {
+        *last = Some(key);
+        return;
+    };
+    if prev == key {
+        return;
+    }
+    *last = Some(key);
+    *sync = RagdollSync::default();
+    for e in &bodies {
+        commands.entity(e).try_despawn();
+    }
 }
 
 const _: () = assert!(JOINTS == RAGDOLL_JOINTS);

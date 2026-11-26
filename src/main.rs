@@ -3,6 +3,7 @@
 
 mod arena;
 mod armory_v2_fx;
+mod audio;
 mod chat;
 mod combat;
 mod frame_rate;
@@ -28,6 +29,7 @@ mod settings;
 mod ui_kit;
 mod world;
 
+use audio::SpatialAudioPlugin;
 use bevy::prelude::*;
 use combat::CombatPlugin;
 use game_mode::GameModePlugin;
@@ -134,6 +136,7 @@ fn main() {
         .add_observer(loadout::apply_gun_skin)
         .add_plugins((
             UiKitPlugin,
+            SpatialAudioPlugin,
             WorldPlugin,
             MapsPlugin,
             GameModePlugin,
