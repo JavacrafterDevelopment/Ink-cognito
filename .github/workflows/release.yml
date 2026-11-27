@@ -18,10 +18,10 @@
 #
 # Windows: an MSVC build with the C runtime linked statically (see
 # .cargo/config.toml), so the folder is just ink-cognito.exe, plus the map
-# editor (ink-map-editor.exe, a separate program that shares the assets).
+# editor (ink-map-editor.exe) and standalone model editor (ink-model-editor.exe).
 #
 # macOS: Apple Silicon only (no Intel build), Ink-cognito.app, ad-hoc
-# signed, with the map editor inside it and the assets in Contents/Resources.
+# signed, with the map editor and model editor inside it and the assets in Contents/Resources.
 #
 # The release carries Ink-cognito-windows-x64.zip and Ink-cognito-macos.zip
 # (each the game folder plus launcher-manifest.json, every file's SHA-256),
@@ -108,7 +108,7 @@ jobs:
         run: cargo test --release --locked --workspace --target x86_64-pc-windows-msvc
 
       - name: Build
-        # The whole workspace: the game and the map editor.
+        # The whole workspace: the game, the map editor, and the model editor.
         run: cargo build --release --locked --workspace --target x86_64-pc-windows-msvc
 
       - name: Assemble the folder
@@ -118,6 +118,7 @@ jobs:
           New-Item -ItemType Directory -Force $dir | Out-Null
           Copy-Item target/x86_64-pc-windows-msvc/release/ink-cognito.exe $dir
           Copy-Item target/x86_64-pc-windows-msvc/release/ink-map-editor.exe $dir
+          Copy-Item target/x86_64-pc-windows-msvc/release/ink-model-editor.exe $dir
           # Bevy loads anything under assets/ next to the exe.
           if (Test-Path assets) { Copy-Item -Recurse assets "$dir/assets" }
 
@@ -158,7 +159,7 @@ jobs:
         run: cargo build --release --locked --workspace --target aarch64-apple-darwin
 
       - name: Package
-        run: ./tools/package-macos.sh target/aarch64-apple-darwin/release/ink-cognito dist target/aarch64-apple-darwin/release/ink-map-editor
+        run: ./tools/package-macos.sh target/aarch64-apple-darwin/release/ink-cognito dist target/aarch64-apple-darwin/release/ink-map-editor target/aarch64-apple-darwin/release/ink-model-editor
 
       - name: Check the package
         run: |

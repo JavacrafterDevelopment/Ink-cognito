@@ -13,12 +13,13 @@ serde_json = "1"
 tailcat = "0.1"
 tokio = { version = "1", features = ["io-util", "macros", "rt-multi-thread", "sync", "time"] }
 
-# The game is the root package; the map editor, the map format it shares
-# with the game and the Portside client both use are crates of their own.
+# The game is the root package; the map editor, the model editor, the map format
+# and the Portside client are crates of their own.
 # `cargo build` / `cargo run` at the root still mean the game;
-# `cargo run -p ink-map-editor` starts the editor.
+# `cargo run -p ink-map-editor` starts the map editor;
+# `cargo run -p ink-model-editor` starts the standalone 3D model editor.
 [workspace]
-members = [".", "crates/ink-map", "crates/ink-portside", "crates/map-editor"]
+members = [".", "crates/ink-map", "crates/ink-portside", "crates/map-editor", "crates/model-editor"]
 
 # Enable moderate optimization in dev mode for smooth Bevy frame rates.
 [profile.dev]

@@ -120,6 +120,40 @@ python tools/colliders/gen.py --sheets   # also draws each model with its shapes
 
 Ids in `pieces.py` are what map files store, so never change one once a map uses it.
 
+## Model editor
+
+The model editor is a standalone program, `ink-model-editor.exe`, in the same folder as the
+game (from source: `cargo run --release -p ink-model-editor`, or pass a file path to open it
+immediately). It is completely self-contained and does not depend on any game code.
+
+Open and edit `.glb`, `.gltf`, `.obj` (+ `.mtl`), `.stl`, and `.ply` 3D models, add primitives
+or import parts from other models, edit vertices/edges/faces (extrude, inset, subdivide, smooth,
+flatten, split materials) or 3D sculpt, attach PBR materials and texture images (`.png`, `.jpg`,
+`.webp`, `.bmp`, `.tga`), and paint directly onto models in 3D or on the live 2D UV canvas.
+Models without UVs or textures automatically get non-overlapping box-atlas UVs and a paintable
+canvas on your first brushstroke. Rigged and animated `.glb` models keep their skins and
+animations when re-exported to `.glb`.
+
+| Action | Keys |
+| --- | --- |
+| Orbit / pan / zoom | Right or middle mouse drag (Shift+drag pans, wheel zooms, Right+WASD moves target) |
+| Frame model | F (Shift+F frames selected part) |
+| Switch mode | 1 Object, 2 Mesh, 3 Paint, 4 Material |
+| Transform gizmo (Object) | G move, R rotate, S scale (hold Shift to snap) |
+| Extrude faces (Mesh) | E |
+| Brush / sculpt size | [ / ] |
+| Paint tools (Paint) | B brush, E eraser, I eyedropper (or Alt+click), Shift+click straight line |
+| Wireframe overlay | W |
+| Undo / redo | Ctrl+Z / Ctrl+Y |
+| Duplicate / delete | Ctrl+D / Delete |
+| Open / Save / Save As | Ctrl+O / Ctrl+S / Ctrl+Shift+S |
+
+**Save** writes back to the opened file and shows a first-time overwrite warning before touching
+an existing file on disk (clicking **No** keeps all edits in the editor and shows the prompt
+again if you click Save again). **Save As** saves a separate copy (defaulting to `.glb`, with
+`.gltf`, `.obj`, `.stl`, and `.ply` also supported). Drag and drop a 3D model or texture image
+onto the window at any time to open or apply it.
+
 ## How to play
 
 1. Start the game. The main menu has **Play**, **Join by Address**, **Loadout**, **Stats**, **Options**
@@ -184,7 +218,7 @@ sudo apt install pkg-config libasound2-dev libudev-dev libx11-dev libxkbcommon-x
 
 ## Project layout
 
-The repository is a Cargo workspace: the game is the root package, and three more crates sit
+The repository is a Cargo workspace: the game is the root package, and four more crates sit
 in `crates/`:
 
 | Crate | What it is |
@@ -192,9 +226,10 @@ in `crates/`:
 | `crates/ink-map` | The map file format, the catalog of placeable pieces and their collision shapes, and turning a map file into models and colliders. Shared by the game and the editor. |
 | `crates/ink-portside` | The client for Portside's local game API (hub sessions), used by the game and by the editor's live editing. |
 | `crates/map-editor` | The map editor (`ink-map-editor`). |
+| `crates/model-editor` | The standalone 3D model editor (`ink-model-editor`), independent of the game crates. |
 
 `cargo run` and `cargo build` at the root still mean the game; add `--workspace` to build
-everything, or `-p ink-map-editor` for the editor.
+everything, `-p ink-map-editor` for the map editor, or `-p ink-model-editor` for the model editor.
 
 | File | What it does |
 | --- | --- |
