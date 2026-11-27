@@ -3,7 +3,7 @@
 # Run by the release workflow. Adapted from KittyConnect's, so the Javacrafter
 # Launcher installs and updates it the same way.
 #
-#   tools/package-macos.sh <path/to/ink-cognito> <OutDir> [path/to/ink-map-editor]
+#   tools/package-macos.sh <path/to/ink-cognito> <OutDir> [extra binaries...]
 #
 # The assets go in Contents/Resources/assets (the game and the editor look
 # there when they run from a bundle): codesign only wants code in
@@ -19,13 +19,14 @@
 set -euo pipefail
 
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <path/to/ink-cognito> <OutDir> [path/to/ink-map-editor]" >&2
+  echo "Usage: $0 <path/to/ink-cognito> <OutDir> [extra binaries...]" >&2
   exit 1
 fi
 
 EXE="$1"
 OUT="$2"
-EDITOR="${3:-}"
+shift 2
+EXTRAS=("$@")
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/Cargo.toml" | head -n 1)"
@@ -44,10 +45,13 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$EXE" "$APP/Contents/MacOS/ink-cognito"
 chmod 755 "$APP/Contents/MacOS/ink-cognito"
-if [ -n "$EDITOR" ]; then
-  cp "$EDITOR" "$APP/Contents/MacOS/ink-map-editor"
-  chmod 755 "$APP/Contents/MacOS/ink-map-editor"
-fi
+for helper in "${EXTRAS[@]}"; do
+  if [ -n "$helper" ]; then
+    helper_name="$(basename "$helper")"
+    cp "$helper" "$APP/Contents/MacOS/$helper_name"
+    chmod 755 "$APP/Contents/MacOS/$helper_name"
+  fi
+done
 
 cp -R "$ROOT/assets" "$APP/Contents/Resources/assets"
 find "$APP/Contents/Resources/assets" -name '.DS_Store' -delete
@@ -92,14 +96,17 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 # Ad-hoc sign BEFORE hashing, so _CodeSignature and the signed binaries match
-# the hashes in launcher-manifest.json. The helper binary first, then the app
+# the hashes in launcher-manifest.json. The helper binaries first, then the app
 # (which seals everything in it). Apple Silicon won't run unsigned code at all;
 # ad-hoc is enough for that, but it isn't notarized, so a copy downloaded with
 # a browser gets Gatekeeper's warning (right-click > Open the first time).
 if command -v codesign >/dev/null 2>&1; then
-  if [ -n "$EDITOR" ]; then
-    codesign --force --sign - "$APP/Contents/MacOS/ink-map-editor"
-  fi
+  for helper in "${EXTRAS[@]}"; do
+    if [ -n "$helper" ]; then
+      helper_name="$(basename "$helper")"
+      codesign --force --sign - "$APP/Contents/MacOS/$helper_name"
+    fi
+  done
   codesign --force --sign - "$APP"
   codesign --verify --strict --verbose=2 "$APP"
 fi
