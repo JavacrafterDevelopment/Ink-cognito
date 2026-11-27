@@ -2,31 +2,36 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.8.1",
-      "published": "2026-11-26T18:46:29Z",
-      "notes": "## What's Changed\n* Add a splatted-by card with the shooter's loadout, and a Stats page by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/30\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.0...v0.8.1",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.1",
+      "version": "0.8.2",
+      "published": "2026-11-27T23:11:19Z",
+      "notes": "## What's Changed\n* Add standalone 3D model editor (ink-model-editor) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/31\n* Release 0.8.2: standalone 3D model editor by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/32\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.1...v0.8.2",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.2",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.1/Ink-cognito-macos.zip",
-        "size": 118361536,
-        "sha256": "cb58825207d49412364991194a8fc8acd7f5a7e571a66dd88e82a118f4d1c027"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.2/Ink-cognito-macos.zip",
+        "size": 153652788,
+        "sha256": "7772dfef87650c14a98f574a448a6d367ed7fafb8bac5e40cacb19dfb29e829e"
       },
       "exe": "Ink-cognito.app/Contents/MacOS/ink-cognito",
       "files": [
         {
           "path": "Ink-cognito.app/Contents/Info.plist",
           "size": 1140,
-          "sha256": "40a209588355aa79319c24c2fc812be5604ba0c76e862f05f6f3a27210b3e74a"
+          "sha256": "5b5e22a4ea55d5832ac81c7bad888a2d3b39babf20dc84246c5f110f9f9c29b7"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-cognito",
-          "size": 150452272,
-          "sha256": "ab29212be20bb39e2df4508c6aa3d2f66c0504faffdaf72fee9524ad123ca196"
+          "size": 150917536,
+          "sha256": "ae0f67e94476d1a91c04e1bd2c19541104acb01c4aaf7d8b3fc8853453966455"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-map-editor",
-          "size": 143776912,
-          "sha256": "79956ef9af5d8662d312eeaf5a9ede7450e38ee9e067238034106f0cff5bdd0a"
+          "size": 144240080,
+          "sha256": "debb3e60a294b84f344412a800389c3747d23b6c6b8ee6819a64a0178676d84d"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/MacOS/ink-model-editor",
+          "size": 138269744,
+          "sha256": "86ac526c03e5a910069b251aed45f2eceb4202210ae6a6c610689a6202ec7edd"
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/ASSETS-README.txt",
@@ -3140,37 +3145,42 @@
         },
         {
           "path": "Ink-cognito.app/Contents/_CodeSignature/CodeResources",
-          "size": 188454,
-          "sha256": "852305762efbbeba1d243cfd974dd4e5d2834db2111bb1fc2b9143b0d85a031b"
+          "size": 188680,
+          "sha256": "c2b39cf33cf2c51378a21b06ca55866641baa6b8dfe9d97c85079c3c4617a11c"
         }
       ]
     },
     "stable": {
-      "version": "0.8.1",
-      "published": "2026-11-26T18:46:29Z",
-      "notes": "## What's Changed\n* Add a splatted-by card with the shooter's loadout, and a Stats page by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/30\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.0...v0.8.1",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.1",
+      "version": "0.8.2",
+      "published": "2026-11-27T23:11:19Z",
+      "notes": "## What's Changed\n* Add standalone 3D model editor (ink-model-editor) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/31\n* Release 0.8.2: standalone 3D model editor by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/32\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.1...v0.8.2",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.2",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.1/Ink-cognito-macos.zip",
-        "size": 118361536,
-        "sha256": "cb58825207d49412364991194a8fc8acd7f5a7e571a66dd88e82a118f4d1c027"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.2/Ink-cognito-macos.zip",
+        "size": 153652788,
+        "sha256": "7772dfef87650c14a98f574a448a6d367ed7fafb8bac5e40cacb19dfb29e829e"
       },
       "exe": "Ink-cognito.app/Contents/MacOS/ink-cognito",
       "files": [
         {
           "path": "Ink-cognito.app/Contents/Info.plist",
           "size": 1140,
-          "sha256": "40a209588355aa79319c24c2fc812be5604ba0c76e862f05f6f3a27210b3e74a"
+          "sha256": "5b5e22a4ea55d5832ac81c7bad888a2d3b39babf20dc84246c5f110f9f9c29b7"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-cognito",
-          "size": 150452272,
-          "sha256": "ab29212be20bb39e2df4508c6aa3d2f66c0504faffdaf72fee9524ad123ca196"
+          "size": 150917536,
+          "sha256": "ae0f67e94476d1a91c04e1bd2c19541104acb01c4aaf7d8b3fc8853453966455"
         },
         {
           "path": "Ink-cognito.app/Contents/MacOS/ink-map-editor",
-          "size": 143776912,
-          "sha256": "79956ef9af5d8662d312eeaf5a9ede7450e38ee9e067238034106f0cff5bdd0a"
+          "size": 144240080,
+          "sha256": "debb3e60a294b84f344412a800389c3747d23b6c6b8ee6819a64a0178676d84d"
+        },
+        {
+          "path": "Ink-cognito.app/Contents/MacOS/ink-model-editor",
+          "size": 138269744,
+          "sha256": "86ac526c03e5a910069b251aed45f2eceb4202210ae6a6c610689a6202ec7edd"
         },
         {
           "path": "Ink-cognito.app/Contents/Resources/assets/ASSETS-README.txt",
@@ -6284,8 +6294,8 @@
         },
         {
           "path": "Ink-cognito.app/Contents/_CodeSignature/CodeResources",
-          "size": 188454,
-          "sha256": "852305762efbbeba1d243cfd974dd4e5d2834db2111bb1fc2b9143b0d85a031b"
+          "size": 188680,
+          "sha256": "c2b39cf33cf2c51378a21b06ca55866641baa6b8dfe9d97c85079c3c4617a11c"
         }
       ]
     }

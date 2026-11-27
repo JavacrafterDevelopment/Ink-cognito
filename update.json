@@ -2,14 +2,14 @@
   "schema": 1,
   "channels": {
     "beta": {
-      "version": "0.8.1",
-      "published": "2026-11-26T18:46:29Z",
-      "notes": "## What's Changed\n* Add a splatted-by card with the shooter's loadout, and a Stats page by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/30\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.0...v0.8.1",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.1",
+      "version": "0.8.2",
+      "published": "2026-11-27T23:11:19Z",
+      "notes": "## What's Changed\n* Add standalone 3D model editor (ink-model-editor) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/31\n* Release 0.8.2: standalone 3D model editor by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/32\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.1...v0.8.2",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.2",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.1/Ink-cognito-windows-x64.zip",
-        "size": 109940147,
-        "sha256": "7a0e01750c31b36791e86f2a1200dcfba30ae8622d9a7383d7aae42ed0a98b71"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.2/Ink-cognito-windows-x64.zip",
+        "size": 140678119,
+        "sha256": "4776cbf6f712dd8d06431c442eeced5522647383436e58e989f0d716e93f8f6f"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -3125,25 +3125,30 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 103588352,
-          "sha256": "1fc69de5b46395436fa1939f5e6ca21f3670b451622aef57defa3b16a4faed63"
+          "size": 104040960,
+          "sha256": "7078df7bbb8450e4f7b8d247c8b44138b27e0ba539630135d8ffe80adedbaf42"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 98472960,
-          "sha256": "6790e3e7fc50154d38cfd9b877ef7419f7003d6427ddacf47019ab1c85543812"
+          "size": 98925056,
+          "sha256": "b783b045d0e50415da198c333cbf5ca3e7443ae1c34e48058cc56ba9d3e56a4c"
+        },
+        {
+          "path": "ink-model-editor.exe",
+          "size": 92422656,
+          "sha256": "ed5d858904c10cb37469a2005db00f179731ca9c676f14219a15aa59ab2c0506"
         }
       ]
     },
     "stable": {
-      "version": "0.8.1",
-      "published": "2026-11-26T18:46:29Z",
-      "notes": "## What's Changed\n* Add a splatted-by card with the shooter's loadout, and a Stats page by @Sawman24 in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/30\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.0...v0.8.1",
-      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.1",
+      "version": "0.8.2",
+      "published": "2026-11-27T23:11:19Z",
+      "notes": "## What's Changed\n* Add standalone 3D model editor (ink-model-editor) by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/31\n* Release 0.8.2: standalone 3D model editor by @JavacrafterDevelopment in https://github.com/JavacrafterDevelopment/Ink-cognito/pull/32\n\n\n**Full Changelog**: https://github.com/JavacrafterDevelopment/Ink-cognito/compare/v0.8.1...v0.8.2",
+      "page": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/tag/v0.8.2",
       "package": {
-        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.1/Ink-cognito-windows-x64.zip",
-        "size": 109940147,
-        "sha256": "7a0e01750c31b36791e86f2a1200dcfba30ae8622d9a7383d7aae42ed0a98b71"
+        "url": "https://github.com/JavacrafterDevelopment/Ink-cognito/releases/download/v0.8.2/Ink-cognito-windows-x64.zip",
+        "size": 140678119,
+        "sha256": "4776cbf6f712dd8d06431c442eeced5522647383436e58e989f0d716e93f8f6f"
       },
       "exe": "ink-cognito.exe",
       "files": [
@@ -6259,13 +6264,18 @@
         },
         {
           "path": "ink-cognito.exe",
-          "size": 103588352,
-          "sha256": "1fc69de5b46395436fa1939f5e6ca21f3670b451622aef57defa3b16a4faed63"
+          "size": 104040960,
+          "sha256": "7078df7bbb8450e4f7b8d247c8b44138b27e0ba539630135d8ffe80adedbaf42"
         },
         {
           "path": "ink-map-editor.exe",
-          "size": 98472960,
-          "sha256": "6790e3e7fc50154d38cfd9b877ef7419f7003d6427ddacf47019ab1c85543812"
+          "size": 98925056,
+          "sha256": "b783b045d0e50415da198c333cbf5ca3e7443ae1c34e48058cc56ba9d3e56a4c"
+        },
+        {
+          "path": "ink-model-editor.exe",
+          "size": 92422656,
+          "sha256": "ed5d858904c10cb37469a2005db00f179731ca9c676f14219a15aa59ab2c0506"
         }
       ]
     }
